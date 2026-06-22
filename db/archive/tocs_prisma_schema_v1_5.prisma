@@ -1,0 +1,591 @@
+// =============================================================================
+// TOCS Prisma Schema v1.5
+// Review Round 5 반영: 2026-06-18
+//
+// 역할: 앱레이어 타입 안전성 (ORM 레이어)
+// Source of Truth: PostgreSQL Schema (tocs_postgresql_schema_v1_5.sql)
+//
+// Prisma 미지원 → migration_supplement_v1_5.sql 에서 처리:
+//   - GENERATED ALWAYS AS STORED 컬럼
+//   - 복합 FK (MATCH SIMPLE)
+//   - Partial Index
+//   - VIEW, SEQUENCE, FUNCTION
+//   - CHECK Constraint (Prisma migrate 재실행 시 충돌 방지)
+//
+// 변경사항 v1.4 → v1.5:
+//   [B-1] Formula: paymentStatus → cashInStatus + cashOutStatus
+//   [B-1] StatusTarget: PAYMENT_STATUS → CASH_IN_STATUS + CASH_OUT_STATUS
+//   [B-2] FormulaPaymentSchedule: @@unique([id, formulaId]) 유지 (복합 FK 기반)
+//   [B-3] FormulaInvoice: @@unique 기반 복합 FK → supplement SQL
+//   [B-5] FormulaLogistics: CHECK Constraint → supplement SQL
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = []
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum TradeType {
+  DOMESTIC
+  IMPORT
+  EXPORT
+  MIXED
+}
+
+enum RoleGroup {
+  SUPPLIER
+  BUYER
+  CARRIER
+  FINANCIAL
+  OTHER
+}
+
+enum NatureGroup {
+  MANUFACTURER
+  DISTRIBUTOR
+  LOGISTICS
+  FINANCIAL_INSTITUTION
+  OTHER
+}
+
+enum PaymentGroup {
+  PREPAYMENT
+  CREDIT
+  POST_SETTLEMENT
+  INSTALLMENT
+  PARTIAL
+  OTHER
+}
+
+enum PaymentDirection {
+  IN
+  OUT
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  COMPLETED
+  CANCELED
+}
+
+enum LogisticsCostType {
+  INCLUDED_IN_BUY_PRICE
+  INCLUDED_IN_SELL_PRICE
+  SEPARATE_COST
+}
+
+enum InvoiceStatus {
+  NOT_ISSUED
+  ISSUED
+  RECEIVED
+  AMOUNT_MATCHED
+  AMOUNT_MISMATCHED
+  CANCELED
+  REVISION_REQUIRED
+}
+
+enum TradeStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+
+// [B-1] PAYMENT_STATUS 분리
+enum StatusTarget {
+  TRADE_STATUS
+  DELIVERY_STATUS
+  CASH_IN_STATUS    // 입금 상태 (v1.4 PAYMENT_STATUS에서 분리)
+  CASH_OUT_STATUS   // 출금 상태 (신규)
+  INVOICE_STATUS
+  LOGISTICS_STATUS
+}
+
+// =============================================================================
+// 1. Company
+// =============================================================================
+
+model Company {
+  id                 String   @id @default(uuid())
+  companyName        String   @map("company_name") @db.VarChar(200)
+  businessRegNo      String?  @unique @map("business_reg_no") @db.VarChar(20)
+  representativeName String?  @map("representative_name") @db.VarChar(100)
+  mainPhone          String?  @map("main_phone") @db.VarChar(30)
+  hqAddress          String?  @map("hq_address")
+  isActive           Boolean  @default(true) @map("is_active")
+  memo               String?
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  contacts                 CompanyContact[]
+  participantRoles         FormulaParticipant[]
+  paymentSchedules         FormulaPaymentSchedule[] @relation("CounterpartySchedules")
+  paymentRecords           FormulaPaymentRecord[]   @relation("CounterpartyRecords")
+  logisticsAsCarrier       FormulaLogistics[]       @relation("CarrierLogistics")
+  logisticsAsDeparture     FormulaLogistics[]       @relation("DepartureLogistics")
+  logisticsAsArrival       FormulaLogistics[]       @relation("ArrivalLogistics")
+  logisticsAsCostBearer    FormulaLogistics[]       @relation("CostBearerLogistics")
+  invoicesAsIssuer         FormulaInvoice[]         @relation("IssuerInvoices")
+  invoicesAsReceiver       FormulaInvoice[]         @relation("ReceiverInvoices")
+  shares                   FormulaShare[]
+
+  @@map("companies")
+}
+
+// =============================================================================
+// 2. CompanyContact
+// =============================================================================
+
+model CompanyContact {
+  id            String   @id @default(uuid())
+  companyId     String   @map("company_id")
+  contactName   String   @map("contact_name") @db.VarChar(100)
+  title         String?  @db.VarChar(100)
+  phone         String?  @db.VarChar(30)
+  email         String?  @db.VarChar(200)
+  branchAddress String?  @map("branch_address")
+  isPrimary     Boolean  @default(false) @map("is_primary")
+  isActive      Boolean  @default(true) @map("is_active")
+  memo          String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, isPrimary])
+  @@map("company_contacts")
+}
+
+// =============================================================================
+// 3. Item
+// =============================================================================
+
+model Item {
+  id          String   @id @default(uuid())
+  itemCode    String?  @unique @map("item_code") @db.VarChar(100)
+  itemName    String   @map("item_name") @db.VarChar(300)
+  defaultUnit String?  @map("default_unit") @db.VarChar(50)
+  category    String?  @db.VarChar(100)
+  isActive    Boolean  @default(true) @map("is_active")
+  memo        String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  formulas Formula[]
+
+  @@map("items")
+}
+
+// =============================================================================
+// 4. Formula
+// =============================================================================
+
+model Formula {
+  id        String    @id @default(uuid())
+  formulaNo String    @unique @map("formula_no") @db.VarChar(20)
+             @default(dbgenerated("generate_formula_no()"))
+  tradeType TradeType @map("trade_type")
+  itemId    String    @map("item_id")
+  unit      String?   @db.VarChar(50)
+  quantity  Decimal   @db.Decimal(18, 4)
+
+  baseCurrency             String   @default("KRW") @map("base_currency") @db.VarChar(10)
+  foreignCurrency          String?  @map("foreign_currency") @db.VarChar(10)
+  departureCountry         String?  @map("departure_country") @db.VarChar(100)
+  arrivalCountry           String?  @map("arrival_country") @db.VarChar(100)
+  contractExchangeRate     Decimal? @map("contract_exchange_rate") @db.Decimal(18, 6)
+  adjustedExchangeRate     Decimal? @map("adjusted_exchange_rate") @db.Decimal(18, 6)
+  exchangeRateChangeReason String?  @map("exchange_rate_change_reason")
+
+  content String?
+  note    String?
+
+  tradeStatus     TradeStatus   @default(DRAFT) @map("trade_status")
+  deliveryStatus  TradeStatus   @default(DRAFT) @map("delivery_status")
+
+  // [B-1] payment_status 분리
+  cashInStatus    PaymentStatus @default(PENDING) @map("cash_in_status")
+  cashOutStatus   PaymentStatus @default(PENDING) @map("cash_out_status")
+
+  invoiceStatus   InvoiceStatus @default(NOT_ISSUED) @map("invoice_status")
+  logisticsStatus TradeStatus   @default(DRAFT) @map("logistics_status")
+
+  isClosed  Boolean   @default(false) @map("is_closed")
+  closedAt  DateTime? @map("closed_at") @db.Timestamptz()
+  // CHECK Constraints → migration_supplement_v1_5.sql
+
+  createdBy String?  @map("created_by") @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  item                 Item                         @relation(fields: [itemId], references: [id])
+  participants         FormulaParticipant[]
+  paymentSchedules     FormulaPaymentSchedule[]
+  paymentRecords       FormulaPaymentRecord[]
+  logistics            FormulaLogistics[]
+  invoices             FormulaInvoice[]
+  shares               FormulaShare[]
+  versions             FormulaVersion[]
+  calculationSnapshots FormulaCalculationSnapshot[]
+  statusLogs           FormulaStatusLog[]
+
+  @@index([itemId])
+  @@index([tradeType])
+  @@index([tradeStatus])
+  @@index([isClosed])
+  @@index([cashInStatus])
+  @@index([cashOutStatus])
+  @@index([createdAt(sort: Desc)])
+  @@map("formulas")
+}
+
+// =============================================================================
+// 5. FormulaParticipant
+// =============================================================================
+
+model FormulaParticipant {
+  id            String        @id @default(uuid())
+  formulaId     String        @map("formula_id")
+  companyId     String        @map("company_id")
+  sequenceOrder Int           @map("sequence_order") @db.SmallInt
+
+  roleGroup     RoleGroup     @map("role_group")
+  natureGroup   NatureGroup?  @map("nature_group")
+  paymentGroup  PaymentGroup? @map("payment_group")
+
+  buyUnitPrice  Decimal       @default(0) @map("buy_unit_price") @db.Decimal(18, 4)
+  sellUnitPrice Decimal       @default(0) @map("sell_unit_price") @db.Decimal(18, 4)
+  quantity      Decimal?      @db.Decimal(18, 4)
+
+  // GENERATED ALWAYS AS STORED → supplement SQL에서 ADD COLUMN
+  // Prisma에서 읽을 때: $queryRaw 또는 SELECT total_buy_amount 직접 참조
+
+  directCostAmount Decimal    @default(0) @map("direct_cost_amount") @db.Decimal(18, 2)
+  isStartPoint     Boolean    @default(false) @map("is_start_point")
+  isEndPoint       Boolean    @default(false) @map("is_end_point")
+  memo             String?
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
+
+  formula          Formula                  @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  company          Company                  @relation(fields: [companyId], references: [id])
+  paymentSchedules FormulaPaymentSchedule[]
+  paymentRecords   FormulaPaymentRecord[]
+  shares           FormulaShare[]
+  invoicesAsIssuer   FormulaInvoice[]       @relation("IssuerParticipantInvoices")
+  invoicesAsReceiver FormulaInvoice[]       @relation("ReceiverParticipantInvoices")
+
+  @@unique([formulaId, sequenceOrder])
+  @@unique([id, formulaId], name: "uq_fp_id_formula")
+  @@index([formulaId])
+  @@index([companyId])
+  @@map("formula_participants")
+}
+
+// =============================================================================
+// 6. FormulaPaymentSchedule
+// =============================================================================
+
+model FormulaPaymentSchedule {
+  id                    String           @id @default(uuid())
+  formulaId             String           @map("formula_id")
+  participantId         String?          @map("participant_id")
+  direction             PaymentDirection
+  paymentType           PaymentGroup     @default(OTHER) @map("payment_type")
+  counterpartyCompanyId String?          @map("counterparty_company_id")
+  scheduledAmount       Decimal          @map("scheduled_amount") @db.Decimal(18, 2)
+  scheduledDate         DateTime?        @map("scheduled_date") @db.Date
+  status                PaymentStatus    @default(PENDING)
+  memo                  String?
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz()
+
+  formula             Formula              @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  participant         FormulaParticipant?  @relation(fields: [participantId], references: [id])
+  counterpartyCompany Company?             @relation("CounterpartySchedules", fields: [counterpartyCompanyId], references: [id])
+  paymentRecords      FormulaPaymentRecord[]
+
+  // [B-2] 복합 FK 지원 기반 (MATCH SIMPLE → supplement SQL)
+  @@unique([id, formulaId], name: "uq_fps_id_formula")
+  @@index([formulaId])
+  @@index([formulaId, direction])
+  @@index([counterpartyCompanyId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@map("formula_payment_schedules")
+}
+
+// =============================================================================
+// 7. FormulaPaymentRecord
+// =============================================================================
+
+model FormulaPaymentRecord {
+  id                    String           @id @default(uuid())
+  formulaId             String           @map("formula_id")
+  paymentScheduleId     String?          @map("payment_schedule_id")
+  participantId         String?          @map("participant_id")
+  direction             PaymentDirection
+  counterpartyCompanyId String?          @map("counterparty_company_id")
+
+  actualAmount    Decimal  @map("actual_amount") @db.Decimal(18, 2)
+  actualDate      DateTime @map("actual_date") @db.Date
+  bankName        String?  @map("bank_name") @db.VarChar(100)
+  accountName     String?  @map("account_name") @db.VarChar(100)
+  accountNo       String?  @map("account_no") @db.VarChar(50)
+  bankAccountMemo String?  @map("bank_account_memo") @db.VarChar(200)
+
+  confirmedBy   String?       @map("confirmed_by") @db.VarChar(200)
+  confirmedAt   DateTime?     @map("confirmed_at") @db.Timestamptz()
+  status        PaymentStatus @default(PENDING)
+
+  isCanceled    Boolean   @default(false) @map("is_canceled")
+  canceledAt    DateTime? @map("canceled_at") @db.Timestamptz()
+  cancelReason  String?   @map("cancel_reason")
+
+  memo      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // 복합 FK → supplement SQL (Prisma 미지원)
+  formula             Formula                 @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  paymentSchedule     FormulaPaymentSchedule? @relation(fields: [paymentScheduleId], references: [id])
+  participant         FormulaParticipant?     @relation(fields: [participantId], references: [id])
+  counterpartyCompany Company?                @relation("CounterpartyRecords", fields: [counterpartyCompanyId], references: [id])
+
+  @@index([formulaId])
+  @@index([paymentScheduleId])
+  @@index([formulaId, direction])
+  @@index([formulaId, isCanceled])
+  @@index([actualDate(sort: Desc)])
+  @@map("formula_payment_records")
+}
+
+// =============================================================================
+// 8. FormulaLogistics
+// =============================================================================
+
+model FormulaLogistics {
+  id                  String            @id @default(uuid())
+  formulaId           String            @map("formula_id")
+  carrierCompanyId    String            @map("carrier_company_id")
+  departureCompanyId  String?           @map("departure_company_id")
+  arrivalCompanyId    String?           @map("arrival_company_id")
+  costBearerCompanyId String?           @map("cost_bearer_company_id")
+  costType            LogisticsCostType @default(SEPARATE_COST) @map("cost_type")
+  departureLocation   String?           @map("departure_location")
+  arrivalLocation     String?           @map("arrival_location")
+  itemDescription     String?           @map("item_description")
+  transportQuantity   Decimal?          @map("transport_quantity") @db.Decimal(18, 4)
+  vehicleCount        Int?              @map("vehicle_count") @db.SmallInt
+  totalLogisticsCost  Decimal           @default(0) @map("total_logistics_cost") @db.Decimal(18, 2)
+  scheduledDate       DateTime?         @map("scheduled_date") @db.Date
+  memo                String?
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz()
+  // [B-5] chk_logistics_cost_bearer CHECK → supplement SQL
+
+  formula           Formula                   @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  carrierCompany    Company                   @relation("CarrierLogistics", fields: [carrierCompanyId], references: [id])
+  departureCompany  Company?                  @relation("DepartureLogistics", fields: [departureCompanyId], references: [id])
+  arrivalCompany    Company?                  @relation("ArrivalLogistics", fields: [arrivalCompanyId], references: [id])
+  costBearerCompany Company?                  @relation("CostBearerLogistics", fields: [costBearerCompanyId], references: [id])
+  vehicles          FormulaLogisticsVehicle[]
+
+  @@index([formulaId])
+  @@index([carrierCompanyId])
+  @@map("formula_logistics")
+}
+
+// =============================================================================
+// 9. FormulaLogisticsVehicle
+// =============================================================================
+
+model FormulaLogisticsVehicle {
+  id               String        @id @default(uuid())
+  logisticsId      String        @map("logistics_id")
+  vehicleNo        String?       @map("vehicle_no") @db.VarChar(50)
+  driverName       String?       @map("driver_name") @db.VarChar(100)
+  driverPhone      String?       @map("driver_phone") @db.VarChar(30)
+  vehicleCost      Decimal?      @map("vehicle_cost") @db.Decimal(18, 2)
+  transportStatus  TradeStatus   @default(DRAFT) @map("transport_status")
+  settlementStatus PaymentStatus @default(PENDING) @map("settlement_status")
+  memo             String?
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
+
+  logistics FormulaLogistics @relation(fields: [logisticsId], references: [id], onDelete: Cascade)
+
+  @@index([logisticsId])
+  @@map("formula_logistics_vehicles")
+}
+
+// =============================================================================
+// 10. FormulaInvoice
+// =============================================================================
+
+model FormulaInvoice {
+  id                    String        @id @default(uuid())
+  formulaId             String        @map("formula_id")
+  issuerCompanyId       String        @map("issuer_company_id")
+  receiverCompanyId     String        @map("receiver_company_id")
+  issuerParticipantId   String?       @map("issuer_participant_id")
+  receiverParticipantId String?       @map("receiver_participant_id")
+  sequenceOrder         Int?          @map("sequence_order") @db.SmallInt
+  invoiceNo             String?       @map("invoice_no") @db.VarChar(100)
+  invoiceDate           DateTime?     @map("invoice_date") @db.Date
+  invoiceAmount         Decimal?      @map("invoice_amount") @db.Decimal(18, 2)
+  supplyAmount          Decimal?      @map("supply_amount") @db.Decimal(18, 2)
+  taxAmount             Decimal?      @map("tax_amount") @db.Decimal(18, 2)
+  // total_amount: GENERATED ALWAYS AS → supplement SQL / $queryRaw로 읽기
+
+  status          InvoiceStatus @default(NOT_ISSUED)
+  amountVerified  Boolean       @default(false) @map("amount_verified")
+  memo            String?
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
+
+  // [B-3] 복합 FK → supplement SQL
+  formula              Formula             @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  issuerCompany        Company             @relation("IssuerInvoices", fields: [issuerCompanyId], references: [id])
+  receiverCompany      Company             @relation("ReceiverInvoices", fields: [receiverCompanyId], references: [id])
+  issuerParticipant    FormulaParticipant? @relation("IssuerParticipantInvoices", fields: [issuerParticipantId], references: [id])
+  receiverParticipant  FormulaParticipant? @relation("ReceiverParticipantInvoices", fields: [receiverParticipantId], references: [id])
+
+  @@index([formulaId])
+  @@index([issuerCompanyId])
+  @@index([receiverCompanyId])
+  @@index([status])
+  @@map("formula_invoices")
+}
+
+// =============================================================================
+// 11. FormulaShare
+// =============================================================================
+
+model FormulaShare {
+  id              String   @id @default(uuid())
+  formulaId       String   @map("formula_id")
+  participantId   String?  @map("participant_id")
+  targetCompanyId String?  @map("target_company_id")
+  shareBasis      String   @default("DIRECT") @map("share_basis") @db.VarChar(50)
+  shareMethod     String   @default("DIRECT_INPUT") @map("share_method") @db.VarChar(50)
+  shareRate       Decimal? @map("share_rate") @db.Decimal(8, 4)
+  shareAmount     Decimal  @default(0) @map("share_amount") @db.Decimal(18, 2)
+  memo            String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  formula       Formula             @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  participant   FormulaParticipant? @relation(fields: [participantId], references: [id])
+  targetCompany Company?            @relation(fields: [targetCompanyId], references: [id])
+
+  @@index([formulaId])
+  @@index([participantId])
+  @@index([targetCompanyId])
+  @@map("formula_shares")
+}
+
+// =============================================================================
+// 12. FormulaVersion
+// =============================================================================
+
+model FormulaVersion {
+  id           String   @id @default(uuid())
+  formulaId    String   @map("formula_id")
+  versionNo    Int      @map("version_no") @db.SmallInt
+  changedBy    String?  @map("changed_by") @db.VarChar(200)
+  changeReason String?  @map("change_reason")
+  snapshot     Json
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  formula   Formula                      @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  snapshots FormulaCalculationSnapshot[]
+
+  @@unique([formulaId, versionNo])
+  @@index([formulaId])
+  @@index([formulaId, createdAt(sort: Desc)])
+  @@map("formula_versions")
+}
+
+// =============================================================================
+// 13. FormulaCalculationSnapshot
+// =============================================================================
+
+model FormulaCalculationSnapshot {
+  id               String   @id @default(uuid())
+  formulaId        String   @map("formula_id")
+  formulaVersionId String?  @map("formula_version_id")
+  quantity         Decimal  @db.Decimal(18, 4)
+  totalBuyAmount   Decimal  @map("total_buy_amount") @db.Decimal(18, 2)
+  totalSellAmount  Decimal  @map("total_sell_amount") @db.Decimal(18, 2)
+  totalCost        Decimal  @default(0) @map("total_cost") @db.Decimal(18, 2)
+  totalShare       Decimal  @default(0) @map("total_share") @db.Decimal(18, 2)
+  netProfit        Decimal  @map("net_profit") @db.Decimal(18, 2)
+  profitRate       Decimal? @map("profit_rate") @db.Decimal(8, 4)
+  exchangeRateUsed Decimal? @map("exchange_rate_used") @db.Decimal(18, 6)
+  snapshotData     Json     @map("snapshot_data")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  formula        Formula         @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  formulaVersion FormulaVersion? @relation(fields: [formulaVersionId], references: [id])
+
+  @@index([formulaId])
+  @@index([formulaId, createdAt(sort: Desc)])
+  @@map("formula_calculation_snapshots")
+}
+
+// =============================================================================
+// 14. FormulaStatusLog
+// =============================================================================
+
+model FormulaStatusLog {
+  id           String       @id @default(uuid())
+  formulaId    String       @map("formula_id")
+  // [B-1] CASH_IN_STATUS / CASH_OUT_STATUS 분리
+  statusTarget StatusTarget @map("status_target")
+  prevStatus   String?      @map("prev_status") @db.VarChar(100)
+  newStatus    String       @map("new_status") @db.VarChar(100)
+  changedBy    String?      @map("changed_by") @db.VarChar(200)
+  changeReason String?      @map("change_reason")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+
+  formula Formula @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+
+  @@index([formulaId])
+  @@index([formulaId, statusTarget])
+  @@index([formulaId, createdAt(sort: Desc)])
+  @@map("formula_status_logs")
+}
+
+// =============================================================================
+// 15. AuditLog
+// =============================================================================
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  tableName String   @map("table_name") @db.VarChar(100)
+  recordId  String?  @map("record_id")
+  action    String   @db.VarChar(20)
+  changedBy String?  @map("changed_by") @db.VarChar(200)
+  oldData   Json?    @map("old_data")
+  newData   Json?    @map("new_data")
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([tableName])
+  @@index([recordId])
+  @@index([action])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}

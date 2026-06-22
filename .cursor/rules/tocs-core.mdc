@@ -1,0 +1,21 @@
+---
+description: TOCS core architecture rules
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# TOCS Core Rules
+
+- TOCS is Formula First Architecture.
+- Formula is the source of truth.
+- Never create Deal, Order, Project, Pipeline as top-level entities.
+- Formula 1 = Item 1.
+- Company has no fixed role.
+- Role is determined inside formula_participants.
+- Payment structure must support schedules and records.
+- Confirmed revenue is based on real bank deposits.
+- Confirmed profit is based on real deposits and withdrawals.
+- Status must not be auto-completed. Users manually complete/cancel status.
+- Invoice is not a transaction blocker, but Formula cannot close without invoice completion.
+- Do not add postponed V1 features unless explicitly approved.

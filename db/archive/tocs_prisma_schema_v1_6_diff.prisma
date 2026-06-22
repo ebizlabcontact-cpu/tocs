@@ -1,0 +1,46 @@
+// =============================================================================
+// TOCS Prisma Schema v1.6 — v1.5 대비 변경분만 표기
+// 전체 파일은 v1.5 기반에 아래 변경사항을 적용할 것
+// =============================================================================
+
+// -----------------------------------------------------------------------
+// [B-1] FormulaParticipant.quantity: Decimal? → Decimal (NOT NULL)
+// -----------------------------------------------------------------------
+model FormulaParticipant {
+  // ... 기존 필드 유지 ...
+
+  // 변경 전: quantity Decimal? @db.Decimal(18, 4)
+  // 변경 후:
+  quantity Decimal @db.Decimal(18, 4)   // NOT NULL. API 레이어에서 formula.quantity 자동 상속.
+
+  // total_buy_amount, total_sell_amount: 여전히 GENERATED 컬럼이므로
+  // Prisma 모델에 선언하지 않음 (migration_supplement_v1_6.sql에서 재정의)
+
+  // ... 나머지 필드 동일 ...
+}
+
+// -----------------------------------------------------------------------
+// [B-6] FormulaInvoice.invoiceAmount → externalInvoiceAmount
+// -----------------------------------------------------------------------
+model FormulaInvoice {
+  // ... 기존 필드 유지 ...
+
+  // 변경 전: invoiceAmount Decimal? @map("invoice_amount") @db.Decimal(18, 2)
+  // 변경 후:
+  externalInvoiceAmount Decimal? @map("external_invoice_amount") @db.Decimal(18, 2)
+  // 외부(거래처) 발행 계산서 원본 금액. total_amount(GENERATED)와 비교하여 검증.
+
+  // ... 나머지 필드 동일 ...
+}
+
+// -----------------------------------------------------------------------
+// 복합 FK, 트리거, Partial Unique Index는 Prisma 미지원
+// → migration_supplement_v1_6.sql에서 전적으로 처리:
+//   - formula_shares ↔ formula_participants 복합 FK
+//   - formula_calculation_snapshots ↔ formula_versions 복합 FK
+//   - formula_versions 복합 UNIQUE (id, formula_id) 추가
+//   - check_record_direction_matches_schedule() 트리거
+//   - check_invoice_participant_company_match() 트리거
+//   - uq_fp_one_start_point / uq_fp_one_end_point Partial Unique Index
+//   - chk_sequence_order_positive CHECK
+// -----------------------------------------------------------------------
