@@ -349,3 +349,44 @@ TEST-010 검증 완료.
 - is_closed=TRUE 상태 취소 차단 CHECK 검증 완료
 - formula_status_logs 기록 검증 완료
 - audit_logs 기록 검증 완료
+
+
+# 13.3 Formula Version Trigger Policy
+
+Formula 계산 결과에 영향을 주는 변경은
+기존 Snapshot 수정이 아닌
+신규 Version 생성으로 처리한다.
+
+대상 항목:
+
+- quantity
+- formula_participants 레코드 추가
+- formula_participants 레코드 삭제
+- formula_participants.quantity 변경
+- formula_participants.buy_unit_price 변경
+- formula_participants.sell_unit_price 변경
+- buy_unit_price
+- sell_unit_price
+- contract_exchange_rate
+- adjusted_exchange_rate
+- logistics_cost
+- share_amount
+- share_rate
+
+처리 원칙:
+
+1. formula_versions 신규 생성
+2. formula_calculation_snapshots 신규 생성
+3. audit_logs 기록
+
+기존 Version과 Snapshot은 수정하지 않는다.
+
+TEST-009, TEST-011 검증 완료.
+
+다음 변경은 Version 생성 대상이 아니다.
+
+- sequence_order 변경
+- role_group 변경
+- nature_group 변경
+- payment_group 변경
+- 메모성 필드 변경

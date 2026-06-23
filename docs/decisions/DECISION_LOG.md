@@ -377,3 +377,48 @@ is_closed=TRUE 상태에서는 CHECK Constraint에 의해 취소할 수 없다.
 TEST-010에서 검증 완료.
 
 상태: ACCEPTED
+
+---
+
+### DL-032 Formula Version Trigger Policy
+
+Formula 계산 결과에 영향을 주는 변경은
+기존 Snapshot 수정이 아닌
+신규 Version 생성으로 처리한다.
+
+대상:
+
+- quantity
+- formula_participants 레코드 추가
+- formula_participants 레코드 삭제
+- formula_participants.quantity 변경
+- formula_participants.buy_unit_price 변경
+- formula_participants.sell_unit_price 변경
+- buy_unit_price
+- sell_unit_price
+- contract_exchange_rate
+- adjusted_exchange_rate
+- logistics_cost
+- share_amount
+- share_rate
+
+Version 생성 시:
+
+- formula_versions 생성
+- formula_calculation_snapshots 생성
+- audit_logs 기록
+
+기존 Snapshot 수정은 허용하지 않는다.
+
+TEST-009, TEST-011 검증 완료.
+
+Version 생성 대상이 아닌 변경:
+
+- sequence_order 변경
+- role_group 변경
+- nature_group 변경
+- payment_group 변경
+- 메모성 필드 변경
+
+상태: ACCEPTED
+
