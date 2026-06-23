@@ -354,26 +354,3 @@ API Layer가 `v_formula_invoice_status`를 읽어 `formulas.invoice_status`를
 재계산 책임은 API Layer가 갖는다.
 
 상태: ACCEPTED
-
-
----
-
-### DL-030. Profit Engine Latest Snapshot Selection Criteria
-
-v_formula_profit_engine은 최신 Snapshot 판단 시 version_no 기준을 우선 사용한다.
-
-TEST-009에서 검증 완료.
-
-상태: ACCEPTED
-
----
-
-### DL-031. Formula Cancel Flow Policy
-
-Formula 취소는 6개 상태를 CANCELED로 전환하여 처리한다.
-
-is_closed=TRUE 상태에서는 CHECK Constraint에 의해 취소할 수 없다.
-
-TEST-010에서 검증 완료.
-
-상태: ACCEPTED

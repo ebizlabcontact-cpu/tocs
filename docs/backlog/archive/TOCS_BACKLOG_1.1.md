@@ -13,14 +13,14 @@
 
 ### P1
 
-- ~~Formula Version Engine~~ (TEST-009 완료)
+- Formula Version Engine
   (단가/수량/참여자/운송비/환율/셰어 변경 시 Version + Snapshot + AuditLog
   동시 생성이 실제 PostgreSQL 환경에서 검증된 적이 없다. TEST-001~008 중
   formula_versions/formula_calculation_snapshots는 매 테스트마다 1회성
   초기값으로만 INSERT되었으며, 변경에 따른 신규 버전 생성 시나리오는
   다루지 않았다.)
 
-- ~~Formula Cancel Flow~~ (TEST-010 완료)
+- Formula Cancel Flow
   (trade_status, cash_in_status 등 각 상태의 CANCELED 값으로의 전이, 그리고
   Formula 자체의 취소 흐름은 TEST-001~008 어디에서도 다루지 않았다.)
 
