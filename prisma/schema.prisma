@@ -1,0 +1,636 @@
+// =============================================================================
+// TOCS schema.prisma — 초안
+// =============================================================================
+// Source of Truth는 PostgreSQL SQL 파일이다
+// (tocs_base_schema.sql + tocs_supplement.sql + tocs_fix_amount_verified.sql).
+// 이 schema.prisma는 그 결과물을 ORM 타입으로 매핑하는 것일 뿐이며,
+// 스키마를 새로 정의하지 않는다.
+//
+// 금지: prisma migrate dev/deploy 사용 금지. `prisma generate`만 사용한다.
+// schema.prisma가 SQL 파일과 어긋나면, SQL 파일을 기준으로 이 파일을
+// 수동으로 맞춘다(역방향 금지).
+//
+// 표현하지 않는 DB 객체 (전부 SQL 파일이 전담):
+//   - Trigger 3개: trg_check_record_direction, trg_check_invoice_participant_company,
+//     trg_sync_invoice_amount_verified
+//   - View 6개: v_formula_confirmed_kpi, v_participant_confirmed_kpi,
+//     v_formula_profit_engine, v_formula_invoice_status, v_payment_unmatched,
+//     v_formula_closeable (Repository에서 $queryRaw로 조회)
+//   - CHECK Constraint 10개 (각 model 필드 주석에 존재 사실만 기록)
+//   - Partial Index 9개 (uq_fp_one_start_point, uq_fp_one_end_point 포함)
+//   - 복합 FK(MATCH SIMPLE) 7개 (각 model 관계 주석에 존재 사실만 기록)
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUM — 10개, PostgreSQL ENUM과 값 1:1 일치
+// =============================================================================
+
+enum TradeType {
+  DOMESTIC
+  IMPORT
+  EXPORT
+  MIXED
+
+  @@map("trade_type")
+}
+
+enum RoleGroup {
+  SUPPLIER
+  BUYER
+  CARRIER
+  FINANCIAL
+  OTHER
+
+  @@map("role_group")
+}
+
+enum NatureGroup {
+  MANUFACTURER
+  DISTRIBUTOR
+  LOGISTICS
+  FINANCIAL_INSTITUTION
+  OTHER
+
+  @@map("nature_group")
+}
+
+enum PaymentGroup {
+  PREPAYMENT
+  CREDIT
+  POST_SETTLEMENT
+  INSTALLMENT
+  PARTIAL
+  OTHER
+
+  @@map("payment_group")
+}
+
+enum PaymentDirection {
+  IN
+  OUT
+
+  @@map("payment_direction")
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  COMPLETED
+  CANCELED
+
+  @@map("payment_status")
+}
+
+enum LogisticsCostType {
+  INCLUDED_IN_BUY_PRICE
+  INCLUDED_IN_SELL_PRICE
+  SEPARATE_COST
+
+  @@map("logistics_cost_type")
+}
+
+enum InvoiceStatus {
+  NOT_ISSUED
+  ISSUED
+  RECEIVED
+  AMOUNT_MATCHED
+  AMOUNT_MISMATCHED
+  CANCELED
+  REVISION_REQUIRED
+
+  @@map("invoice_status")
+}
+
+enum TradeStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+
+  @@map("trade_status")
+}
+
+enum StatusTarget {
+  TRADE_STATUS
+  DELIVERY_STATUS
+  CASH_IN_STATUS
+  CASH_OUT_STATUS
+  INVOICE_STATUS
+  LOGISTICS_STATUS
+
+  @@map("status_target")
+}
+
+// =============================================================================
+// MODEL 1 — Company (companies)
+// =============================================================================
+
+model Company {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyName         String   @map("company_name") @db.VarChar(200)
+  businessRegNo       String?  @unique @map("business_reg_no") @db.VarChar(20)
+  representativeName  String?  @map("representative_name") @db.VarChar(100)
+  mainPhone           String?  @map("main_phone") @db.VarChar(30)
+  hqAddress           String?  @map("hq_address")
+  isActive            Boolean  @default(true) @map("is_active")
+  memo                String?
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  contacts                        CompanyContact[]
+  participants                    FormulaParticipant[]
+  paymentSchedulesAsCounterparty  PaymentSchedule[]    @relation("PaymentScheduleCounterparty")
+  paymentRecordsAsCounterparty    PaymentRecord[]      @relation("PaymentRecordCounterparty")
+  logisticsAsCarrier              Logistics[]          @relation("LogisticsCarrier")
+  logisticsAsDeparture            Logistics[]          @relation("LogisticsDeparture")
+  logisticsAsArrival              Logistics[]          @relation("LogisticsArrival")
+  logisticsAsCostBearer           Logistics[]          @relation("LogisticsCostBearer")
+  invoicesAsIssuer                Invoice[]            @relation("InvoiceIssuerCompany")
+  invoicesAsReceiver               Invoice[]            @relation("InvoiceReceiverCompany")
+  sharesAsTarget                   Share[]              @relation("ShareTargetCompany")
+
+  @@map("companies")
+}
+
+// =============================================================================
+// MODEL 2 — CompanyContact (company_contacts)
+// =============================================================================
+
+model CompanyContact {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  contactName    String   @map("contact_name") @db.VarChar(100)
+  title          String?  @db.VarChar(100)
+  phone          String?  @db.VarChar(30)
+  email          String?  @db.VarChar(200)
+  branchAddress  String?  @map("branch_address")
+  isPrimary      Boolean  @default(false) @map("is_primary")
+  isActive       Boolean  @default(true) @map("is_active")
+  memo           String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — companies(id) 삭제 시 함께 삭제됨 (base_schema.sql 101행)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("company_contacts")
+}
+
+// =============================================================================
+// MODEL 3 — Item (items)
+// =============================================================================
+
+model Item {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemCode     String?  @unique @map("item_code") @db.VarChar(100)
+  itemName     String   @map("item_name") @db.VarChar(300)
+  defaultUnit  String?  @map("default_unit") @db.VarChar(50)
+  category     String?  @db.VarChar(100)
+  isActive     Boolean  @default(true) @map("is_active")
+  memo         String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  formulas Formula[]
+
+  @@map("items")
+}
+
+// =============================================================================
+// MODEL 4 — Formula (formulas)
+// =============================================================================
+// CHECK 존재 사실 (Prisma 미표현, SQL 파일 전담):
+//   chk_closed_at_consistency, chk_domestic_no_exchange,
+//   chk_closed_requires_all_completed(supplement.sql에서 추가)
+
+model Formula {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaNo                 String    @unique @default(dbgenerated("generate_formula_no()")) @map("formula_no") @db.VarChar(20)
+  tradeType                 TradeType @map("trade_type")
+  itemId                    String    @map("item_id") @db.Uuid
+  unit                      String?   @db.VarChar(50)
+  quantity                  Decimal   @db.Decimal(18, 4)
+
+  baseCurrency              String    @default("KRW") @map("base_currency") @db.VarChar(10)
+  foreignCurrency           String?   @map("foreign_currency") @db.VarChar(10)
+  departureCountry          String?   @map("departure_country") @db.VarChar(100)
+  arrivalCountry            String?   @map("arrival_country") @db.VarChar(100)
+  contractExchangeRate      Decimal?  @map("contract_exchange_rate") @db.Decimal(18, 6)
+  adjustedExchangeRate      Decimal?  @map("adjusted_exchange_rate") @db.Decimal(18, 6)
+  exchangeRateChangeReason  String?   @map("exchange_rate_change_reason")
+
+  content                   String?
+  note                      String?
+
+  tradeStatus               TradeStatus   @default(DRAFT) @map("trade_status")
+  deliveryStatus            TradeStatus   @default(DRAFT) @map("delivery_status")
+  cashInStatus               PaymentStatus @default(PENDING) @map("cash_in_status")
+  cashOutStatus               PaymentStatus @default(PENDING) @map("cash_out_status")
+  invoiceStatus               InvoiceStatus @default(NOT_ISSUED) @map("invoice_status")
+  logisticsStatus              TradeStatus   @default(DRAFT) @map("logistics_status")
+
+  isClosed                  Boolean   @default(false) @map("is_closed")
+  closedAt                  DateTime? @map("closed_at") @db.Timestamptz
+
+  createdBy                 String?   @map("created_by") @db.VarChar(200)
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  item                  Item                   @relation(fields: [itemId], references: [id])
+  participants          FormulaParticipant[]
+  paymentSchedules      PaymentSchedule[]
+  paymentRecords        PaymentRecord[]
+  logistics             Logistics[]
+  invoices              Invoice[]
+  shares                Share[]
+  versions              FormulaVersion[]
+  calculationSnapshots  CalculationSnapshot[]
+  statusLogs            StatusLog[]
+
+  @@map("formulas")
+}
+
+// =============================================================================
+// MODEL 5 — FormulaParticipant (formula_participants)
+// =============================================================================
+// 제외: total_buy_amount, total_sell_amount (GENERATED 컬럼, supplement.sql에서
+//   quantity * buy_unit_price / quantity * sell_unit_price로 자동 계산됨.
+//   Prisma 모델에 포함하지 않음 — 쓰기 시도 시 PostgreSQL이 거부함)
+// CHECK 존재 사실: chk_sequence_order_positive (supplement.sql)
+// Partial Unique Index 존재 사실: uq_fp_one_start_point, uq_fp_one_end_point
+//   (WHERE is_start_point/is_end_point = TRUE, supplement.sql)
+
+model FormulaParticipant {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId        String        @map("formula_id") @db.Uuid
+  companyId        String        @map("company_id") @db.Uuid
+  sequenceOrder    Int           @map("sequence_order") @db.SmallInt
+
+  roleGroup        RoleGroup     @map("role_group")
+  natureGroup      NatureGroup?  @map("nature_group")
+  paymentGroup     PaymentGroup? @map("payment_group")
+
+  buyUnitPrice     Decimal       @default(0) @map("buy_unit_price") @db.Decimal(18, 4)
+  sellUnitPrice    Decimal       @default(0) @map("sell_unit_price") @db.Decimal(18, 4)
+  quantity         Decimal       @db.Decimal(18, 4)
+
+  directCostAmount Decimal       @default(0) @map("direct_cost_amount") @db.Decimal(18, 2)
+
+  isStartPoint     Boolean       @default(false) @map("is_start_point")
+  isEndPoint       Boolean       @default(false) @map("is_end_point")
+  memo             String?
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @default(now()) @map("updated_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formulas(id) 삭제 시 함께 삭제됨
+  formula Formula @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id])
+
+  paymentSchedules    PaymentSchedule[]
+  paymentRecords      PaymentRecord[]
+  shares              Share[]
+  invoicesAsIssuer    Invoice[] @relation("InvoiceIssuerParticipant")
+  invoicesAsReceiver  Invoice[] @relation("InvoiceReceiverParticipant")
+
+  @@unique([formulaId, sequenceOrder], name: "uq_fp_sequence")
+  // 복합 FK(MATCH SIMPLE) 지원용 선행 복합 UNIQUE. 단독으로는 일반 UNIQUE이지만
+  // 다른 테이블의 (xxx_id, formula_id) 복합 FK가 이 조합을 참조한다.
+  @@unique([id, formulaId], name: "uq_fp_id_formula")
+  @@map("formula_participants")
+}
+
+// =============================================================================
+// MODEL 6 — PaymentSchedule (formula_payment_schedules)
+// =============================================================================
+// 복합 FK 존재 사실: fk_schedule_participant_formula
+//   (participant_id, formula_id) → formula_participants(id, formula_id) MATCH SIMPLE
+//   — participant가 동일 Formula 소속인지까지 강제. Prisma @relation은
+//   participantId 단일 컬럼 FK만 표현하며, 이 복합 조건은 PostgreSQL이 전담.
+// CHECK 존재 사실: chk_scheduled_amount_positive
+
+model PaymentSchedule {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId              String           @map("formula_id") @db.Uuid
+  participantId          String?          @map("participant_id") @db.Uuid
+  direction              PaymentDirection
+  paymentType            PaymentGroup     @default(OTHER) @map("payment_type")
+  counterpartyCompanyId  String?          @map("counterparty_company_id") @db.Uuid
+  scheduledAmount        Decimal          @map("scheduled_amount") @db.Decimal(18, 2)
+  scheduledDate          DateTime?        @map("scheduled_date") @db.Date
+  status                 PaymentStatus    @default(PENDING)
+  memo                   String?
+  createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime         @default(now()) @map("updated_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formulas(id) 삭제 시 함께 삭제됨
+  formula              Formula             @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  participant          FormulaParticipant? @relation(fields: [participantId], references: [id])
+  counterpartyCompany  Company?            @relation("PaymentScheduleCounterparty", fields: [counterpartyCompanyId], references: [id])
+
+  paymentRecords PaymentRecord[]
+
+  @@unique([id, formulaId], name: "uq_fps_id_formula")
+  @@map("formula_payment_schedules")
+}
+
+// =============================================================================
+// MODEL 7 — PaymentRecord (formula_payment_records)
+// =============================================================================
+// Trigger 존재 사실: trg_check_record_direction
+//   — direction이 payment_schedule_id가 가리키는 schedule의 direction과
+//   일치하는지 INSERT/UPDATE 시 강제. Prisma는 표현하지 않음.
+// 복합 FK 존재 사실: fk_record_schedule_formula, fk_record_participant_formula
+//   (schedule/participant가 동일 Formula 소속인지 강제, MATCH SIMPLE)
+// CHECK 존재 사실: chk_actual_amount_positive, chk_cancel_consistency,
+//   chk_confirmed_consistency
+
+model PaymentRecord {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId              String           @map("formula_id") @db.Uuid
+  paymentScheduleId      String?          @map("payment_schedule_id") @db.Uuid
+  participantId          String?          @map("participant_id") @db.Uuid
+  direction              PaymentDirection
+  counterpartyCompanyId  String?          @map("counterparty_company_id") @db.Uuid
+
+  actualAmount           Decimal          @map("actual_amount") @db.Decimal(18, 2)
+  actualDate             DateTime         @map("actual_date") @db.Date
+
+  bankName               String?          @map("bank_name") @db.VarChar(100)
+  accountName            String?          @map("account_name") @db.VarChar(100)
+  accountNo              String?          @map("account_no") @db.VarChar(50)
+  bankAccountMemo        String?          @map("bank_account_memo") @db.VarChar(200)
+
+  confirmedBy            String?          @map("confirmed_by") @db.VarChar(200)
+  confirmedAt            DateTime?        @map("confirmed_at") @db.Timestamptz
+  status                 PaymentStatus    @default(PENDING)
+
+  isCanceled             Boolean          @default(false) @map("is_canceled")
+  canceledAt             DateTime?        @map("canceled_at") @db.Timestamptz
+  cancelReason           String?          @map("cancel_reason")
+
+  memo                   String?
+  createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime         @default(now()) @map("updated_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formulas(id) 삭제 시 함께 삭제됨
+  formula              Formula             @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  paymentSchedule      PaymentSchedule?    @relation(fields: [paymentScheduleId], references: [id])
+  participant          FormulaParticipant? @relation(fields: [participantId], references: [id])
+  counterpartyCompany  Company?            @relation("PaymentRecordCounterparty", fields: [counterpartyCompanyId], references: [id])
+
+  @@map("formula_payment_records")
+}
+
+// =============================================================================
+// MODEL 8 — Logistics (formula_logistics)
+// =============================================================================
+// CHECK 존재 사실: chk_logistics_cost_bearer (supplement.sql —
+//   total_logistics_cost > 0이면 cost_bearer_company_id 필수)
+// Partial Index 존재 사실: idx_fl_departure, idx_fl_arrival, idx_fl_cost_bearer
+//   (각각 WHERE ... IS NOT NULL, supplement.sql)
+
+model Logistics {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId            String            @map("formula_id") @db.Uuid
+
+  carrierCompanyId     String            @map("carrier_company_id") @db.Uuid
+  departureCompanyId   String?           @map("departure_company_id") @db.Uuid
+  arrivalCompanyId     String?           @map("arrival_company_id") @db.Uuid
+  costBearerCompanyId  String?           @map("cost_bearer_company_id") @db.Uuid
+
+  costType             LogisticsCostType @default(SEPARATE_COST) @map("cost_type")
+  departureLocation    String?           @map("departure_location")
+  arrivalLocation      String?           @map("arrival_location")
+  itemDescription      String?           @map("item_description")
+  transportQuantity    Decimal?          @map("transport_quantity") @db.Decimal(18, 4)
+  vehicleCount         Int?              @map("vehicle_count") @db.SmallInt
+  totalLogisticsCost   Decimal           @default(0) @map("total_logistics_cost") @db.Decimal(18, 2)
+  scheduledDate        DateTime?         @map("scheduled_date") @db.Date
+  memo                 String?
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime          @default(now()) @map("updated_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formulas(id) 삭제 시 함께 삭제됨
+  formula            Formula  @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  carrierCompany     Company  @relation("LogisticsCarrier", fields: [carrierCompanyId], references: [id])
+  departureCompany   Company? @relation("LogisticsDeparture", fields: [departureCompanyId], references: [id])
+  arrivalCompany     Company? @relation("LogisticsArrival", fields: [arrivalCompanyId], references: [id])
+  costBearerCompany  Company? @relation("LogisticsCostBearer", fields: [costBearerCompanyId], references: [id])
+
+  vehicles LogisticsVehicle[]
+
+  @@map("formula_logistics")
+}
+
+// =============================================================================
+// MODEL 9 — LogisticsVehicle (formula_logistics_vehicles)
+// =============================================================================
+
+model LogisticsVehicle {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  logisticsId       String        @map("logistics_id") @db.Uuid
+  vehicleNo         String?       @map("vehicle_no") @db.VarChar(50)
+  driverName        String?       @map("driver_name") @db.VarChar(100)
+  driverPhone       String?       @map("driver_phone") @db.VarChar(30)
+  vehicleCost       Decimal?      @map("vehicle_cost") @db.Decimal(18, 2)
+  transportStatus   TradeStatus   @default(DRAFT) @map("transport_status")
+  settlementStatus  PaymentStatus @default(PENDING) @map("settlement_status")
+  memo              String?
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime      @default(now()) @map("updated_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formula_logistics(id) 삭제 시 함께 삭제됨
+  logistics Logistics @relation(fields: [logisticsId], references: [id], onDelete: Cascade)
+
+  @@map("formula_logistics_vehicles")
+}
+
+// =============================================================================
+// MODEL 10 — Invoice (formula_invoices)
+// =============================================================================
+// 제외: total_amount (GENERATED 컬럼, supplement.sql에서
+//   COALESCE(supply_amount,0) + COALESCE(tax_amount,0)로 자동 계산됨.
+//   Prisma 모델에 포함하지 않음)
+// 컬럼명 주의: invoice_amount는 supplement.sql에서 external_invoice_amount로
+//   RENAME되었다. 이 schema.prisma는 RENAME 이후 최종 상태를 반영한다.
+// Trigger 존재 사실: trg_check_invoice_participant_company (participant의
+//   company_id가 issuer/receiver company_id와 일치하는지 강제),
+//   trg_sync_invoice_amount_verified (amount_verified 자동 계산 —
+//   아래 amountVerified 필드는 모델에는 있지만 실제 쓰기는 Trigger가 수행함을
+//   전제로 코드를 작성해야 함)
+// 복합 FK 존재 사실: fk_invoice_issuer_participant_formula,
+//   fk_invoice_receiver_participant_formula
+// CHECK 존재 사실: chk_issuer_receiver_different
+// Partial Index 존재 사실: idx_fi_issuer_participant, idx_fi_receiver_participant
+
+model Invoice {
+  id                      String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId               String        @map("formula_id") @db.Uuid
+
+  issuerCompanyId         String        @map("issuer_company_id") @db.Uuid
+  receiverCompanyId       String        @map("receiver_company_id") @db.Uuid
+
+  issuerParticipantId     String?       @map("issuer_participant_id") @db.Uuid
+  receiverParticipantId   String?       @map("receiver_participant_id") @db.Uuid
+
+  sequenceOrder           Int?          @map("sequence_order") @db.SmallInt
+  invoiceNo               String?       @map("invoice_no") @db.VarChar(100)
+  invoiceDate             DateTime?     @map("invoice_date") @db.Date
+  externalInvoiceAmount   Decimal?      @map("external_invoice_amount") @db.Decimal(18, 2)
+  supplyAmount            Decimal?      @map("supply_amount") @db.Decimal(18, 2)
+  taxAmount               Decimal?      @map("tax_amount") @db.Decimal(18, 2)
+
+  status                  InvoiceStatus @default(NOT_ISSUED)
+  amountVerified          Boolean       @default(false) @map("amount_verified")
+  memo                    String?
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime      @default(now()) @map("updated_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formulas(id) 삭제 시 함께 삭제됨
+  formula              Formula             @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  issuerCompany        Company             @relation("InvoiceIssuerCompany", fields: [issuerCompanyId], references: [id])
+  receiverCompany      Company             @relation("InvoiceReceiverCompany", fields: [receiverCompanyId], references: [id])
+  issuerParticipant    FormulaParticipant? @relation("InvoiceIssuerParticipant", fields: [issuerParticipantId], references: [id])
+  receiverParticipant  FormulaParticipant? @relation("InvoiceReceiverParticipant", fields: [receiverParticipantId], references: [id])
+
+  @@map("formula_invoices")
+}
+
+// =============================================================================
+// MODEL 11 — Share (formula_shares)
+// =============================================================================
+// 복합 FK 존재 사실: fk_share_participant_formula
+// 비고: share_basis/share_method는 PostgreSQL에서 VARCHAR(자유 문자열)이며
+//   ENUM이 아니다. 임의로 enum화하지 않고 String으로 그대로 따른다.
+
+model Share {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId        String   @map("formula_id") @db.Uuid
+  participantId    String?  @map("participant_id") @db.Uuid
+  targetCompanyId  String?  @map("target_company_id") @db.Uuid
+  shareBasis       String   @default("DIRECT") @map("share_basis") @db.VarChar(50)
+  shareMethod      String   @default("DIRECT_INPUT") @map("share_method") @db.VarChar(50)
+  shareRate        Decimal? @map("share_rate") @db.Decimal(8, 4)
+  shareAmount      Decimal  @default(0) @map("share_amount") @db.Decimal(18, 2)
+  memo             String?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formulas(id) 삭제 시 함께 삭제됨
+  formula        Formula             @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  participant    FormulaParticipant? @relation(fields: [participantId], references: [id])
+  targetCompany  Company?            @relation("ShareTargetCompany", fields: [targetCompanyId], references: [id])
+
+  @@map("formula_shares")
+}
+
+// =============================================================================
+// MODEL 12 — FormulaVersion (formula_versions)
+// =============================================================================
+// 중요: versionNo는 PostgreSQL Sequence나 DEFAULT가 없다. API_SPEC_v1.1
+//   핵심 정책 8에 따라 Service Layer가 MAX(version_no)+1을 계산해 명시적으로
+//   채워야 한다. 이 필드에는 절대 @default를 부여하지 않는다
+//   (formulaNo와 정확히 대조되는 지점).
+
+model FormulaVersion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId     String   @map("formula_id") @db.Uuid
+  versionNo     Int      @map("version_no") @db.SmallInt
+  changedBy     String?  @map("changed_by") @db.VarChar(200)
+  changeReason  String?  @map("change_reason")
+  snapshot      Json
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formulas(id) 삭제 시 함께 삭제됨
+  formula Formula @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+
+  calculationSnapshots CalculationSnapshot[]
+
+  @@unique([formulaId, versionNo])
+  // 복합 FK(MATCH SIMPLE) 지원용 선행 복합 UNIQUE (supplement.sql)
+  @@unique([id, formulaId], name: "uq_fv_id_formula")
+  @@map("formula_versions")
+}
+
+// =============================================================================
+// MODEL 13 — CalculationSnapshot (formula_calculation_snapshots)
+// =============================================================================
+// 주의: 이 테이블의 total_buy_amount/total_sell_amount/total_share는
+//   GENERATED 컬럼이 아니다(formula_participants의 동일 이름 컬럼과 다름).
+//   API가 직접 계산해 INSERT하는 일반 컬럼이므로 모델에서 제외하지 않는다.
+// 복합 FK 존재 사실: fk_snapshot_version_formula
+//   (formula_version_id, formula_id) → formula_versions(id, formula_id)
+//   MATCH SIMPLE — version이 동일 Formula 소속인지 강제.
+
+model CalculationSnapshot {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId          String          @map("formula_id") @db.Uuid
+  formulaVersionId   String?         @map("formula_version_id") @db.Uuid
+  quantity           Decimal         @db.Decimal(18, 4)
+  totalBuyAmount     Decimal         @map("total_buy_amount") @db.Decimal(18, 2)
+  totalSellAmount    Decimal         @map("total_sell_amount") @db.Decimal(18, 2)
+  totalCost          Decimal         @default(0) @map("total_cost") @db.Decimal(18, 2)
+  totalShare         Decimal         @default(0) @map("total_share") @db.Decimal(18, 2)
+  netProfit          Decimal         @map("net_profit") @db.Decimal(18, 2)
+  profitRate         Decimal?        @map("profit_rate") @db.Decimal(8, 4)
+  exchangeRateUsed   Decimal?        @map("exchange_rate_used") @db.Decimal(18, 6)
+  snapshotData       Json            @map("snapshot_data")
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formulas(id) 삭제 시 함께 삭제됨
+  formula        Formula         @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+  formulaVersion FormulaVersion? @relation(fields: [formulaVersionId], references: [id])
+
+  @@map("formula_calculation_snapshots")
+}
+
+// =============================================================================
+// MODEL 14 — StatusLog (formula_status_logs)
+// =============================================================================
+// 비고: prevStatus/newStatus는 PostgreSQL에서 VARCHAR(자유 문자열)이며 ENUM이
+//   아니다(실제 상태 ENUM 6종 중 어느 것이든 텍스트로 기록되기 때문).
+
+model StatusLog {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId     String       @map("formula_id") @db.Uuid
+  statusTarget  StatusTarget @map("status_target")
+  prevStatus    String?      @map("prev_status") @db.VarChar(100)
+  newStatus     String       @map("new_status") @db.VarChar(100)
+  changedBy     String?      @map("changed_by") @db.VarChar(200)
+  changeReason  String?      @map("change_reason")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — formulas(id) 삭제 시 함께 삭제됨
+  formula Formula @relation(fields: [formulaId], references: [id], onDelete: Cascade)
+
+  @@map("formula_status_logs")
+}
+
+// =============================================================================
+// MODEL 15 — AuditLog (audit_logs)
+// =============================================================================
+// 관계 없음: record_id는 다형적 참조(여러 테이블의 PK를 가리킬 수 있음)이므로
+//   Prisma @relation을 구성하지 않는다(범용 로그 테이블).
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tableName  String   @map("table_name") @db.VarChar(100)
+  recordId   String?  @map("record_id") @db.Uuid
+  action     String   @db.VarChar(20)
+  changedBy  String?  @map("changed_by") @db.VarChar(200)
+  oldData    Json?    @map("old_data")
+  newData    Json?    @map("new_data")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("audit_logs")
+}
