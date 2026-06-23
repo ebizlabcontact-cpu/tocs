@@ -339,36 +339,10 @@ WITH profit_base AS (
     WHERE status = 'COMPLETED' AND NOT is_canceled GROUP BY formula_id
 ),
 expected_base AS (
-    -- [v1.6.2 병합 — 원 출처: tocs_patch_profit_engine_latest_version.sql, TEST-009에서 식별]
-    -- "최신 snapshot"의 1차 선택 기준을 created_at DESC 단독에서
-    -- formula_versions.version_no DESC로 변경했다.
-    --
-    -- 원인: PostgreSQL의 now()는 statement_timestamp 기반이지만, 같은
-    -- BEGIN~COMMIT 트랜잭션 내에서 짧은 간격으로 연속 실행되는 INSERT 문들의
-    -- created_at(DEFAULT NOW())이 동일한 값으로 기록될 수 있다. 이 경우
-    -- DISTINCT ON은 동일 정렬키 그룹 내 행 선택을 "unspecified"로 규정하므로
-    -- 어느 snapshot이 선택될지 보장되지 않는다. TEST-009에서 V2(최신,
-    -- version_no=2)가 아닌 V1(version_no=1)이 선택되는 실패가 실제로 재현됐다.
-    --
-    -- 수정: version_no는 UNIQUE(formula_id, version_no)로 보장되는 단조
-    -- 증가 값이므로 동시성에 노출되지 않는다. created_at, id는 동일
-    -- formula_id 내 version_no까지 같은 극단적 경우를 위한 tie-breaker로만
-    -- 보조 사용한다.
-    --
-    -- LEFT JOIN을 사용한 이유: formula_calculation_snapshots.formula_version_id는
-    -- nullable FK이며, 향후 운영 데이터에서 NULL인 snapshot이 생겨도
-    -- (version_no는 NULL로 처리되어 정렬 최하위로 밀릴 뿐) 해당 formula_id가
-    -- expected_base에서 통째로 누락되지 않도록 한다. INNER JOIN을 쓰면
-    -- formula_version_id가 NULL인 snapshot을 가진 formula 전체가 사라진다.
-    --
-    -- 검증: TEST-009(패치 후 PASS), TEST-011/011B(V1→V2→V3 다중 버전 환경에서
-    -- 최신 V3 반영 확인) 실제 PostgreSQL 실행으로 확인됨.
-    SELECT DISTINCT ON (fcs.formula_id) fcs.formula_id,
-        fcs.net_profit AS expected_net_profit, fcs.profit_rate AS expected_profit_rate,
-        fcs.total_sell_amount, fcs.total_buy_amount, fcs.total_cost, fcs.total_share
-    FROM formula_calculation_snapshots fcs
-    LEFT JOIN formula_versions fv ON fv.id = fcs.formula_version_id
-    ORDER BY fcs.formula_id, fv.version_no DESC, fcs.created_at DESC, fcs.id DESC
+    SELECT DISTINCT ON (formula_id) formula_id,
+        net_profit AS expected_net_profit, profit_rate AS expected_profit_rate,
+        total_sell_amount, total_buy_amount, total_cost, total_share
+    FROM formula_calculation_snapshots ORDER BY formula_id, created_at DESC
 )
 SELECT
     f.id AS formula_id, f.formula_no,
