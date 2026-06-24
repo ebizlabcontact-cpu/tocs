@@ -286,7 +286,8 @@ Current phase:
 * Payment Domain complete
 * Version Domain MVP complete
 * Invoice Domain MVP complete
-* Share Domain implementation starting
+* Share Domain MVP complete
+* Close Domain implementation starting
 
 Allowed:
 
@@ -295,9 +296,8 @@ Allowed:
 * Version
 * Invoice
 * Share
+* Close
 
 Not Allowed until explicitly requested:
 
-* Cancel
-* Close
 * Dashboard
