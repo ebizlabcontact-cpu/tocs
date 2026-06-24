@@ -1,17 +1,15 @@
 ﻿import {
   Prisma,
-  PrismaClient,
   type AuditLog,
   type CalculationSnapshot,
   type FormulaVersion,
 } from '@prisma/client';
 
+import { prisma } from '../lib/prisma.js';
 import {
   FormulaVersionRepository,
   formulaVersionRepository,
 } from '../repositories/version.repository.js';
-
-const prisma = new PrismaClient();
 
 export class VersionConflictError extends Error {
   readonly status = 409 as const;

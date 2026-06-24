@@ -1,6 +1,6 @@
-import { PrismaClient, type Formula, type Prisma, type TradeStatus } from '@prisma/client';
+import { type Formula, type Prisma, type TradeStatus } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma.js';
 
 /** formula_no는 DB DEFAULT generate_formula_no()에 위임 — Repository 입력에서 제외 */
 export type FormulaCreateData = Omit<

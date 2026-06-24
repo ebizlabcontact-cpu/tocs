@@ -1,12 +1,11 @@
 ﻿import {
-  PrismaClient,
   type AuditLog,
   type CalculationSnapshot,
   type FormulaVersion,
   type Prisma,
 } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma.js';
 
 /** versionNo는 Service가 계산해 명시 전달 — Repository는 저장만 */
 export type FormulaVersionCreateData = Omit<

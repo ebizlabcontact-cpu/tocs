@@ -1,6 +1,6 @@
-import { PrismaClient, type Prisma, type Share } from '@prisma/client';
+import { type Prisma, type Share } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma.js';
 
 export type ShareCreateData = Omit<Prisma.ShareUncheckedCreateInput, 'id'>;
 

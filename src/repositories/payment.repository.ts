@@ -1,11 +1,10 @@
 ﻿import {
-  PrismaClient,
   type PaymentRecord,
   type PaymentSchedule,
   type Prisma,
 } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma.js';
 
 export type PaymentScheduleCreateData = Omit<
   Prisma.PaymentScheduleUncheckedCreateInput,

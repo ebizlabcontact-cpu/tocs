@@ -7,7 +7,7 @@ import {
 import type { ShareCreateData, ShareUpdateData } from '../repositories/share.repository.js';
 import {
   VersionService,
-  versionService,
+  versionService as defaultVersionService,
 } from './version.service.js';
 import type {
   CreateVersionCalculationInput,
@@ -72,7 +72,7 @@ function assertShareVersionPayload(
 export class ShareService {
   constructor(
     private readonly repository: ShareRepository = shareRepository,
-    private readonly versionService: VersionService = versionService,
+    private readonly versionService: VersionService = defaultVersionService,
   ) {}
 
   async createShare(input: CreateShareInput): Promise<ShareMutationResult> {
