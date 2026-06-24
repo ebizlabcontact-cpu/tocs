@@ -173,7 +173,7 @@ test('Formula create and read integration flow', { skip: !hasDatabase }, async (
 
   t.after(async () => {
     if (createdFormulaId) {
-      await prisma.formula.delete({ where: { id: createdFormulaId } }).catch(() => undefined);
+      await prisma.formula.delete({ where: { id: createdFormulaId } });
     }
     await prisma.$disconnect();
   });
