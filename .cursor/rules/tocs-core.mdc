@@ -282,21 +282,20 @@ instead of implementing it. Do not silently expand the allowed scope.
 
 Current phase:
 
-* DB schema verified
-* Prisma schema validated
 * Formula Domain complete
-* Payment Domain core complete
-* Version Engine implementation starting
+* Payment Domain complete
+* Version Domain MVP complete
+* Invoice Domain implementation starting
 
-Allowed implementation scope:
+Allowed:
 
 * Formula
 * Payment
 * Version
-
-Do not implement the following until explicitly requested:
-
 * Invoice
+
+Not Allowed until explicitly requested:
+
 * Share
 * Cancel
 * Close
