@@ -284,13 +284,20 @@ Current phase:
 
 * DB schema verified
 * Prisma schema validated
-* Backend implementation starting
+* Formula Domain complete
+* Payment Domain core complete
+* Version Engine implementation starting
 
-Next allowed implementation scope:
+Allowed implementation scope:
 
-1. src/lib/prisma.ts
-2. FormulaRepository
-3. FormulaService
-4. Formula create/find/list
+* Formula
+* Payment
+* Version
 
-Do not implement Payment, Invoice, Version, Share, Cancel, Close, Dashboard until explicitly requested.
+Do not implement the following until explicitly requested:
+
+* Invoice
+* Share
+* Cancel
+* Close
+* Dashboard
