@@ -285,7 +285,8 @@ Current phase:
 * Formula Domain complete
 * Payment Domain complete
 * Version Domain MVP complete
-* Invoice Domain implementation starting
+* Invoice Domain MVP complete
+* Share Domain implementation starting
 
 Allowed:
 
@@ -293,10 +294,10 @@ Allowed:
 * Payment
 * Version
 * Invoice
+* Share
 
 Not Allowed until explicitly requested:
 
-* Share
 * Cancel
 * Close
 * Dashboard
