@@ -14,6 +14,15 @@ import type {
   CreateSettlementNoteInput,
   CreateSettlementPaymentScheduleInput,
 } from '../services/settlement.service.js';
+import type {
+  ValidatedCreateSettlementNoteInput,
+  ValidatedCreateSettlementPaymentScheduleInput,
+} from '../types/settlement.types.js';
+import {
+  validateCreateSettlementNote,
+  validateCreateSettlementPaymentSchedule,
+  ValidationError,
+} from '../utils/settlement.validation.js';
 
 export interface CreateSettlementPaymentScheduleRequest {
   participant_id?: string | null;
@@ -68,36 +77,93 @@ function formatDate(value: Date | null): string | null {
   return value.toISOString().slice(0, 10);
 }
 
-function mapCreateSettlementPaymentScheduleRequest(
-  formulaId: string,
-  body: CreateSettlementPaymentScheduleRequest,
+function toCreateSettlementPaymentScheduleInput(
+  validated: ValidatedCreateSettlementPaymentScheduleInput,
 ): CreateSettlementPaymentScheduleInput {
   const input: CreateSettlementPaymentScheduleInput = {
-    formulaId,
-    direction: body.direction,
-    scheduledAmount: body.scheduled_amount,
-    scheduledDate: body.due_date,
+    formulaId: validated.formulaId,
+    participantId: validated.participantId,
+    direction: validated.direction,
+    scheduledAmount: validated.scheduledAmount,
+    scheduledDate: validated.dueDate,
   };
 
-  if (body.participant_id !== undefined) input.participantId = body.participant_id;
-  if (body.memo !== undefined) input.memo = body.memo;
+  if (validated.memo !== undefined) {
+    input.memo = validated.memo;
+  }
 
   return input;
 }
 
-function mapCreateSettlementNoteRequest(
+function parseCreateSettlementPaymentScheduleInput(
+  formulaId: string,
+  body: CreateSettlementPaymentScheduleRequest,
+): CreateSettlementPaymentScheduleInput {
+  try {
+    const payload: Parameters<typeof validateCreateSettlementPaymentSchedule>[0] = {
+      formulaId,
+      direction: body.direction,
+      scheduledAmount: body.scheduled_amount,
+      dueDate: body.due_date,
+    };
+
+    if (body.participant_id !== undefined) payload.participantId = body.participant_id;
+    if (body.memo !== undefined) payload.memo = body.memo;
+
+    const validated = validateCreateSettlementPaymentSchedule(payload);
+
+    return toCreateSettlementPaymentScheduleInput(validated);
+  } catch (error) {
+    mapSettlementValidationError(error);
+  }
+}
+
+function toCreateSettlementNoteInput(
+  validated: ValidatedCreateSettlementNoteInput,
+): CreateSettlementNoteInput {
+  const input: CreateSettlementNoteInput = {
+    formulaId: validated.formulaId,
+    note: validated.note,
+  };
+
+  if (validated.issueType !== undefined) {
+    input.issueType = validated.issueType;
+  }
+
+  if (validated.changedBy !== undefined) {
+    input.changedBy = validated.changedBy;
+  }
+
+  return input;
+}
+
+function parseCreateSettlementNoteInput(
   formulaId: string,
   body: CreateSettlementNoteRequest,
 ): CreateSettlementNoteInput {
-  const input: CreateSettlementNoteInput = {
-    formulaId,
-    note: body.note,
-  };
+  try {
+    const payload: Parameters<typeof validateCreateSettlementNote>[0] = {
+      formulaId,
+      note: body.note,
+    };
 
-  if (body.issue_type !== undefined) input.issueType = body.issue_type;
-  if (body.changed_by !== undefined) input.changedBy = body.changed_by;
+    if (body.issue_type !== undefined) payload.issueType = body.issue_type;
+    if (body.changed_by !== undefined) payload.changedBy = body.changed_by;
 
-  return input;
+    const validated = validateCreateSettlementNote(payload);
+
+    return toCreateSettlementNoteInput(validated);
+  } catch (error) {
+    mapSettlementValidationError(error);
+  }
+}
+
+function mapSettlementValidationError(error: unknown): never {
+  if (error instanceof ValidationError) {
+    throw new ActionError(400, error.message);
+  }
+
+  throw error;
 }
 
 function toSettlementPaymentScheduleResponse(
@@ -175,7 +241,7 @@ export class SettlementActions {
   ): Promise<SettlementPaymentScheduleResponse> {
     try {
       const schedule = await this.service.createSettlementPaymentSchedule(
-        mapCreateSettlementPaymentScheduleRequest(formulaId, body),
+        parseCreateSettlementPaymentScheduleInput(formulaId, body),
       );
       return toSettlementPaymentScheduleResponse(schedule);
     } catch (error) {
@@ -189,7 +255,7 @@ export class SettlementActions {
   ): Promise<SettlementNoteResponse> {
     try {
       const auditLog = await this.service.createSettlementNote(
-        mapCreateSettlementNoteRequest(formulaId, body),
+        parseCreateSettlementNoteInput(formulaId, body),
       );
       return toSettlementNoteResponse(auditLog);
     } catch (error) {
