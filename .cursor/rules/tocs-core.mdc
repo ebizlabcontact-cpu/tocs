@@ -326,7 +326,9 @@ Current phase:
 * Version Domain MVP complete
 * Invoice Domain MVP complete
 * Share Domain MVP complete
-* Close Domain implementation starting
+* Close Domain MVP complete
+* Closed Settlement Guard MVP complete
+* Dashboard/KPI implementation starting
 
 Allowed:
 
@@ -336,7 +338,10 @@ Allowed:
 * Invoice
 * Share
 * Close
+* Dashboard
 
 Not Allowed until explicitly requested:
 
-* Dashboard
+* Reopen
+* Close undo
+* Adjustment Formula
