@@ -16,6 +16,11 @@ import type {
   PaymentRecordCreateData,
   PaymentScheduleCreateData,
 } from '../repositories/payment.repository.js';
+import {
+  assertClosedSettlementAllowedOperation,
+  ClosedFormulaTradeMutationError,
+  getFormulaClosedState,
+} from './guards/closed-formula.guard.js';
 
 export class PaymentScheduleNotFoundError extends Error {
   constructor(id: string) {
@@ -89,6 +94,12 @@ export class PaymentScheduleService {
   ) {}
 
   async createSchedule(input: CreatePaymentScheduleInput) {
+    const { isClosed } = await getFormulaClosedState(input.formulaId);
+
+    if (isClosed) {
+      throw new ClosedFormulaTradeMutationError();
+    }
+
     const data: PaymentScheduleCreateData = {
       formulaId: input.formulaId,
       direction: input.direction,
@@ -128,6 +139,12 @@ export class PaymentRecordService {
   ) {}
 
   async createRecord(input: CreatePaymentRecordInput) {
+    const { isClosed } = await getFormulaClosedState(input.formulaId);
+
+    if (isClosed) {
+      assertClosedSettlementAllowedOperation('payment_record_create');
+    }
+
     const data: PaymentRecordCreateData = {
       formulaId: input.formulaId,
       direction: input.direction,
@@ -179,6 +196,12 @@ export class PaymentRecordService {
 
     if (!record) {
       throw new PaymentRecordNotFoundError(id);
+    }
+
+    const { isClosed } = await getFormulaClosedState(record.formulaId);
+
+    if (isClosed) {
+      assertClosedSettlementAllowedOperation('payment_record_cancel');
     }
 
     if (record.isCanceled) {
