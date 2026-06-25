@@ -10,6 +10,7 @@ import {
   FormulaVersionRepository,
   formulaVersionRepository,
 } from '../repositories/version.repository.js';
+import { assertNotClosedForTradeMutation } from './guards/closed-formula.guard.js';
 
 export class VersionConflictError extends Error {
   readonly status = 409 as const;
@@ -84,6 +85,8 @@ export class VersionService {
   ) {}
 
   async createVersion(input: CreateVersionInput): Promise<CreateVersionResult> {
+    await assertNotClosedForTradeMutation(input.formulaId);
+
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         return await this.createVersionOnce(input, attempt > 0);

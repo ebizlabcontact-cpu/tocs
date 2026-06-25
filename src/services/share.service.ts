@@ -5,6 +5,7 @@ import {
   shareRepository,
 } from '../repositories/share.repository.js';
 import type { ShareCreateData, ShareUpdateData } from '../repositories/share.repository.js';
+import { assertNotClosedForTradeMutation } from './guards/closed-formula.guard.js';
 import {
   VersionService,
   versionService as defaultVersionService,
@@ -76,6 +77,8 @@ export class ShareService {
   ) {}
 
   async createShare(input: CreateShareInput): Promise<ShareMutationResult> {
+    await assertNotClosedForTradeMutation(input.share.formulaId);
+
     const versionPayload = assertShareVersionPayload(input.version);
     const share = await this.repository.createShare(input.share);
     const version = await this.versionService.createVersion(
@@ -110,6 +113,8 @@ export class ShareService {
       throw new ShareNotFoundError(id);
     }
 
+    await assertNotClosedForTradeMutation(existing.formulaId);
+
     const versionPayload = assertShareVersionPayload(input.version);
     const share = await this.repository.updateShare(id, input.data);
     const version = await this.versionService.createVersion(
@@ -125,6 +130,8 @@ export class ShareService {
     if (!existing) {
       throw new ShareNotFoundError(id);
     }
+
+    await assertNotClosedForTradeMutation(existing.formulaId);
 
     const versionPayload = assertShareVersionPayload(version);
     const formulaId = existing.formulaId;
