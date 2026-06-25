@@ -3,10 +3,12 @@ import { pathToFileURL } from 'node:url';
 import Fastify from 'fastify';
 
 import { registerHealthRoutes } from './routes/health.routes.js';
+import { registerSettlementRoutes } from './routes/settlement.routes.js';
 
 export async function createServer() {
   const app = Fastify();
   await registerHealthRoutes(app);
+  await registerSettlementRoutes(app);
   return app;
 }
 
