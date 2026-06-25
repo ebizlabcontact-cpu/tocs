@@ -11,6 +11,12 @@ import type {
   ParticipantConfirmedKpi,
   PaymentUnmatched,
 } from '../services/dashboard.service.js';
+import type { ValidatedDashboardListInput } from '../types/dashboard.types.js';
+import {
+  validateDashboardListInput,
+  validateFormulaIdInput,
+  ValidationError,
+} from '../utils/dashboard.validation.js';
 
 export interface DashboardListRequest {
   formula_id?: string;
@@ -91,31 +97,53 @@ function formatDate(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
-function mapDashboardListRequest(query: DashboardListRequest = {}): DashboardListInput {
-  const input: DashboardListInput = {};
+function toDashboardListInput(validated: ValidatedDashboardListInput): DashboardListInput {
+  const input: DashboardListInput = {
+    limit: validated.limit,
+    offset: validated.offset,
+  };
 
-  if (query.formula_id !== undefined) input.formulaId = query.formula_id;
-  if (query.participant_id !== undefined) input.participantId = query.participant_id;
-  if (query.limit !== undefined) input.limit = query.limit;
-  if (query.offset !== undefined) input.offset = query.offset;
-
-  if (query.date_from !== undefined) {
-    const dateFrom = new Date(query.date_from);
-    if (Number.isNaN(dateFrom.getTime())) {
-      throw new ActionError(400, 'Invalid date_from');
-    }
-    input.dateFrom = dateFrom;
-  }
-
-  if (query.date_to !== undefined) {
-    const dateTo = new Date(query.date_to);
-    if (Number.isNaN(dateTo.getTime())) {
-      throw new ActionError(400, 'Invalid date_to');
-    }
-    input.dateTo = dateTo;
-  }
+  if (validated.formulaId !== undefined) input.formulaId = validated.formulaId;
+  if (validated.participantId !== undefined) input.participantId = validated.participantId;
+  if (validated.dateFrom !== undefined) input.dateFrom = validated.dateFrom;
+  if (validated.dateTo !== undefined) input.dateTo = validated.dateTo;
 
   return input;
+}
+
+function parseDashboardListRequest(query: DashboardListRequest = {}): DashboardListInput {
+  try {
+    const payload: Parameters<typeof validateDashboardListInput>[0] = {};
+
+    if (query.formula_id !== undefined) payload.formulaId = query.formula_id;
+    if (query.participant_id !== undefined) payload.participantId = query.participant_id;
+    if (query.date_from !== undefined) payload.dateFrom = query.date_from;
+    if (query.date_to !== undefined) payload.dateTo = query.date_to;
+    if (query.limit !== undefined) payload.limit = query.limit;
+    if (query.offset !== undefined) payload.offset = query.offset;
+
+    const validated = validateDashboardListInput(payload);
+
+    return toDashboardListInput(validated);
+  } catch (error) {
+    mapDashboardValidationError(error);
+  }
+}
+
+function parseFormulaIdInput(formulaId: string): string {
+  try {
+    return validateFormulaIdInput({ formulaId }).formulaId;
+  } catch (error) {
+    mapDashboardValidationError(error);
+  }
+}
+
+function mapDashboardValidationError(error: unknown): never {
+  if (error instanceof ValidationError) {
+    throw new ActionError(400, error.message);
+  }
+
+  throw error;
 }
 
 function toFormulaConfirmedKpiResponse(kpi: FormulaConfirmedKpi): FormulaConfirmedKpiResponse {
@@ -204,8 +232,10 @@ export class DashboardActions {
   constructor(private readonly service: DashboardService = dashboardService) {}
 
   async getFormulaConfirmedKpi(formulaId: string): Promise<FormulaConfirmedKpiResponse> {
+    const validatedFormulaId = parseFormulaIdInput(formulaId);
+
     try {
-      const kpi = await this.service.getFormulaConfirmedKpi(formulaId);
+      const kpi = await this.service.getFormulaConfirmedKpi(validatedFormulaId);
       return toFormulaConfirmedKpiResponse(kpi);
     } catch (error) {
       mapDashboardServiceError(error);
@@ -215,7 +245,7 @@ export class DashboardActions {
   async listFormulaConfirmedKpi(
     query: DashboardListRequest = {},
   ): Promise<DashboardListResponse<FormulaConfirmedKpiResponse>> {
-    const items = await this.service.listFormulaConfirmedKpi(mapDashboardListRequest(query));
+    const items = await this.service.listFormulaConfirmedKpi(parseDashboardListRequest(query));
 
     return {
       items: items.map(toFormulaConfirmedKpiResponse),
@@ -223,8 +253,10 @@ export class DashboardActions {
   }
 
   async getFormulaProfitEngine(formulaId: string): Promise<FormulaProfitEngineResponse> {
+    const validatedFormulaId = parseFormulaIdInput(formulaId);
+
     try {
-      const profit = await this.service.getFormulaProfitEngine(formulaId);
+      const profit = await this.service.getFormulaProfitEngine(validatedFormulaId);
       return toFormulaProfitEngineResponse(profit);
     } catch (error) {
       mapDashboardServiceError(error);
@@ -234,7 +266,7 @@ export class DashboardActions {
   async listFormulaProfitEngine(
     query: DashboardListRequest = {},
   ): Promise<DashboardListResponse<FormulaProfitEngineResponse>> {
-    const items = await this.service.listFormulaProfitEngine(mapDashboardListRequest(query));
+    const items = await this.service.listFormulaProfitEngine(parseDashboardListRequest(query));
 
     return {
       items: items.map(toFormulaProfitEngineResponse),
@@ -244,7 +276,7 @@ export class DashboardActions {
   async listParticipantConfirmedKpi(
     query: DashboardListRequest = {},
   ): Promise<DashboardListResponse<ParticipantConfirmedKpiResponse>> {
-    const items = await this.service.listParticipantConfirmedKpi(mapDashboardListRequest(query));
+    const items = await this.service.listParticipantConfirmedKpi(parseDashboardListRequest(query));
 
     return {
       items: items.map(toParticipantConfirmedKpiResponse),
@@ -254,7 +286,7 @@ export class DashboardActions {
   async listUnmatchedPayments(
     query: DashboardListRequest = {},
   ): Promise<DashboardListResponse<PaymentUnmatchedResponse>> {
-    const items = await this.service.listUnmatchedPayments(mapDashboardListRequest(query));
+    const items = await this.service.listUnmatchedPayments(parseDashboardListRequest(query));
 
     return {
       items: items.map(toPaymentUnmatchedResponse),
