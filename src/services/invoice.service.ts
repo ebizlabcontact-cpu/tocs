@@ -1,8 +1,8 @@
 import {
   Prisma,
+  InvoiceStatus,
   type Formula,
   type Invoice,
-  type InvoiceStatus,
 } from '@prisma/client';
 
 import { prisma } from '../lib/prisma.js';
@@ -11,6 +11,7 @@ import {
   invoiceRepository,
 } from '../repositories/invoice.repository.js';
 import type { InvoiceCreateData } from '../repositories/invoice.repository.js';
+import { getFormulaClosedState } from './guards/closed-formula.guard.js';
 
 export class InvoiceNotFoundError extends Error {
   constructor(id: string) {
@@ -78,11 +79,14 @@ export class InvoiceService {
   }
 
   async syncFormulaInvoiceStatus(formulaId: string): Promise<SyncFormulaInvoiceStatusResult> {
-    const rows = await prisma.$queryRaw<DerivedInvoiceStatusRow[]>`
-      SELECT derived_invoice_status
-      FROM v_formula_invoice_status
-      WHERE formula_id = ${formulaId}::uuid
-    `;
+    const [rows, closedState] = await Promise.all([
+      prisma.$queryRaw<DerivedInvoiceStatusRow[]>`
+        SELECT derived_invoice_status
+        FROM v_formula_invoice_status
+        WHERE formula_id = ${formulaId}::uuid
+      `,
+      getFormulaClosedState(formulaId),
+    ]);
 
     const derivedStatus = rows[0]?.derived_invoice_status;
 
@@ -90,6 +94,23 @@ export class InvoiceService {
       throw new InvoiceSyncError(
         `Unable to derive invoice status for formula: ${formulaId}`,
       );
+    }
+
+    const shouldUpdateFormulaInvoiceStatus =
+      !closedState.isClosed || derivedStatus === InvoiceStatus.AMOUNT_MATCHED;
+
+    if (!shouldUpdateFormulaInvoiceStatus) {
+      const formula = await prisma.formula.findUnique({ where: { id: formulaId } });
+
+      if (!formula) {
+        throw new InvoiceSyncError(`Formula not found for invoice sync: ${formulaId}`);
+      }
+
+      return {
+        formulaId,
+        invoiceStatus: derivedStatus,
+        formula,
+      };
     }
 
     try {
