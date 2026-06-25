@@ -329,7 +329,8 @@ Current phase:
 * Close Domain MVP complete
 * Closed Settlement Guard MVP complete
 * Dashboard/KPI MVP complete
-* Settlement API implementation pending
+* Settlement API Backend Layer complete
+* HTTP Route Layer implementation starting
 
 Allowed:
 
@@ -341,9 +342,13 @@ Allowed:
 * Close
 * Dashboard
 * Settlement
+* HTTP Routes
 
 Not Allowed until explicitly requested:
 
 * Reopen
 * Close undo
 * Adjustment Formula
+* Auth/RBAC
+* File Evidence
+* Notification
