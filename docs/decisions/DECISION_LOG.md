@@ -422,3 +422,52 @@ Version 생성 대상이 아닌 변경:
 
 상태: ACCEPTED
 
+---
+
+### DL-033. Closed Settlement Policy
+
+`is_closed = TRUE` 이후에도 **정산 이슈 처리**는 허용한다.
+
+단, **원본 거래 직접 수정**은 금지한다.
+
+**금지 (Closed Formula — normal update paths)**
+
+- `quantity`, 단가(`buy_unit_price`/`sell_unit_price`), 환율
+  (`contract_exchange_rate`/`adjusted_exchange_rate`) 직접 변경
+- 참여자/거래처(`formula_participants`) 추가·변경·삭제
+- 기존 `formula_calculation_snapshots` 직접 수정
+- 기존 `formula_payment_records.actual_amount` 직접 수정
+- 기존 `formula_invoices` 금액 필드 직접 수정
+- 기존 `formula_shares` 직접 변경
+- Version 생성(위 변경 목적)
+- Share CRUD
+- Formula 일반 수정 API(1.4: `content`/`note`/`unit` 포함)
+- Formula 취소(8.1) — DB CHECK로도 차단됨(DL-031)
+
+**허용 (Settlement API 또는 명시적 allowlist만)**
+
+- 추가 payment record 등록(3.2, append-only)
+- payment record cancel(3.3) 후 재입금 record 등록
+- payment schedule 추가 — **Settlement API 경로에서만**
+  (일반 3.1은 Closed Formula에서 거부)
+- invoice status 재동기화 — `derived_invoice_status = 'AMOUNT_MATCHED'`일
+  때만 `formulas.invoice_status`에 반영
+- 정산 메모/이슈 — `audit_logs` INSERT
+- 미수/미지급 조회(3.4) 및 확정 KPI 조회(9.1, 9.3)
+
+**MVP 제외 (V2 재검토)**
+
+- Reopen (`is_closed TRUE → FALSE`)
+- Close undo
+- Adjustment Formula top-level entity
+
+**근거**
+
+- `chk_closed_requires_all_completed`: 종결 후 6개 status는 COMPLETED/
+  AMOUNT_MATCHED로 동결. `formulas.invoice_status` sync는 이 CHECK와
+  충돌할 수 있으므로 조건부 반영 필요.
+- TEST-002: payment record cancel 후 재입금 패턴 검증 완료.
+- 확정 KPI는 `v_formula_confirmed_kpi`가 payment record 기준 실시간
+  반영 — 종결 후에도 ledger 보정 가능.
+
+상태: ACCEPTED

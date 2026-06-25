@@ -103,30 +103,33 @@ PostgreSQL. version_no must be calculated by Service layer
 * CANCELED Formula is not the same as closed Formula.
 * If formulas.is_closed = TRUE, reject direct modification of the original
   trade through normal update paths.
-* Post-close settlement issue handling may be allowed only when explicitly
-  permitted by a separate Settlement/Adjustment policy or a dedicated API.
+* Post-close settlement issue handling is allowed only through Settlement
+  API or an explicit allowlist documented in API_SPEC §8.5 (DL-033).
   Do not infer allowance from general Formula, Payment, Invoice, Version, or
   Share update paths.
 
 Closed Formula — forbidden through normal update paths:
 
-* quantity direct modification
-* unit price direct modification
+* quantity, unit price, or exchange rate direct modification
 * participant/company direct changes
 * direct modification of existing calculation snapshots
 * direct modification of existing payment record amounts
 * direct manipulation of existing invoice amounts
 * direct modification of existing share rules/amounts
+* Version creation for trade-mutating purposes
+* Share CRUD
+* Formula general PATCH (content, note, unit)
+* Formula cancel
 
-Closed Formula — potentially allowed directions (Settlement/Adjustment policy
-or explicit API only):
+Closed Formula — allowed through Settlement API / allowlist only (DL-033):
 
-* additional deposit/withdrawal records
-* payment record cancel then re-deposit
-* receivable/payable issue handling
-* invoice status re-synchronization
-* settlement memo/issue notes
-* re-close after re-verification or settlement correction
+* additional payment record registration (append-only)
+* payment record cancel then re-deposit (cancel + new record; no amount UPDATE)
+* payment schedule append — Settlement API path only (not general 3.1)
+* invoice status re-synchronization — update formulas.invoice_status only
+  when derived_invoice_status = AMOUNT_MATCHED
+* settlement memo/issue notes via audit_logs (action SETTLEMENT_NOTE)
+* receivable/payable and confirmed KPI read paths
 
 Still forbidden without explicit approval:
 
@@ -144,6 +147,9 @@ Still forbidden without explicit approval:
 * formulas.invoice_status is not automatically synchronized by DB trigger.
 * API/Service layer must read v_formula_invoice_status and update formulas.invoice_status.
 * Do not assume formula_invoices.status automatically updates formulas.invoice_status.
+* When formulas.is_closed = TRUE, sync formulas.invoice_status only if
+  derived_invoice_status = AMOUNT_MATCHED (DL-033). Skip formula column
+  UPDATE otherwise to avoid chk_closed_requires_all_completed violation.
 
 ## 7. Share Rules
 
@@ -217,8 +223,11 @@ DB is responsible for:
 API/Service is responsible for:
 
 * formula_no never manually assigned
-* invoice_status synchronization
+* invoice_status synchronization (with closed-formula conditional sync per DL-033)
 * share change creating new Version
+* closed formula trade-mutation guard on Version, Share, Participant, Formula PATCH
+* closed formula settlement allowlist: payment record append/cancel,
+  settlement payment-schedule, settlement audit note
 * version_no conflict retry: exactly 1 retry with re-fetch of
   MAX(version_no), then return an explicit "concurrent edit conflict"
   message. Do not implement multi-retry or exponential backoff
