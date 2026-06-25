@@ -328,7 +328,8 @@ Current phase:
 * Share Domain MVP complete
 * Close Domain MVP complete
 * Closed Settlement Guard MVP complete
-* Dashboard/KPI implementation starting
+* Dashboard/KPI MVP complete
+* Settlement API implementation pending
 
 Allowed:
 
@@ -339,6 +340,7 @@ Allowed:
 * Share
 * Close
 * Dashboard
+* Settlement
 
 Not Allowed until explicitly requested:
 
