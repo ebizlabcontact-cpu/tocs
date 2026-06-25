@@ -101,10 +101,38 @@ PostgreSQL. version_no must be calculated by Service layer
 * Do not create code that automatically sets all statuses to COMPLETED.
 * is_closed = TRUE means normal close only.
 * CANCELED Formula is not the same as closed Formula.
-* If formulas.is_closed = TRUE, reject ALL update operations on that
-  Formula through normal update paths — including content, note, unit,
-  and any version-triggering field. Closed Formula is fully immutable,
-  not only protected from version-triggering changes.
+* If formulas.is_closed = TRUE, reject direct modification of the original
+  trade through normal update paths.
+* Post-close settlement issue handling may be allowed only when explicitly
+  permitted by a separate Settlement/Adjustment policy or a dedicated API.
+  Do not infer allowance from general Formula, Payment, Invoice, Version, or
+  Share update paths.
+
+Closed Formula — forbidden through normal update paths:
+
+* quantity direct modification
+* unit price direct modification
+* participant/company direct changes
+* direct modification of existing calculation snapshots
+* direct modification of existing payment record amounts
+* direct manipulation of existing invoice amounts
+* direct modification of existing share rules/amounts
+
+Closed Formula — potentially allowed directions (Settlement/Adjustment policy
+or explicit API only):
+
+* additional deposit/withdrawal records
+* payment record cancel then re-deposit
+* receivable/payable issue handling
+* invoice status re-synchronization
+* settlement memo/issue notes
+* re-close after re-verification or settlement correction
+
+Still forbidden without explicit approval:
+
+* Close undo
+* Reopen (is_closed TRUE → FALSE)
+* Adjustment Formula top-level entity implementation
 * Cancel undo and close undo are not MVP features.
 * Partial Formula cancellation is not MVP scope.
 
@@ -236,6 +264,8 @@ Do not add these without approval:
 * bank API integration
 * advanced concurrency manager
 * undo close
+* reopen (is_closed TRUE → FALSE)
+* adjustment formula entity
 * undo cancel
 * partial cancel
 * participant order swap API
