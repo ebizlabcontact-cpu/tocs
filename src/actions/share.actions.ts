@@ -2,6 +2,10 @@ import type { Prisma } from '@prisma/client';
 import type { AuditLog, CalculationSnapshot, FormulaVersion, Share } from '@prisma/client';
 
 import { ActionError } from './formula.actions.js';
+import {
+  ClosedFormulaTradeMutationError,
+  FormulaNotFoundForGuardError,
+} from '../services/guards/closed-formula.guard.js';
 import type {
   CreateVersionCalculationRequest,
   CreateVersionResponse,
@@ -235,12 +239,20 @@ function assertShareVersionRequest(version: ShareVersionRequest | undefined): vo
 }
 
 function mapShareServiceError(error: unknown): never {
+  if (error instanceof FormulaNotFoundForGuardError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof ShareNotFoundError) {
     throw new ActionError(404, error.message);
   }
 
   if (error instanceof ShareVersionRequiredError) {
     throw new ActionError(400, error.message);
+  }
+
+  if (error instanceof ClosedFormulaTradeMutationError) {
+    throw new ActionError(409, error.message);
   }
 
   if (error instanceof VersionConflictError) {

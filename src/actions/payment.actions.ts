@@ -2,6 +2,10 @@ import type { PaymentDirection, PaymentGroup, PaymentRecord, PaymentSchedule, Pa
 
 import { ActionError } from './formula.actions.js';
 import {
+  ClosedFormulaTradeMutationError,
+  FormulaNotFoundForGuardError,
+} from '../services/guards/closed-formula.guard.js';
+import {
   PaymentRecordAlreadyCanceledError,
   PaymentRecordNotFoundError,
   PaymentRecordService,
@@ -214,12 +218,20 @@ function mapCancelPaymentRecordRequest(
 }
 
 function mapPaymentServiceError(error: unknown): never {
+  if (error instanceof FormulaNotFoundForGuardError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof PaymentScheduleNotFoundError) {
     throw new ActionError(404, error.message);
   }
 
   if (error instanceof PaymentRecordNotFoundError) {
     throw new ActionError(404, error.message);
+  }
+
+  if (error instanceof ClosedFormulaTradeMutationError) {
+    throw new ActionError(409, error.message);
   }
 
   if (error instanceof PaymentRecordAlreadyCanceledError) {

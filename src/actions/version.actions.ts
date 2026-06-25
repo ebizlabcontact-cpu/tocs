@@ -3,6 +3,10 @@ import type { AuditLog, CalculationSnapshot, FormulaVersion } from '@prisma/clie
 
 import { ActionError } from './formula.actions.js';
 import {
+  ClosedFormulaTradeMutationError,
+  FormulaNotFoundForGuardError,
+} from '../services/guards/closed-formula.guard.js';
+import {
   VersionConflictError,
   VersionNotFoundError,
   VersionService,
@@ -207,8 +211,16 @@ function assertCreateVersionRequiredFields(body: CreateVersionRequest): void {
 }
 
 function mapVersionServiceError(error: unknown): never {
+  if (error instanceof FormulaNotFoundForGuardError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof VersionNotFoundError) {
     throw new ActionError(404, error.message);
+  }
+
+  if (error instanceof ClosedFormulaTradeMutationError) {
+    throw new ActionError(409, error.message);
   }
 
   if (error instanceof VersionConflictError) {
