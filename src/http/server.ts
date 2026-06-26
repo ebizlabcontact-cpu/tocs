@@ -9,6 +9,7 @@ import { registerHealthRoutes } from './routes/health.routes.js';
 import { registerInvoiceRoutes } from './routes/invoice.routes.js';
 import { registerPaymentRoutes } from './routes/payment.routes.js';
 import { registerSettlementRoutes } from './routes/settlement.routes.js';
+import { registerVersionRoutes } from './routes/version.routes.js';
 
 export async function createServer() {
   const app = Fastify();
@@ -18,6 +19,7 @@ export async function createServer() {
   await registerCloseRoutes(app);
   await registerDashboardRoutes(app);
   await registerInvoiceRoutes(app);
+  await registerVersionRoutes(app);
   await registerSettlementRoutes(app);
   return app;
 }
