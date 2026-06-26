@@ -42,6 +42,17 @@ export interface FormulaConfirmedKpiResponse {
   payment_rate: string | null;
 }
 
+export interface FormulaReceivablePayableResponse {
+  scheduled_revenue: string;
+  confirmed_revenue: string;
+  receivable: string;
+  receive_rate: string | null;
+  scheduled_payment: string;
+  confirmed_payment: string;
+  payable: string;
+  payment_rate: string | null;
+}
+
 export interface FormulaProfitEngineResponse {
   formula_id: string;
   formula_no: string;
@@ -163,6 +174,21 @@ function toFormulaConfirmedKpiResponse(kpi: FormulaConfirmedKpi): FormulaConfirm
   };
 }
 
+function toFormulaReceivablePayableResponse(
+  kpi: FormulaConfirmedKpiResponse,
+): FormulaReceivablePayableResponse {
+  return {
+    scheduled_revenue: kpi.scheduled_revenue,
+    confirmed_revenue: kpi.confirmed_revenue,
+    receivable: kpi.receivable,
+    receive_rate: kpi.receive_rate,
+    scheduled_payment: kpi.scheduled_payment,
+    confirmed_payment: kpi.confirmed_payment,
+    payable: kpi.payable,
+    payment_rate: kpi.payment_rate,
+  };
+}
+
 function toFormulaProfitEngineResponse(
   profit: FormulaProfitEngine,
 ): FormulaProfitEngineResponse {
@@ -242,6 +268,13 @@ export class DashboardActions {
     }
   }
 
+  async getFormulaReceivablePayable(
+    formulaId: string,
+  ): Promise<FormulaReceivablePayableResponse> {
+    const kpi = await this.getFormulaConfirmedKpi(formulaId);
+    return toFormulaReceivablePayableResponse(kpi);
+  }
+
   async listFormulaConfirmedKpi(
     query: DashboardListRequest = {},
   ): Promise<DashboardListResponse<FormulaConfirmedKpiResponse>> {
@@ -300,6 +333,12 @@ export async function getFormulaConfirmedKpi(
   formulaId: string,
 ): Promise<FormulaConfirmedKpiResponse> {
   return dashboardActions.getFormulaConfirmedKpi(formulaId);
+}
+
+export async function getFormulaReceivablePayable(
+  formulaId: string,
+): Promise<FormulaReceivablePayableResponse> {
+  return dashboardActions.getFormulaReceivablePayable(formulaId);
 }
 
 export async function listFormulaConfirmedKpi(

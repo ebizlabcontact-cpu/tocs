@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   getFormulaConfirmedKpi,
   getFormulaProfitEngine,
+  getFormulaReceivablePayable,
   listParticipantConfirmedKpi,
   listUnmatchedPayments,
   type DashboardListRequest,
@@ -40,6 +41,19 @@ function parseDashboardListQuery(query: Record<string, unknown>): DashboardListR
 }
 
 export async function registerDashboardRoutes(app: FastifyInstance): Promise<void> {
+  app.get<{ Params: { formulaId: string } }>(
+    '/api/v1/formulas/:formulaId/receivable-payable',
+    async (request, reply) => {
+      const result = await runAction(reply, () =>
+        getFormulaReceivablePayable(request.params.formulaId),
+      );
+
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
+
   app.get<{ Params: { formulaId: string } }>(
     '/api/v1/formulas/:formulaId/kpi/confirmed',
     async (request, reply) => {
