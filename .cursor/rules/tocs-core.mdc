@@ -331,7 +331,8 @@ Current phase:
 * Dashboard/KPI MVP complete
 * Settlement API Backend + HTTP slice complete
 * Company Domain MVP complete
-* Remaining Core MVP gaps: Participant, Logistics, Formula PATCH, Formula Cancel
+* Participant Domain MVP complete
+* Remaining Core MVP gaps: Logistics, Formula PATCH, Formula Cancel
 
 Allowed:
 
