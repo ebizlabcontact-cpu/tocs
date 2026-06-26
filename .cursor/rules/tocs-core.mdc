@@ -330,8 +330,8 @@ Current phase:
 * Closed Settlement Guard MVP complete
 * Dashboard/KPI MVP complete
 * Settlement API Backend + HTTP slice complete
-* Action-backed HTTP Routes mostly complete
-* Remaining Core MVP gaps: Company, Participant, Logistics, Formula PATCH, Formula Cancel
+* Company Domain MVP complete
+* Remaining Core MVP gaps: Participant, Logistics, Formula PATCH, Formula Cancel
 
 Allowed:
 
