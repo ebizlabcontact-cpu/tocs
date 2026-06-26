@@ -116,6 +116,19 @@ export class VersionService {
     return version;
   }
 
+  async getVersionByFormulaIdAndVersionNo(formulaId: string, versionNo: number) {
+    const version = await this.versionRepository.findVersionByFormulaIdAndVersionNo(
+      formulaId,
+      versionNo,
+    );
+
+    if (!version) {
+      throw new VersionNotFoundError(`${formulaId}:${versionNo}`);
+    }
+
+    return version;
+  }
+
   async listVersionsByFormulaId(formulaId: string) {
     return this.versionRepository.listVersionsByFormulaId(formulaId);
   }

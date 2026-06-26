@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   createVersion,
   getLatestVersionByFormulaId,
+  getVersionByFormulaIdAndVersionNo,
   getVersionById,
   listVersionsByFormulaId,
   type CreateVersionRequest,
@@ -33,6 +34,22 @@ export async function registerVersionRoutes(app: FastifyInstance): Promise<void>
     async (request, reply) => {
       const result = await runAction(reply, () =>
         getLatestVersionByFormulaId(request.params.formulaId),
+      );
+
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
+
+  app.get<{ Params: { formulaId: string; versionNo: string } }>(
+    '/api/v1/formulas/:formulaId/versions/:versionNo',
+    async (request, reply) => {
+      const result = await runAction(reply, () =>
+        getVersionByFormulaIdAndVersionNo(
+          request.params.formulaId,
+          Number(request.params.versionNo),
+        ),
       );
 
       if (result !== undefined) {

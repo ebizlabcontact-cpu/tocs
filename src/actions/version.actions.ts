@@ -253,6 +253,18 @@ export class VersionActions {
     }
   }
 
+  async getVersionByFormulaIdAndVersionNo(
+    formulaId: string,
+    versionNo: number,
+  ): Promise<VersionResponse> {
+    try {
+      const version = await this.service.getVersionByFormulaIdAndVersionNo(formulaId, versionNo);
+      return toVersionResponse(version);
+    } catch (error) {
+      mapVersionServiceError(error);
+    }
+  }
+
   async listVersionsByFormulaId(formulaId: string): Promise<VersionListResponse> {
     const versions = await this.service.listVersionsByFormulaId(formulaId);
 
@@ -279,6 +291,13 @@ export async function createVersion(body: CreateVersionRequest): Promise<CreateV
 
 export async function getVersionById(id: string): Promise<VersionResponse> {
   return versionActions.getVersionById(id);
+}
+
+export async function getVersionByFormulaIdAndVersionNo(
+  formulaId: string,
+  versionNo: number,
+): Promise<VersionResponse> {
+  return versionActions.getVersionByFormulaIdAndVersionNo(formulaId, versionNo);
 }
 
 export async function listVersionsByFormulaId(formulaId: string): Promise<VersionListResponse> {

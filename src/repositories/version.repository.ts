@@ -29,6 +29,20 @@ export class FormulaVersionRepository {
     return prisma.formulaVersion.findUnique({ where: { id } });
   }
 
+  async findVersionByFormulaIdAndVersionNo(
+    formulaId: string,
+    versionNo: number,
+  ): Promise<FormulaVersion | null> {
+    return prisma.formulaVersion.findUnique({
+      where: {
+        formulaId_versionNo: {
+          formulaId,
+          versionNo,
+        },
+      },
+    });
+  }
+
   async listVersionsByFormulaId(formulaId: string): Promise<FormulaVersion[]> {
     return prisma.formulaVersion.findMany({
       where: { formulaId },
