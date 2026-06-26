@@ -11,8 +11,11 @@ import {
   participantRepository,
 } from '../repositories/participant.repository.js';
 import type { ParticipantCreateData } from '../repositories/participant.repository.js';
+import {
+  FormulaRepository,
+  formulaRepository,
+} from '../repositories/formula.repository.js';
 import { CompanyService, companyService } from './company.service.js';
-import { FormulaService, formulaService } from './formula.service.js';
 import { assertNotClosedForTradeMutation } from './guards/closed-formula.guard.js';
 import {
   VersionService,
@@ -93,16 +96,22 @@ export interface CreateParticipantResult {
 
 export class ParticipantService {
   constructor(
-    private readonly repository: ParticipantRepository = participantRepository,
-    private readonly versionService: VersionService = defaultVersionService,
-    private readonly formulaService: FormulaService = formulaService,
-    private readonly companyService: CompanyService = companyService,
+    private readonly repository: ParticipantRepository,
+    private readonly versionService: VersionService,
+    private readonly formulaRepository: FormulaRepository,
+    private readonly companyService: CompanyService,
   ) {}
 
   async createParticipant(input: CreateParticipantInput): Promise<CreateParticipantResult> {
     await assertNotClosedForTradeMutation(input.formulaId);
 
-    const formula = await this.formulaService.findById(input.formulaId);
+    const formula = await this.formulaRepository.findById(input.formulaId);
+
+    if (!formula) {
+      const { FormulaNotFoundError } = await import('./formula.service.js');
+      throw new FormulaNotFoundError(`Formula not found: ${input.formulaId}`);
+    }
+
     await this.companyService.getCompanyById(input.companyId);
 
     const existingSequence = await this.repository.findParticipantByFormulaAndSequence(
@@ -185,4 +194,9 @@ export class ParticipantService {
   }
 }
 
-export const participantService = new ParticipantService();
+export const participantService = new ParticipantService(
+  participantRepository,
+  defaultVersionService,
+  formulaRepository,
+  companyService,
+);
