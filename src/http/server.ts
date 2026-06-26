@@ -4,12 +4,14 @@ import Fastify from 'fastify';
 
 import { registerFormulaRoutes } from './routes/formula.routes.js';
 import { registerHealthRoutes } from './routes/health.routes.js';
+import { registerPaymentRoutes } from './routes/payment.routes.js';
 import { registerSettlementRoutes } from './routes/settlement.routes.js';
 
 export async function createServer() {
   const app = Fastify();
   await registerHealthRoutes(app);
   await registerFormulaRoutes(app);
+  await registerPaymentRoutes(app);
   await registerSettlementRoutes(app);
   return app;
 }
