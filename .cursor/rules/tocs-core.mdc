@@ -330,7 +330,8 @@ Current phase:
 * Closed Settlement Guard MVP complete
 * Dashboard/KPI MVP complete
 * Settlement API Backend + HTTP slice complete
-* HTTP Route Layer implementation continuing
+* Action-backed HTTP Routes mostly complete
+* Remaining Core MVP gaps: Company, Participant, Logistics, Formula PATCH, Formula Cancel
 
 Allowed:
 
@@ -343,6 +344,10 @@ Allowed:
 * Dashboard
 * Settlement
 * HTTP Routes
+* Company
+* Participant
+* Logistics
+* Cancel
 
 Not Allowed until explicitly requested:
 
