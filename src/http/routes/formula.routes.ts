@@ -5,6 +5,7 @@ import type { TradeStatus } from '@prisma/client';
 import { getFormulaCloseStatus } from '../../actions/close.actions.js';
 import {
   createFormula,
+  getFormulaByFormulaNo,
   getFormulaById,
   listFormulas,
   type CreateFormulaRequest,
@@ -65,6 +66,19 @@ export async function registerFormulaRoutes(app: FastifyInstance): Promise<void>
       return reply.send(result);
     }
   });
+
+  app.get<{ Params: { formulaNo: string } }>(
+    '/api/v1/formulas/by-formula-no/:formulaNo',
+    async (request, reply) => {
+      const result = await runAction(reply, () =>
+        getFormulaByFormulaNo(request.params.formulaNo),
+      );
+
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
 
   app.get<{ Params: { formulaId: string } }>(
     '/api/v1/formulas/:formulaId/status',
