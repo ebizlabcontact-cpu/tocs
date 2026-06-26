@@ -3,8 +3,10 @@ import { pathToFileURL } from 'node:url';
 import Fastify from 'fastify';
 
 import { registerCloseRoutes } from './routes/close.routes.js';
+import { registerDashboardRoutes } from './routes/dashboard.routes.js';
 import { registerFormulaRoutes } from './routes/formula.routes.js';
 import { registerHealthRoutes } from './routes/health.routes.js';
+import { registerInvoiceRoutes } from './routes/invoice.routes.js';
 import { registerPaymentRoutes } from './routes/payment.routes.js';
 import { registerSettlementRoutes } from './routes/settlement.routes.js';
 
@@ -14,6 +16,8 @@ export async function createServer() {
   await registerFormulaRoutes(app);
   await registerPaymentRoutes(app);
   await registerCloseRoutes(app);
+  await registerDashboardRoutes(app);
+  await registerInvoiceRoutes(app);
   await registerSettlementRoutes(app);
   return app;
 }
