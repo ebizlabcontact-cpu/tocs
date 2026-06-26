@@ -8,6 +8,7 @@ import { registerDashboardRoutes } from './routes/dashboard.routes.js';
 import { registerFormulaRoutes } from './routes/formula.routes.js';
 import { registerHealthRoutes } from './routes/health.routes.js';
 import { registerInvoiceRoutes } from './routes/invoice.routes.js';
+import { registerParticipantRoutes } from './routes/participant.routes.js';
 import { registerPaymentRoutes } from './routes/payment.routes.js';
 import { registerSettlementRoutes } from './routes/settlement.routes.js';
 import { registerShareRoutes } from './routes/share.routes.js';
@@ -25,6 +26,7 @@ export async function createServer() {
   await registerShareRoutes(app);
   await registerSettlementRoutes(app);
   await registerCompanyRoutes(app);
+  await registerParticipantRoutes(app);
   return app;
 }
 
