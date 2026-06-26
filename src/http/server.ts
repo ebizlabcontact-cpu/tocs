@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 import Fastify from 'fastify';
 
 import { registerCloseRoutes } from './routes/close.routes.js';
+import { registerCompanyRoutes } from './routes/company.routes.js';
 import { registerDashboardRoutes } from './routes/dashboard.routes.js';
 import { registerFormulaRoutes } from './routes/formula.routes.js';
 import { registerHealthRoutes } from './routes/health.routes.js';
@@ -23,6 +24,7 @@ export async function createServer() {
   await registerVersionRoutes(app);
   await registerShareRoutes(app);
   await registerSettlementRoutes(app);
+  await registerCompanyRoutes(app);
   return app;
 }
 
