@@ -329,8 +329,8 @@ Current phase:
 * Close Domain MVP complete
 * Closed Settlement Guard MVP complete
 * Dashboard/KPI MVP complete
-* Settlement API Backend Layer complete
-* HTTP Route Layer implementation starting
+* Settlement API Backend + HTTP slice complete
+* HTTP Route Layer implementation continuing
 
 Allowed:
 

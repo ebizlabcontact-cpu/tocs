@@ -17,65 +17,83 @@
 API가 책임지는 로직이 단순하거나(DB 제약을 그대로 전달), 이번 검토로
 정책이 명확히 확정된 영역만 포함한다.
 
+### HTTP Route Layer 현황
+
+| 구분 | 상태 |
+|---|---|
+| HTTP Foundation (Fastify, health, handle-action) | 완료 |
+| Settlement Backend Action Layer | 완료 |
+| Settlement HTTP Route 2개 | 완료 |
+| **전체 HTTP Route Layer** | **미완료** |
+
+완료된 Settlement HTTP Route:
+
+- `POST /api/v1/formulas/{id}/settlement/payment-schedules`
+- `POST /api/v1/formulas/{id}/settlement/notes`
+
+Action Layer는 존재하나 HTTP Route가 아직 없는 domain(Formula, Payment,
+Invoice, Version, Share, Close, Dashboard 등)은 아래 MVP Core 항목의
+*(HTTP Route 미구현)* 표기를 참조한다.
+
 ### Formula API
-- [x] 1.1 Formula 생성
-- [x] 1.2 Formula 단건 조회
-- [x] 1.3 Formula 목록 조회
-- [x] 1.4 Formula 수정 (메타데이터만: content, note, unit)
-- [x] 1.5 Formula 상태 조회
+- [x] 1.1 Formula 생성 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 1.2 Formula 단건 조회 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 1.3 Formula 목록 조회 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [ ] 1.4 Formula 수정 (메타데이터만: content, note, unit) — **Action Layer 미구현** *(확인 필요)*
+- [x] 1.5 Formula 상태 조회 — Backend Action Layer 완료 *(HTTP Route 미구현)*
 
 ### Company / Participant API
-- [x] 2.1 회사 등록
-- [x] 2.2 회사 조회/목록
-- [x] 2.3 Formula 참여자 추가
+- [ ] 2.1 회사 등록 — **Action Layer 미구현** *(확인 필요)*
+- [ ] 2.2 회사 조회/목록 — **Action Layer 미구현** *(확인 필요)*
+- [ ] 2.3 Formula 참여자 추가 — **Action Layer 미구현** *(확인 필요)*
 - [ ] 2.4 참여자 순서 관리 -> V2 보류
 
 ### Payment API
-- [x] 3.1 입출금 예정 등록
-- [x] 3.2 실제 입출금 기록
-- [x] 3.3 완료취소 (재취소 시도는 409로 거부, MVP 확정)
-- [x] 3.4 미수/미지급 조회
+- [x] 3.1 입출금 예정 등록 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 3.2 실제 입출금 기록 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 3.3 완료취소 (재취소 시도는 409로 거부, MVP 확정) — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 3.4 미수/미지급 조회 — Backend Action Layer 완료 *(HTTP Route 미구현)*
 
 ### Invoice API
-- [x] 4.1 계산서 등록
-- [x] 4.2 계산서 상태 조회
-- [x] 4.3 formulas.invoice_status 동기화 (API 필수 책임)
+- [x] 4.1 계산서 등록 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 4.2 계산서 상태 조회 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 4.3 formulas.invoice_status 동기화 (API 필수 책임) — Backend Action Layer 완료 *(HTTP Route 미구현)*
 
 ### Logistics API
-- [x] 5.1 운송 정보 등록
-- [x] 5.2 운송비 등록 (실제 지급은 3.2로 별도 기록)
-- [x] 5.3 운송 상태 변경
+- [ ] 5.1 운송 정보 등록 — **Action Layer 미구현** *(확인 필요)*
+- [ ] 5.2 운송비 등록 (실제 지급은 3.2로 별도 기록) — **Action Layer 미구현** *(확인 필요)*
+- [ ] 5.3 운송 상태 변경 — **Action Layer 미구현** *(확인 필요)*
 
 ### Share API
-- [x] 6.1 정액 Share 등록
-- [x] 6.2 정률 Share 등록
-- [x] 6.3 Share 변경 시 Snapshot 재계산 (항상 새 Version 생성으로 확정)
+- [x] 6.1 정액 Share 등록 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 6.2 정률 Share 등록 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 6.3 Share 변경 시 Snapshot 재계산 (항상 새 Version 생성으로 확정) — Backend Action Layer 완료 *(HTTP Route 미구현)*
 
 ### Version API
-- [x] 7.1 새 버전 생성 (재시도는 MVP: 1회 재시도 + 즉시 실패 메시지로 최소 구현)
-- [x] 7.2 버전 목록
-- [x] 7.3 버전 상세
-- [x] 7.4 최신 snapshot 조회
+- [x] 7.1 새 버전 생성 (재시도는 MVP: 1회 재시도 + 즉시 실패 메시지로 최소 구현) — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 7.2 버전 목록 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 7.3 버전 상세 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 7.4 최신 snapshot 조회 — Backend Action Layer 완료 *(HTTP Route 미구현)*
 
 ### Cancel / Close API
-- [x] 8.1 Formula 취소 (전체 취소만, 부분 취소는 V2 보류)
-- [x] 8.2 Formula 종결
+- [ ] 8.1 Formula 취소 (전체 취소만, 부분 취소는 V2 보류) — **Action Layer 미구현** *(확인 필요)*
+- [x] 8.2 Formula 종결 — Backend Action Layer 완료 *(HTTP Route 미구현)*
 - [x] 8.3 취소/종결 차이 문서화
 - [ ] 8.4 Cancel Undo / Close Undo -> MVP 금지 (엔드포인트 자체를 제공하지 않음)
 - [x] 8.5 Closed Formula Settlement Policy (DL-033)
 
 ### Closed Settlement API (DL-033)
-- [x] 3.2 추가 payment record — Closed Formula에서 허용
-- [x] 3.3 payment record cancel + 재입금 — Closed Formula에서 허용
-- [x] Settlement 전용 payment-schedules (`POST /api/v1/formulas/{id}/settlement/payment-schedules`) — Backend Action Layer 완료 *(HTTP Route 미구현)*
-- [x] Settlement 정산 메모 (`POST /api/v1/formulas/{id}/settlement/notes` → audit_logs) — Backend Action Layer 완료 *(HTTP Route 미구현)*
-- [x] 4.3 invoice sync — Closed Formula에서 AMOUNT_MATCHED일 때만 formula 컬럼 반영
+- [x] 3.2 추가 payment record — Closed Formula에서 허용 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 3.3 payment record cancel + 재입금 — Closed Formula에서 허용 — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] Settlement 전용 payment-schedules (`POST /api/v1/formulas/{id}/settlement/payment-schedules`) — Backend Action Layer 완료, **HTTP Route 완료**
+- [x] Settlement 정산 메모 (`POST /api/v1/formulas/{id}/settlement/notes` → audit_logs) — Backend Action Layer 완료, **HTTP Route 완료**
+- [x] 4.3 invoice sync — Closed Formula에서 AMOUNT_MATCHED일 때만 formula 컬럼 반영 — Backend Action Layer 완료 *(HTTP Route 미구현)*
 
 ### Dashboard / KPI API
-- [x] 9.1 Confirmed KPI 조회 (우선순위 1)
-- [x] 9.3 Receivable/Payable 조회 (우선순위 1)
-- [x] 9.2 Expected KPI 조회 (우선순위 2, Version API 완료 후)
-- [x] 9.4 Participant KPI 조회 (우선순위 3, 가장 복잡)
+- [x] 9.1 Confirmed KPI 조회 (우선순위 1) — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 9.3 Receivable/Payable 조회 (우선순위 1) — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 9.2 Expected KPI 조회 (우선순위 2, Version API 완료 후) — Backend Action Layer 완료 *(HTTP Route 미구현)*
+- [x] 9.4 Participant KPI 조회 (우선순위 3, 가장 복잡) — Backend Action Layer 완료 *(HTTP Route 미구현)*
 
 ---
 
