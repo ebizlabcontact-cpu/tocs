@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 
 import {
   createInvoice,
+  getFormulaInvoiceStatus,
   getInvoiceById,
   listInvoicesByFormulaId,
   updateInvoiceStatus,
@@ -23,6 +24,19 @@ export async function registerInvoiceRoutes(app: FastifyInstance): Promise<void>
       return reply.status(201).send(result);
     }
   });
+
+  app.get<{ Params: { formulaId: string } }>(
+    '/api/v1/formulas/:formulaId/invoices/status',
+    async (request, reply) => {
+      const result = await runAction(reply, () =>
+        getFormulaInvoiceStatus(request.params.formulaId),
+      );
+
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
 
   app.get<{ Params: { formulaId: string } }>(
     '/api/v1/formulas/:formulaId/invoices',

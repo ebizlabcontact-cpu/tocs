@@ -10,7 +10,10 @@ import {
   InvoiceRepository,
   invoiceRepository,
 } from '../repositories/invoice.repository.js';
-import type { InvoiceCreateData } from '../repositories/invoice.repository.js';
+import type {
+  FormulaInvoiceStatusRow,
+  InvoiceCreateData,
+} from '../repositories/invoice.repository.js';
 import { getFormulaClosedState } from './guards/closed-formula.guard.js';
 
 export class InvoiceNotFoundError extends Error {
@@ -27,7 +30,22 @@ export class InvoiceSyncError extends Error {
   }
 }
 
+export class InvoiceStatusNotFoundError extends Error {
+  constructor(formulaId: string) {
+    super(`Formula invoice status not found: ${formulaId}`);
+    this.name = 'InvoiceStatusNotFoundError';
+  }
+}
+
 export type CreateInvoiceInput = InvoiceCreateData;
+
+export interface FormulaInvoiceStatus {
+  activeCount: number;
+  matchedCount: number;
+  mismatchedCount: number;
+  inProgressCount: number;
+  derivedInvoiceStatus: InvoiceStatus;
+}
 
 export interface SyncFormulaInvoiceStatusResult {
   formulaId: string;
@@ -37,6 +55,20 @@ export interface SyncFormulaInvoiceStatusResult {
 
 interface DerivedInvoiceStatusRow {
   derived_invoice_status: InvoiceStatus;
+}
+
+function toCount(value: FormulaInvoiceStatusRow['active_count']): number {
+  return typeof value === 'bigint' ? Number(value) : value;
+}
+
+function toFormulaInvoiceStatus(row: FormulaInvoiceStatusRow): FormulaInvoiceStatus {
+  return {
+    activeCount: toCount(row.active_count),
+    matchedCount: toCount(row.matched_count),
+    mismatchedCount: toCount(row.mismatched_count),
+    inProgressCount: toCount(row.in_progress_count),
+    derivedInvoiceStatus: row.derived_invoice_status,
+  };
 }
 
 export class InvoiceService {
@@ -76,6 +108,16 @@ export class InvoiceService {
     const invoice = await this.repository.updateInvoiceStatus({ invoiceId, status });
     await this.syncFormulaInvoiceStatus(invoice.formulaId);
     return invoice;
+  }
+
+  async getFormulaInvoiceStatus(formulaId: string): Promise<FormulaInvoiceStatus> {
+    const row = await this.repository.getFormulaInvoiceStatus(formulaId);
+
+    if (!row) {
+      throw new InvoiceStatusNotFoundError(formulaId);
+    }
+
+    return toFormulaInvoiceStatus(row);
   }
 
   async syncFormulaInvoiceStatus(formulaId: string): Promise<SyncFormulaInvoiceStatusResult> {

@@ -4,10 +4,11 @@ import { ActionError } from './formula.actions.js';
 import {
   InvoiceNotFoundError,
   InvoiceService,
+  InvoiceStatusNotFoundError,
   InvoiceSyncError,
   invoiceService,
 } from '../services/invoice.service.js';
-import type { CreateInvoiceInput } from '../services/invoice.service.js';
+import type { CreateInvoiceInput, FormulaInvoiceStatus } from '../services/invoice.service.js';
 
 export interface CreateInvoiceRequest {
   issuer_company_id: string;
@@ -58,6 +59,14 @@ export interface SyncFormulaInvoiceStatusResponse {
   formula_no: string;
 }
 
+export interface FormulaInvoiceStatusResponse {
+  active_count: number;
+  matched_count: number;
+  mismatched_count: number;
+  in_progress_count: number;
+  derived_invoice_status: InvoiceStatus;
+}
+
 function decimalToString(value: { toString(): string }): string {
   return value.toString();
 }
@@ -91,6 +100,18 @@ function toInvoiceResponse(invoice: Invoice): InvoiceResponse {
     memo: invoice.memo,
     created_at: invoice.createdAt.toISOString(),
     updated_at: invoice.updatedAt.toISOString(),
+  };
+}
+
+function toFormulaInvoiceStatusResponse(
+  status: FormulaInvoiceStatus,
+): FormulaInvoiceStatusResponse {
+  return {
+    active_count: status.activeCount,
+    matched_count: status.matchedCount,
+    mismatched_count: status.mismatchedCount,
+    in_progress_count: status.inProgressCount,
+    derived_invoice_status: status.derivedInvoiceStatus,
   };
 }
 
@@ -146,6 +167,10 @@ function mapInvoiceServiceError(error: unknown): never {
     throw new ActionError(404, error.message);
   }
 
+  if (error instanceof InvoiceStatusNotFoundError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof InvoiceSyncError) {
     throw new ActionError(500, error.message);
   }
@@ -185,6 +210,15 @@ export class InvoiceActions {
     return {
       items: invoices.map(toInvoiceResponse),
     };
+  }
+
+  async getFormulaInvoiceStatus(formulaId: string): Promise<FormulaInvoiceStatusResponse> {
+    try {
+      const status = await this.service.getFormulaInvoiceStatus(formulaId);
+      return toFormulaInvoiceStatusResponse(status);
+    } catch (error) {
+      mapInvoiceServiceError(error);
+    }
   }
 
   async listInvoicesByParticipantId(participantId: string): Promise<InvoiceListResponse> {
@@ -239,6 +273,12 @@ export async function getInvoiceById(id: string): Promise<InvoiceResponse> {
 
 export async function listInvoicesByFormulaId(formulaId: string): Promise<InvoiceListResponse> {
   return invoiceActions.listInvoicesByFormulaId(formulaId);
+}
+
+export async function getFormulaInvoiceStatus(
+  formulaId: string,
+): Promise<FormulaInvoiceStatusResponse> {
+  return invoiceActions.getFormulaInvoiceStatus(formulaId);
 }
 
 export async function listInvoicesByParticipantId(
