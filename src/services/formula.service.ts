@@ -5,7 +5,9 @@ import type {
   FormulaCreateData,
   FormulaListParams,
   FormulaListResult,
+  FormulaPatchData,
 } from '../repositories/formula.repository.js';
+import { assertNotClosedForTradeMutation } from './guards/closed-formula.guard.js';
 
 export class FormulaNotFoundError extends Error {
   constructor(message = 'Formula not found') {
@@ -39,6 +41,13 @@ export interface ListFormulasInput {
   createdBefore?: Date;
   page?: number;
   pageSize?: number;
+}
+
+export interface PatchFormulaInput {
+  formulaId: string;
+  content?: string | null;
+  note?: string | null;
+  unit?: string | null;
 }
 
 export class FormulaService {
@@ -103,6 +112,22 @@ export class FormulaService {
     if (input.pageSize !== undefined) params.pageSize = input.pageSize;
 
     return this.repository.list(params);
+  }
+
+  async patchFormula(input: PatchFormulaInput) {
+    await assertNotClosedForTradeMutation(input.formulaId);
+
+    await this.findById(input.formulaId);
+
+    const data: FormulaPatchData = {
+      updatedAt: new Date(),
+    };
+
+    if (input.content !== undefined) data.content = input.content;
+    if (input.note !== undefined) data.note = input.note;
+    if (input.unit !== undefined) data.unit = input.unit;
+
+    return this.repository.updateFormulaMetadata(input.formulaId, data);
   }
 }
 

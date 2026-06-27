@@ -18,6 +18,12 @@ export type FormulaCreateData = Omit<
   | 'statusLogs'
 >;
 
+/** Formula metadata PATCH — content/note/unit + updatedAt only */
+export type FormulaPatchData = Pick<
+  Prisma.FormulaUncheckedUpdateInput,
+  'content' | 'note' | 'unit' | 'updatedAt'
+>;
+
 export interface FormulaListParams {
   tradeStatus?: TradeStatus;
   isClosed?: boolean;
@@ -45,6 +51,10 @@ export class FormulaRepository {
 
   async findByFormulaNo(formulaNo: string): Promise<Formula | null> {
     return prisma.formula.findUnique({ where: { formulaNo } });
+  }
+
+  async updateFormulaMetadata(id: string, data: FormulaPatchData): Promise<Formula> {
+    return prisma.formula.update({ where: { id }, data });
   }
 
   async list(params: FormulaListParams = {}): Promise<FormulaListResult> {
