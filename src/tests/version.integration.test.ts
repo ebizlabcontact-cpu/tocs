@@ -523,7 +523,9 @@ test('10. createVersion throws VersionConflictError after retry exhaustion', {
     },
   );
 
-  const conflictActions = new VersionActions(conflictService);
+  const conflictActions = new VersionActions(
+    new VersionService(new StaleMaxVersionRepository([0, 0])),
+  );
 
   await assert.rejects(
     () =>
