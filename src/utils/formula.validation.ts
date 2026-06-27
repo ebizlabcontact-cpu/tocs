@@ -1,9 +1,11 @@
 import { TradeType } from '@prisma/client';
 
 import type {
+  CancelFormulaInputPayload,
   CreateFormulaInput,
   CreateFormulaInputPayload,
   PatchFormulaInputPayload,
+  ValidatedCancelFormulaInput,
   ValidatedPatchFormulaInput,
 } from '../types/formula.types.js';
 import { DEFAULT_BASE_CURRENCY } from '../types/formula.types.js';
@@ -19,6 +21,7 @@ export class ValidationError extends Error {
 }
 
 const PATCH_ALLOWED_KEYS = new Set(['formulaId', 'content', 'note', 'unit']);
+const CANCEL_ALLOWED_KEYS = new Set(['formulaId', 'cancelReason', 'changedBy']);
 const MAX_UNIT_LENGTH = 50;
 
 function assertRequiredId(value: string | undefined | null, field: string): string {
@@ -35,6 +38,32 @@ function assertPatchAllowedKeys(input: PatchFormulaInputPayload): void {
       throw new ValidationError(`${key} is not allowed in patch request`, key);
     }
   }
+}
+
+function assertCancelAllowedKeys(input: CancelFormulaInputPayload): void {
+  for (const key of Object.keys(input)) {
+    if (!CANCEL_ALLOWED_KEYS.has(key)) {
+      throw new ValidationError(`${key} is not allowed in cancel request`, key);
+    }
+  }
+}
+
+function assertRequiredNonEmptyString(value: unknown, field: string): string {
+  if (value === undefined || value === null) {
+    throw new ValidationError(`${field} is required`, field);
+  }
+
+  if (typeof value !== 'string') {
+    throw new ValidationError(`${field} must be a string`, field);
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed === '') {
+    throw new ValidationError(`${field} must not be empty`, field);
+  }
+
+  return trimmed;
 }
 
 function assertOptionalNullableString(
@@ -197,4 +226,16 @@ export function validatePatchFormula(input: PatchFormulaInputPayload): Validated
   }
 
   return validated;
+}
+
+export function validateCancelFormula(
+  input: CancelFormulaInputPayload,
+): ValidatedCancelFormulaInput {
+  assertCancelAllowedKeys(input);
+
+  return {
+    formulaId: assertRequiredId(input.formulaId, 'formulaId'),
+    cancelReason: assertRequiredNonEmptyString(input.cancelReason, 'cancelReason'),
+    changedBy: assertRequiredNonEmptyString(input.changedBy, 'changedBy'),
+  };
 }

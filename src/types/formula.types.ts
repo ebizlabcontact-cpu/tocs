@@ -53,3 +53,17 @@ export interface ValidatedPatchFormulaInput {
   note?: string | null;
   unit?: string | null;
 }
+
+/** Formula Cancel 검증 입력 */
+export interface CancelFormulaInputPayload {
+  formulaId?: string | null;
+  cancelReason?: string | null;
+  changedBy?: string | null;
+}
+
+/** Formula Cancel 검증 통과 출력 */
+export interface ValidatedCancelFormulaInput {
+  formulaId: string;
+  cancelReason: string;
+  changedBy: string;
+}
