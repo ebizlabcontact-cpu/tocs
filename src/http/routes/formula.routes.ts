@@ -4,11 +4,13 @@ import type { TradeStatus } from '@prisma/client';
 
 import { getFormulaCloseStatus } from '../../actions/close.actions.js';
 import {
+  cancelFormula,
   createFormula,
   getFormulaByFormulaNo,
   getFormulaById,
   listFormulas,
   patchFormula,
+  type CancelFormulaRequest,
   type CreateFormulaRequest,
   type ListFormulasQuery,
   type PatchFormulaRequest,
@@ -94,6 +96,19 @@ export async function registerFormulaRoutes(app: FastifyInstance): Promise<void>
       }
     },
   );
+
+  app.post<{
+    Params: { formulaId: string };
+    Body: CancelFormulaRequest;
+  }>('/api/v1/formulas/:formulaId/cancel', async (request, reply) => {
+    const result = await runAction(reply, () =>
+      cancelFormula(request.params.formulaId, request.body),
+    );
+
+    if (result !== undefined) {
+      return reply.send(result);
+    }
+  });
 
   app.get<{ Params: { formulaId: string } }>(
     '/api/v1/formulas/:formulaId',

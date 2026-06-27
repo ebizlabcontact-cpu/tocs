@@ -1,21 +1,26 @@
-import type { Formula, TradeStatus, TradeType } from '@prisma/client';
+import type { AuditLog, Formula, StatusLog, StatusTarget, TradeStatus, TradeType } from '@prisma/client';
 
 import {
+  FormulaAlreadyCanceledError,
   FormulaNotFoundError,
   FormulaService,
   formulaService,
 } from '../services/formula.service.js';
 import type {
+  CancelFormulaInput,
   CreateFormulaInput,
   ListFormulasInput,
   PatchFormulaInput,
 } from '../services/formula.service.js';
 import { ClosedFormulaTradeMutationError } from '../services/guards/closed-formula.guard.js';
 import type {
+  CancelFormulaInputPayload,
   PatchFormulaInputPayload,
+  ValidatedCancelFormulaInput,
   ValidatedPatchFormulaInput,
 } from '../types/formula.types.js';
 import {
+  validateCancelFormula,
   validatePatchFormula,
   ValidationError,
 } from '../utils/formula.validation.js';
@@ -94,6 +99,39 @@ export interface PatchFormulaResponse extends FormulaDetailResponse {
   note: string | null;
 }
 
+export interface CancelFormulaRequest {
+  cancel_reason?: string | null;
+  changed_by?: string | null;
+}
+
+export interface FormulaStatusLogResponse {
+  id: string;
+  formula_id: string;
+  status_target: StatusTarget;
+  prev_status: string | null;
+  new_status: string;
+  changed_by: string | null;
+  change_reason: string | null;
+  created_at: string;
+}
+
+export interface FormulaAuditLogResponse {
+  id: string;
+  table_name: string;
+  record_id: string | null;
+  action: string;
+  changed_by: string | null;
+  old_data: unknown;
+  new_data: unknown;
+  created_at: string;
+}
+
+export interface CancelFormulaResponse {
+  formula: FormulaDetailResponse;
+  status_logs: FormulaStatusLogResponse[];
+  audit_log: FormulaAuditLogResponse;
+}
+
 function decimalToString(value: { toString(): string }): string {
   return value.toString();
 }
@@ -129,6 +167,44 @@ function toPatchFormulaResponse(formula: Formula): PatchFormulaResponse {
     ...toFormulaDetailResponse(formula),
     content: formula.content,
     note: formula.note,
+  };
+}
+
+function toFormulaStatusLogResponse(statusLog: StatusLog): FormulaStatusLogResponse {
+  return {
+    id: statusLog.id,
+    formula_id: statusLog.formulaId,
+    status_target: statusLog.statusTarget,
+    prev_status: statusLog.prevStatus,
+    new_status: statusLog.newStatus,
+    changed_by: statusLog.changedBy,
+    change_reason: statusLog.changeReason,
+    created_at: statusLog.createdAt.toISOString(),
+  };
+}
+
+function toFormulaAuditLogResponse(auditLog: AuditLog): FormulaAuditLogResponse {
+  return {
+    id: auditLog.id,
+    table_name: auditLog.tableName,
+    record_id: auditLog.recordId,
+    action: auditLog.action,
+    changed_by: auditLog.changedBy,
+    old_data: auditLog.oldData,
+    new_data: auditLog.newData,
+    created_at: auditLog.createdAt.toISOString(),
+  };
+}
+
+function toCancelFormulaResponse(result: {
+  formula: Formula;
+  statusLogs: StatusLog[];
+  auditLog: AuditLog;
+}): CancelFormulaResponse {
+  return {
+    formula: toFormulaDetailResponse(result.formula),
+    status_logs: result.statusLogs.map(toFormulaStatusLogResponse),
+    audit_log: toFormulaAuditLogResponse(result.auditLog),
   };
 }
 
@@ -228,6 +304,33 @@ function mapValidatedToPatchServiceInput(
   return input;
 }
 
+function mapCancelFormulaPayload(
+  formulaId: string,
+  body: CancelFormulaRequest,
+): CancelFormulaInputPayload {
+  const payload: CancelFormulaInputPayload = { formulaId };
+
+  if (body.cancel_reason !== undefined) {
+    payload.cancelReason = body.cancel_reason;
+  }
+
+  if (body.changed_by !== undefined) {
+    payload.changedBy = body.changed_by;
+  }
+
+  return payload;
+}
+
+function mapValidatedToCancelServiceInput(
+  validated: ValidatedCancelFormulaInput,
+): CancelFormulaInput {
+  return {
+    formulaId: validated.formulaId,
+    cancelReason: validated.cancelReason,
+    changedBy: validated.changedBy,
+  };
+}
+
 function mapFormulaPatchActionError(error: unknown): never {
   if (error instanceof ValidationError) {
     throw new ActionError(400, error.message);
@@ -238,6 +341,26 @@ function mapFormulaPatchActionError(error: unknown): never {
   }
 
   if (error instanceof ClosedFormulaTradeMutationError) {
+    throw new ActionError(409, error.message);
+  }
+
+  throw error;
+}
+
+function mapFormulaCancelActionError(error: unknown): never {
+  if (error instanceof ValidationError) {
+    throw new ActionError(400, error.message);
+  }
+
+  if (error instanceof FormulaNotFoundError) {
+    throw new ActionError(404, error.message);
+  }
+
+  if (error instanceof ClosedFormulaTradeMutationError) {
+    throw new ActionError(409, error.message);
+  }
+
+  if (error instanceof FormulaAlreadyCanceledError) {
     throw new ActionError(409, error.message);
   }
 
@@ -295,6 +418,19 @@ export class FormulaActions {
       mapFormulaPatchActionError(error);
     }
   }
+
+  async cancelFormula(
+    formulaId: string,
+    body: CancelFormulaRequest,
+  ): Promise<CancelFormulaResponse> {
+    try {
+      const validated = validateCancelFormula(mapCancelFormulaPayload(formulaId, body));
+      const result = await this.service.cancelFormula(mapValidatedToCancelServiceInput(validated));
+      return toCancelFormulaResponse(result);
+    } catch (error) {
+      mapFormulaCancelActionError(error);
+    }
+  }
 }
 
 export const formulaActions = new FormulaActions();
@@ -320,4 +456,11 @@ export async function patchFormula(
   body: PatchFormulaRequest,
 ): Promise<PatchFormulaResponse> {
   return formulaActions.patchFormula(formulaId, body);
+}
+
+export async function cancelFormula(
+  formulaId: string,
+  body: CancelFormulaRequest,
+): Promise<CancelFormulaResponse> {
+  return formulaActions.cancelFormula(formulaId, body);
 }
