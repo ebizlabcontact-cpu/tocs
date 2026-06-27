@@ -1,6 +1,11 @@
 import { TradeType } from '@prisma/client';
 
-import type { CreateFormulaInput, CreateFormulaInputPayload } from '../types/formula.types.js';
+import type {
+  CreateFormulaInput,
+  CreateFormulaInputPayload,
+  PatchFormulaInputPayload,
+  ValidatedPatchFormulaInput,
+} from '../types/formula.types.js';
 import { DEFAULT_BASE_CURRENCY } from '../types/formula.types.js';
 
 export class ValidationError extends Error {
@@ -11,6 +16,57 @@ export class ValidationError extends Error {
     super(message);
     this.name = 'ValidationError';
   }
+}
+
+const PATCH_ALLOWED_KEYS = new Set(['formulaId', 'content', 'note', 'unit']);
+const MAX_UNIT_LENGTH = 50;
+
+function assertRequiredId(value: string | undefined | null, field: string): string {
+  if (value === undefined || value === null || value.trim() === '') {
+    throw new ValidationError(`${field} is required`, field);
+  }
+
+  return value.trim();
+}
+
+function assertPatchAllowedKeys(input: PatchFormulaInputPayload): void {
+  for (const key of Object.keys(input)) {
+    if (!PATCH_ALLOWED_KEYS.has(key)) {
+      throw new ValidationError(`${key} is not allowed in patch request`, key);
+    }
+  }
+}
+
+function assertOptionalNullableString(
+  value: unknown,
+  field: string,
+): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw new ValidationError(`${field} must be a string or null`, field);
+  }
+
+  return value;
+}
+
+function assertOptionalUnit(value: unknown, field: string): string | null | undefined {
+  const parsed = assertOptionalNullableString(value, field);
+
+  if (parsed !== undefined && parsed !== null && parsed.length > MAX_UNIT_LENGTH) {
+    throw new ValidationError(
+      `${field} must be at most ${MAX_UNIT_LENGTH} characters`,
+      field,
+    );
+  }
+
+  return parsed;
 }
 
 function isPresent(value: string | null | undefined): value is string {
@@ -109,6 +165,36 @@ export function validateCreateFormula(input: CreateFormulaInputPayload): CreateF
   if (input.content !== undefined) validated.content = input.content;
   if (input.note !== undefined) validated.note = input.note;
   if (input.createdBy !== undefined) validated.createdBy = input.createdBy;
+
+  return validated;
+}
+
+export function validatePatchFormula(input: PatchFormulaInputPayload): ValidatedPatchFormulaInput {
+  assertPatchAllowedKeys(input);
+
+  const formulaId = assertRequiredId(input.formulaId, 'formulaId');
+
+  const hasContent = input.content !== undefined;
+  const hasNote = input.note !== undefined;
+  const hasUnit = input.unit !== undefined;
+
+  if (!hasContent && !hasNote && !hasUnit) {
+    throw new ValidationError('At least one of content, note, or unit is required');
+  }
+
+  const validated: ValidatedPatchFormulaInput = { formulaId };
+
+  if (hasContent) {
+    validated.content = assertOptionalNullableString(input.content, 'content') ?? null;
+  }
+
+  if (hasNote) {
+    validated.note = assertOptionalNullableString(input.note, 'note') ?? null;
+  }
+
+  if (hasUnit) {
+    validated.unit = assertOptionalUnit(input.unit, 'unit') ?? null;
+  }
 
   return validated;
 }

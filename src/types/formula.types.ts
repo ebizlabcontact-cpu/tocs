@@ -37,3 +37,19 @@ export interface CreateFormulaInput {
 }
 
 export const DEFAULT_BASE_CURRENCY = 'KRW';
+
+/** Formula PATCH 검증 입력 */
+export interface PatchFormulaInputPayload {
+  formulaId?: string | null;
+  content?: string | null;
+  note?: string | null;
+  unit?: string | null;
+}
+
+/** Formula PATCH 검증 통과 출력 */
+export interface ValidatedPatchFormulaInput {
+  formulaId: string;
+  content?: string | null;
+  note?: string | null;
+  unit?: string | null;
+}
