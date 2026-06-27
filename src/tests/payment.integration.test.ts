@@ -7,7 +7,6 @@ import 'dotenv/config';
 import {
   PaymentDirection,
   PaymentStatus,
-  PrismaClient,
   RoleGroup,
   TradeType,
 } from '@prisma/client';
@@ -41,8 +40,8 @@ import {
   validateCreatePaymentSchedule,
   ValidationError,
 } from '../utils/payment.validation.js';
+import { prisma } from '../lib/prisma.js';
 
-const prisma = new PrismaClient();
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 const sampleFormulaId = '33333333-3333-3333-3333-333333333301';
@@ -83,6 +82,14 @@ function toCreatePaymentScheduleRequest(
   };
 }
 
+function toIsoDateTime(value: Date | string): string {
+  if (typeof value === 'string') {
+    return value.includes('T') ? value : `${value}T00:00:00.000Z`;
+  }
+
+  return value.toISOString();
+}
+
 function toCreatePaymentRecordRequest(
   validated: ValidatedPaymentRecordInput,
 ): CreatePaymentRecordRequest {
@@ -96,10 +103,7 @@ function toCreatePaymentRecordRequest(
   const body: CreatePaymentRecordRequest = {
     direction: validated.direction,
     actual_amount: toAmount(validated.actualAmount),
-    actual_date:
-      typeof validated.actualDate === 'string'
-        ? validated.actualDate
-        : validated.actualDate.toISOString().slice(0, 10),
+    actual_date: toIsoDateTime(validated.actualDate),
     participant_id: validated.participantId,
   };
 

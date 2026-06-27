@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import 'dotenv/config';
-import { InvoiceStatus, PrismaClient, RoleGroup, TradeType } from '@prisma/client';
+import { InvoiceStatus, RoleGroup, TradeType } from '@prisma/client';
 
 import { ActionError } from '../actions/formula.actions.js';
 import { createFormula } from '../actions/formula.actions.js';
@@ -26,8 +26,8 @@ import {
   validateUpdateInvoiceStatus,
   ValidationError,
 } from '../utils/invoice.validation.js';
+import { prisma } from '../lib/prisma.js';
 
-const prisma = new PrismaClient();
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 const sampleFormulaId = '66666666-6666-6666-6666-666666666601';

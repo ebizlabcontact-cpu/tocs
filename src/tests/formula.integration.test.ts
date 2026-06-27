@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import 'dotenv/config';
-import { PrismaClient, TradeType } from '@prisma/client';
+import { TradeType } from '@prisma/client';
 
 import {
   createFormula,
@@ -15,9 +15,9 @@ import {
 import type { CreateFormulaRequest } from '../actions/formula.actions.js';
 import type { CreateFormulaInput } from '../types/formula.types.js';
 import { DEFAULT_BASE_CURRENCY } from '../types/formula.types.js';
+import { prisma } from '../lib/prisma.js';
 import { validateCreateFormula, ValidationError } from '../utils/formula.validation.js';
 
-const prisma = new PrismaClient();
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 const sampleItemId = '22222222-2222-2222-2222-222222222201';

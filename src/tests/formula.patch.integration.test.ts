@@ -172,7 +172,13 @@ async function cleanupFormulaPatchTestArtifacts(params: {
   }
 
   if (params.itemWasNew && params.itemId) {
-    await params.prisma.item.delete({ where: { id: params.itemId } });
+    const remainingFormulaCount = await params.prisma.formula.count({
+      where: { itemId: params.itemId },
+    });
+
+    if (remainingFormulaCount === 0) {
+      await params.prisma.item.delete({ where: { id: params.itemId } });
+    }
   }
 }
 

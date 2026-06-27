@@ -456,6 +456,7 @@ test('Share create, update, delete integration flow', { skip: !hasDatabase }, as
     prisma,
     RoleGroup,
     TradeType,
+    ActionError,
     createFormula,
     createShare,
     deleteShare,
@@ -630,6 +631,11 @@ test('Share create, update, delete integration flow', { skip: !hasDatabase }, as
       'share-delete-action',
     ),
   });
+
+  const deletedShareIndex = shareIds.indexOf(createResult.share.id);
+  if (deletedShareIndex >= 0) {
+    shareIds.splice(deletedShareIndex, 1);
+  }
 
   versionIds.push(deleteResult.version.version.id);
   snapshotIds.push(deleteResult.version.snapshot.id);

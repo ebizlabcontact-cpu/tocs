@@ -12,7 +12,10 @@ import type {
   ListFormulasInput,
   PatchFormulaInput,
 } from '../services/formula.service.js';
-import { ClosedFormulaTradeMutationError } from '../services/guards/closed-formula.guard.js';
+import {
+  ClosedFormulaTradeMutationError,
+  FormulaNotFoundForGuardError,
+} from '../services/guards/closed-formula.guard.js';
 import type {
   CancelFormulaInputPayload,
   PatchFormulaInputPayload,
@@ -336,6 +339,10 @@ function mapFormulaPatchActionError(error: unknown): never {
     throw new ActionError(400, error.message);
   }
 
+  if (error instanceof FormulaNotFoundForGuardError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof FormulaNotFoundError) {
     throw new ActionError(404, error.message);
   }
@@ -350,6 +357,10 @@ function mapFormulaPatchActionError(error: unknown): never {
 function mapFormulaCancelActionError(error: unknown): never {
   if (error instanceof ValidationError) {
     throw new ActionError(400, error.message);
+  }
+
+  if (error instanceof FormulaNotFoundForGuardError) {
+    throw new ActionError(404, error.message);
   }
 
   if (error instanceof FormulaNotFoundError) {
