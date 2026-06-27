@@ -54,6 +54,17 @@ export interface CreateVersionResult {
   auditLog: AuditLog;
 }
 
+function fieldsIncludeFormulaVersionNo(fields: unknown): boolean {
+  if (!Array.isArray(fields)) {
+    return false;
+  }
+
+  return (
+    (fields.includes('formulaId') || fields.includes('formula_id')) &&
+    (fields.includes('versionNo') || fields.includes('version_no'))
+  );
+}
+
 function isVersionNoUniqueViolation(error: unknown): boolean {
   if (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -62,10 +73,7 @@ function isVersionNoUniqueViolation(error: unknown): boolean {
     const target = error.meta?.target;
 
     if (Array.isArray(target)) {
-      return (
-        (target.includes('formulaId') || target.includes('formula_id')) &&
-        (target.includes('versionNo') || target.includes('version_no'))
-      );
+      return fieldsIncludeFormulaVersionNo(target);
     }
 
     if (typeof target === 'string') {
@@ -74,6 +82,22 @@ function isVersionNoUniqueViolation(error: unknown): boolean {
         (target.includes('versionNo') || target.includes('version_no'))
       );
     }
+
+    const driverFields = (
+      error.meta as
+        | {
+            driverAdapterError?: {
+              cause?: {
+                constraint?: {
+                  fields?: unknown;
+                };
+              };
+            };
+          }
+        | undefined
+    )?.driverAdapterError?.cause?.constraint?.fields;
+
+    return fieldsIncludeFormulaVersionNo(driverFields);
   }
 
   return false;
