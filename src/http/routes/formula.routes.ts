@@ -8,8 +8,10 @@ import {
   getFormulaByFormulaNo,
   getFormulaById,
   listFormulas,
+  patchFormula,
   type CreateFormulaRequest,
   type ListFormulasQuery,
+  type PatchFormulaRequest,
 } from '../../actions/formula.actions.js';
 import { runAction } from '../lib/handle-action.js';
 
@@ -103,4 +105,17 @@ export async function registerFormulaRoutes(app: FastifyInstance): Promise<void>
       }
     },
   );
+
+  app.patch<{
+    Params: { formulaId: string };
+    Body: PatchFormulaRequest;
+  }>('/api/v1/formulas/:formulaId', async (request, reply) => {
+    const result = await runAction(reply, () =>
+      patchFormula(request.params.formulaId, request.body),
+    );
+
+    if (result !== undefined) {
+      return reply.send(result);
+    }
+  });
 }

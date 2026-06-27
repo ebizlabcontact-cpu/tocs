@@ -5,7 +5,20 @@ import {
   FormulaService,
   formulaService,
 } from '../services/formula.service.js';
-import type { CreateFormulaInput, ListFormulasInput } from '../services/formula.service.js';
+import type {
+  CreateFormulaInput,
+  ListFormulasInput,
+  PatchFormulaInput,
+} from '../services/formula.service.js';
+import { ClosedFormulaTradeMutationError } from '../services/guards/closed-formula.guard.js';
+import type {
+  PatchFormulaInputPayload,
+  ValidatedPatchFormulaInput,
+} from '../types/formula.types.js';
+import {
+  validatePatchFormula,
+  ValidationError,
+} from '../utils/formula.validation.js';
 
 export class ActionError extends Error {
   constructor(
@@ -70,6 +83,17 @@ export interface FormulaListResponse {
   page_size: number;
 }
 
+export interface PatchFormulaRequest {
+  content?: string | null;
+  note?: string | null;
+  unit?: string | null;
+}
+
+export interface PatchFormulaResponse extends FormulaDetailResponse {
+  content: string | null;
+  note: string | null;
+}
+
 function decimalToString(value: { toString(): string }): string {
   return value.toString();
 }
@@ -97,6 +121,14 @@ function toFormulaDetailResponse(formula: Formula): FormulaDetailResponse {
     unit: formula.unit,
     quantity: decimalToString(formula.quantity),
     closed_at: formula.closedAt?.toISOString() ?? null,
+  };
+}
+
+function toPatchFormulaResponse(formula: Formula): PatchFormulaResponse {
+  return {
+    ...toFormulaDetailResponse(formula),
+    content: formula.content,
+    note: formula.note,
   };
 }
 
@@ -171,6 +203,47 @@ function mapNotFoundError(error: unknown): never {
   throw error;
 }
 
+function mapPatchFormulaPayload(
+  formulaId: string,
+  body: PatchFormulaRequest,
+): PatchFormulaInputPayload {
+  const payload: PatchFormulaInputPayload = { formulaId };
+
+  if (body.content !== undefined) payload.content = body.content;
+  if (body.note !== undefined) payload.note = body.note;
+  if (body.unit !== undefined) payload.unit = body.unit;
+
+  return payload;
+}
+
+function mapValidatedToPatchServiceInput(
+  validated: ValidatedPatchFormulaInput,
+): PatchFormulaInput {
+  const input: PatchFormulaInput = { formulaId: validated.formulaId };
+
+  if (validated.content !== undefined) input.content = validated.content;
+  if (validated.note !== undefined) input.note = validated.note;
+  if (validated.unit !== undefined) input.unit = validated.unit;
+
+  return input;
+}
+
+function mapFormulaPatchActionError(error: unknown): never {
+  if (error instanceof ValidationError) {
+    throw new ActionError(400, error.message);
+  }
+
+  if (error instanceof FormulaNotFoundError) {
+    throw new ActionError(404, error.message);
+  }
+
+  if (error instanceof ClosedFormulaTradeMutationError) {
+    throw new ActionError(409, error.message);
+  }
+
+  throw error;
+}
+
 export class FormulaActions {
   constructor(private readonly service: FormulaService = formulaService) {}
 
@@ -209,6 +282,19 @@ export class FormulaActions {
       page_size: result.pageSize,
     };
   }
+
+  async patchFormula(
+    formulaId: string,
+    body: PatchFormulaRequest,
+  ): Promise<PatchFormulaResponse> {
+    try {
+      const validated = validatePatchFormula(mapPatchFormulaPayload(formulaId, body));
+      const formula = await this.service.patchFormula(mapValidatedToPatchServiceInput(validated));
+      return toPatchFormulaResponse(formula);
+    } catch (error) {
+      mapFormulaPatchActionError(error);
+    }
+  }
 }
 
 export const formulaActions = new FormulaActions();
@@ -227,4 +313,11 @@ export async function getFormulaByFormulaNo(formulaNo: string): Promise<FormulaD
 
 export async function listFormulas(query: ListFormulasQuery = {}): Promise<FormulaListResponse> {
   return formulaActions.listFormulas(query);
+}
+
+export async function patchFormula(
+  formulaId: string,
+  body: PatchFormulaRequest,
+): Promise<PatchFormulaResponse> {
+  return formulaActions.patchFormula(formulaId, body);
 }
