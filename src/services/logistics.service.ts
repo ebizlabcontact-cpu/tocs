@@ -102,10 +102,10 @@ function isPositiveLogisticsCost(cost: Prisma.Decimal | number | string): boolea
 
 export class LogisticsService {
   constructor(
-    private readonly repository: LogisticsRepository = logisticsRepository,
-    private readonly versionService: VersionService = defaultVersionService,
-    private readonly formulaRepository: FormulaRepository = formulaRepository,
-    private readonly companyService: CompanyService = companyService,
+    private readonly repository: LogisticsRepository,
+    private readonly versionService: VersionService,
+    private readonly formulaRepository: FormulaRepository,
+    private readonly companyService: CompanyService,
   ) {}
 
   async createLogistics(input: CreateLogisticsInput): Promise<CreateLogisticsResult> {
@@ -223,4 +223,9 @@ export class LogisticsService {
   }
 }
 
-export const logisticsService = new LogisticsService();
+export const logisticsService = new LogisticsService(
+  logisticsRepository,
+  defaultVersionService,
+  formulaRepository,
+  companyService,
+);
