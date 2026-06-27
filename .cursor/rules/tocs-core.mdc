@@ -323,6 +323,7 @@ Current phase:
 
 * Formula Domain complete
 * Formula PATCH Domain MVP complete
+* Formula Cancel Domain MVP complete
 * Payment Domain complete
 * Version Domain MVP complete
 * Invoice Domain MVP complete
@@ -334,7 +335,8 @@ Current phase:
 * Company Domain MVP complete
 * Participant Domain MVP complete
 * Logistics Domain MVP complete
-* Remaining Core MVP gaps: Formula Cancel
+* Core MVP Backend + HTTP slice complete
+* Remaining Core MVP gaps: none
 
 Allowed:
 
@@ -356,7 +358,15 @@ Not Allowed until explicitly requested:
 
 * Reopen
 * Close undo
+* Cancel undo
 * Adjustment Formula
 * Auth/RBAC
 * File Evidence
 * Notification
+
+Known gaps / deferred:
+
+* DB integration green requires valid PostgreSQL DATABASE_URL
+* Logistics §5.3 audit_logs deferred
+* Auth/RBAC deferred
+* Reopen/Undo deferred
