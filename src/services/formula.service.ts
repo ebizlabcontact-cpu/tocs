@@ -1,5 +1,16 @@
-﻿import { Prisma, TradeType } from '@prisma/client';
+﻿import {
+  InvoiceStatus,
+  PaymentStatus,
+  Prisma,
+  StatusTarget,
+  TradeStatus,
+  TradeType,
+  type AuditLog,
+  type Formula,
+  type StatusLog,
+} from '@prisma/client';
 
+import { prisma } from '../lib/prisma.js';
 import { FormulaRepository, formulaRepository } from '../repositories/formula.repository.js';
 import type {
   FormulaCreateData,
@@ -13,6 +24,15 @@ export class FormulaNotFoundError extends Error {
   constructor(message = 'Formula not found') {
     super(message);
     this.name = 'FormulaNotFoundError';
+  }
+}
+
+export class FormulaAlreadyCanceledError extends Error {
+  readonly status = 409 as const;
+
+  constructor(formulaId: string) {
+    super(`Formula already canceled: ${formulaId}`);
+    this.name = 'FormulaAlreadyCanceledError';
   }
 }
 
@@ -48,6 +68,55 @@ export interface PatchFormulaInput {
   content?: string | null;
   note?: string | null;
   unit?: string | null;
+}
+
+export interface CancelFormulaInput {
+  formulaId: string;
+  cancelReason: string;
+  changedBy: string;
+}
+
+export interface FormulaCancelResult {
+  formula: Formula;
+  statusLogs: StatusLog[];
+  auditLog: AuditLog;
+}
+
+const CANCELED_STATUS = 'CANCELED';
+
+function isFormulaFullyCanceled(formula: Formula): boolean {
+  return (
+    formula.tradeStatus === TradeStatus.CANCELED &&
+    formula.deliveryStatus === TradeStatus.CANCELED &&
+    formula.cashInStatus === PaymentStatus.CANCELED &&
+    formula.cashOutStatus === PaymentStatus.CANCELED &&
+    formula.invoiceStatus === InvoiceStatus.CANCELED &&
+    formula.logisticsStatus === TradeStatus.CANCELED
+  );
+}
+
+function buildCancelPrevStatusSnapshot(formula: Formula): Prisma.JsonObject {
+  return {
+    trade_status: formula.tradeStatus,
+    delivery_status: formula.deliveryStatus,
+    cash_in_status: formula.cashInStatus,
+    cash_out_status: formula.cashOutStatus,
+    invoice_status: formula.invoiceStatus,
+    logistics_status: formula.logisticsStatus,
+  };
+}
+
+function buildCancelNewStatusSnapshot(input: CancelFormulaInput): Prisma.JsonObject {
+  return {
+    trade_status: TradeStatus.CANCELED,
+    delivery_status: TradeStatus.CANCELED,
+    cash_in_status: PaymentStatus.CANCELED,
+    cash_out_status: PaymentStatus.CANCELED,
+    invoice_status: InvoiceStatus.CANCELED,
+    logistics_status: TradeStatus.CANCELED,
+    cancel_reason: input.cancelReason,
+    changed_by: input.changedBy,
+  };
 }
 
 export class FormulaService {
@@ -128,6 +197,74 @@ export class FormulaService {
     if (input.unit !== undefined) data.unit = input.unit;
 
     return this.repository.updateFormulaMetadata(input.formulaId, data);
+  }
+
+  async cancelFormula(input: CancelFormulaInput): Promise<FormulaCancelResult> {
+    await assertNotClosedForTradeMutation(input.formulaId);
+
+    const formula = await this.findById(input.formulaId);
+
+    if (isFormulaFullyCanceled(formula)) {
+      throw new FormulaAlreadyCanceledError(input.formulaId);
+    }
+
+    const oldData = buildCancelPrevStatusSnapshot(formula);
+    const newData = buildCancelNewStatusSnapshot(input);
+
+    const statusLogEntries: Array<{
+      statusTarget: StatusTarget;
+      prevStatus: string;
+    }> = [
+      { statusTarget: StatusTarget.TRADE_STATUS, prevStatus: formula.tradeStatus },
+      { statusTarget: StatusTarget.DELIVERY_STATUS, prevStatus: formula.deliveryStatus },
+      { statusTarget: StatusTarget.CASH_IN_STATUS, prevStatus: formula.cashInStatus },
+      { statusTarget: StatusTarget.CASH_OUT_STATUS, prevStatus: formula.cashOutStatus },
+      { statusTarget: StatusTarget.INVOICE_STATUS, prevStatus: formula.invoiceStatus },
+      { statusTarget: StatusTarget.LOGISTICS_STATUS, prevStatus: formula.logisticsStatus },
+    ];
+
+    return prisma.$transaction(async (tx) => {
+      const updatedFormula = await tx.formula.update({
+        where: { id: input.formulaId },
+        data: {
+          tradeStatus: TradeStatus.CANCELED,
+          deliveryStatus: TradeStatus.CANCELED,
+          cashInStatus: PaymentStatus.CANCELED,
+          cashOutStatus: PaymentStatus.CANCELED,
+          invoiceStatus: InvoiceStatus.CANCELED,
+          logisticsStatus: TradeStatus.CANCELED,
+          updatedAt: new Date(),
+        },
+      });
+
+      const statusLogs = await Promise.all(
+        statusLogEntries.map((entry) =>
+          tx.statusLog.create({
+            data: {
+              formulaId: input.formulaId,
+              statusTarget: entry.statusTarget,
+              prevStatus: entry.prevStatus,
+              newStatus: CANCELED_STATUS,
+              changedBy: input.changedBy,
+              changeReason: input.cancelReason,
+            },
+          }),
+        ),
+      );
+
+      const auditLog = await tx.auditLog.create({
+        data: {
+          tableName: 'formulas',
+          recordId: input.formulaId,
+          action: 'FORMULA_CANCEL',
+          changedBy: input.changedBy,
+          oldData,
+          newData,
+        },
+      });
+
+      return { formula: updatedFormula, statusLogs, auditLog };
+    });
   }
 }
 
