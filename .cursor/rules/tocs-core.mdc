@@ -332,7 +332,8 @@ Current phase:
 * Settlement API Backend + HTTP slice complete
 * Company Domain MVP complete
 * Participant Domain MVP complete
-* Remaining Core MVP gaps: Logistics, Formula PATCH, Formula Cancel
+* Logistics Domain MVP complete
+* Remaining Core MVP gaps: Formula PATCH, Formula Cancel
 
 Allowed:
 
