@@ -322,6 +322,7 @@ instead of implementing it. Do not silently expand the allowed scope.
 Current phase:
 
 * Formula Domain complete
+* Formula PATCH Domain MVP complete
 * Payment Domain complete
 * Version Domain MVP complete
 * Invoice Domain MVP complete
@@ -333,7 +334,7 @@ Current phase:
 * Company Domain MVP complete
 * Participant Domain MVP complete
 * Logistics Domain MVP complete
-* Remaining Core MVP gaps: Formula PATCH, Formula Cancel
+* Remaining Core MVP gaps: Formula Cancel
 
 Allowed:
 
