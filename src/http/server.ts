@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url';
 
 import Fastify from 'fastify';
 
+import { loadEnvironment } from '../config/env.js';
 import { registerRequestLogger } from './plugins/request-logger.js';
 import { registerCloseRoutes } from './routes/close.routes.js';
 import { registerCompanyRoutes } from './routes/company.routes.js';
@@ -17,6 +18,8 @@ import { registerShareRoutes } from './routes/share.routes.js';
 import { registerVersionRoutes } from './routes/version.routes.js';
 
 export async function createServer() {
+  loadEnvironment();
+
   const app = Fastify();
   await registerRequestLogger(app);
   await registerHealthRoutes(app);
@@ -35,8 +38,9 @@ export async function createServer() {
 }
 
 export async function start(options: { port?: number; host?: string } = {}) {
+  const env = loadEnvironment();
   const app = await createServer();
-  const port = options.port ?? Number(process.env.PORT ?? 3000);
+  const port = options.port ?? env.port;
   const host = options.host ?? '127.0.0.1';
   await app.listen({ port, host });
   return app;
