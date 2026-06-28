@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url';
 
 import Fastify from 'fastify';
 
+import { registerRequestLogger } from './plugins/request-logger.js';
 import { registerCloseRoutes } from './routes/close.routes.js';
 import { registerCompanyRoutes } from './routes/company.routes.js';
 import { registerDashboardRoutes } from './routes/dashboard.routes.js';
@@ -17,6 +18,7 @@ import { registerVersionRoutes } from './routes/version.routes.js';
 
 export async function createServer() {
   const app = Fastify();
+  await registerRequestLogger(app);
   await registerHealthRoutes(app);
   await registerFormulaRoutes(app);
   await registerPaymentRoutes(app);
