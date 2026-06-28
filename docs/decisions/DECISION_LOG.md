@@ -471,3 +471,55 @@ Version 생성 대상이 아닌 변경:
   반영 — 종결 후에도 ledger 보정 가능.
 
 상태: ACCEPTED
+
+---
+
+## 2026-06-28
+
+### DL-034. Core MVP Backend + HTTP Slice Accepted
+
+**결정**
+
+TOCS Core MVP Backend 및 HTTP slice를 **공식 Accepted** 상태로 확정한다.
+
+**Accepted 범위**
+
+- Core MVP Domains 전부 완료: Formula (PATCH, Cancel 포함), Company,
+  Participant, Payment, Invoice, Logistics, Version, Share, Close,
+  Settlement (DL-033), Dashboard/KPI, HTTP layer.
+- Action-backed HTTP Routes: **48**.
+- Remaining Core MVP gap: **0** (`API_MVP_SCOPE.md` 기준).
+
+**검증 근거**
+
+- Integration suite: **212 pass / 0 fail / 0 skip**
+  (`npm run test:integration`, `--test-concurrency=1`).
+- GitHub Actions CI: workflow `CI`, `push` → `main`, run **SUCCESS**
+  (commit `fa809e4`, run `28326776089`).
+- DB schema: SQL 3파일 순서 적용 (`tocs_base_schema.sql` →
+  `tocs_supplement.sql` → `tocs_fix_amount_verified.sql`).
+  Prisma migrate / db push 미사용.
+
+**Release governance**
+
+- Git tag: `v1.0.0-core-mvp-accepted` (see
+  `docs/releases/RELEASE_TAG_PLAN_v1.0.0-core-mvp-accepted.md`).
+- `CHANGELOG.md`, `RELEASE_NOTES.md`에 동일 마일스톤 기록.
+
+**MVP 제외 / Deferred (이번 Accepted에 포함하지 않음)**
+
+- Auth/RBAC, File Evidence, Notification
+- Reopen, Cancel undo, Close undo
+- Adjustment Formula top-level entity
+- Participant order swap API (§2.4)
+- Formula partial cancel
+- Version advanced retry (multi-retry / exponential backoff)
+- Logistics §5.3 `audit_logs` INSERT (status log만 MVP)
+
+**근거**
+
+- Formula First Architecture 및 DL-001~DL-033 정책 준수.
+- Acceptance Fix Batch 1~3 및 CI Minimal Implementation 완료 후
+  로컬·GitHub CI 모두 green.
+
+상태: ACCEPTED
