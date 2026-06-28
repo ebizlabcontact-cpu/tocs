@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tocs
+          POSTGRES_PASSWORD: tocs_ci_password
+          POSTGRES_DB: tocs_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tocs -d tocs_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://tocs:tocs_ci_password@localhost:5432/tocs_db
+      CI: true
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply database schema
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema/tocs_base_schema.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/schema/tocs_supplement.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/fixes/tocs_fix_amount_verified.sql
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Integration tests
+        run: npm run test:integration
