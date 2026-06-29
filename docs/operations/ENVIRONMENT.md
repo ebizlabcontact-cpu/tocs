@@ -152,12 +152,55 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 
 ## 5. Startup validation policy (Fail Fast)
 
-**Implementation:** `src/config/env.ts` — Production Hardening v1.2.3
+**Implementation:** `src/config/env.ts` — Production Hardening v1.2.3 / v1.2.4
 
 1. On process start, `loadEnvironment()` calls `validateEnvironment()` before parsing values.
 2. If any required variable is missing or empty → throw `EnvironmentValidationError` (variable names only, never values) → caller exits with code 1.
-3. HTTP listener must not bind until validation passes (`src/http/server.ts` calls `loadEnvironment()` first).
+3. HTTP listener must not bind until validation passes (`src/http/server.ts` calls `loadEnvironment()` in `createServer()` before routes register).
 4. Do not lazy-fail on first request.
+
+### Fail-fast variables
+
+**Always required (all environments)**
+
+| Variable | Validation |
+|----------|------------|
+| `DATABASE_URL` | Non-empty string |
+| `NODE_ENV` | `development` \| `test` \| `production` (`local` accepted as alias → `development`) |
+| `PORT` | Integer `1`–`65535` |
+| `LOG_LEVEL` | `error` \| `warn` \| `info` \| `debug` |
+
+**Production only (presence check — values never logged)**
+
+| Variable |
+|----------|
+| `JWT_SECRET` |
+| `SESSION_SECRET` |
+| `ENCRYPTION_KEY` |
+
+**Test / CI note:** When `NODE_ENV=test`, missing `PORT` defaults to `3000` and missing `LOG_LEVEL` to `info` before validation (CI job env). Local `development` and `production` have no defaults — all four always-required variables must be set explicitly.
+
+### Health endpoint (lightweight)
+
+`GET /api/v1/health` — implemented in `src/http/routes/health.routes.ts`.
+
+- No DB query, Prisma access, or external API calls.
+- Uses validated `getEnvironment()` for `environment` field only.
+
+**Response example:**
+
+```json
+{
+  "ok": true,
+  "status": "ok",
+  "service": "tocs",
+  "version": "1.0.0",
+  "environment": "test",
+  "timestamp": "2026-06-29T01:31:17.373Z"
+}
+```
+
+`version` is read from `package.json` at runtime; falls back to `"0.0.0"` if missing.
 
 ### API
 
@@ -322,3 +365,4 @@ docker exec tocs-postgres psql -U tocs -d tocs_db -c "SELECT 1"
 | 2026-06-28 | v1.2.1 — Initial environment & secret policy (Production Hardening) |
 | 2026-06-23 | v1.2.3 — Startup fail-fast validation in `src/config/env.ts` |
 | 2026-06-23 | v1.2.3 — Local PostgreSQL port policy, integration checklist, troubleshooting; link `LOCAL_DEVELOPMENT.md` |
+| 2026-06-23 | v1.2.4 — Health endpoint response contract; fail-fast variable matrix; test env defaults for CI |

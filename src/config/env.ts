@@ -55,6 +55,24 @@ function isPresent(raw: string | undefined): boolean {
   return Boolean(raw?.trim());
 }
 
+/**
+ * CI sets NODE_ENV=test but may omit PORT/LOG_LEVEL. Apply safe defaults only in test
+ * so createServer() works without relaxing production/development fail-fast rules.
+ */
+function applyTestEnvironmentDefaults(): void {
+  if (process.env.NODE_ENV?.trim() !== 'test') {
+    return;
+  }
+
+  if (!isPresent(process.env.PORT)) {
+    process.env.PORT = '3000';
+  }
+
+  if (!isPresent(process.env.LOG_LEVEL)) {
+    process.env.LOG_LEVEL = 'info';
+  }
+}
+
 export function getRequiredEnvironmentVariables(
   nodeEnv?: string,
 ): readonly RequiredEnvironmentVariable[] {
@@ -70,6 +88,8 @@ function logVariablePresence(name: RequiredEnvironmentVariable): void {
 }
 
 export function validateEnvironment(): void {
+  applyTestEnvironmentDefaults();
+
   const rawNodeEnv = process.env.NODE_ENV;
   const required = getRequiredEnvironmentVariables(rawNodeEnv);
   const missing: RequiredEnvironmentVariable[] = [];
@@ -85,6 +105,12 @@ export function validateEnvironment(): void {
       `Missing required environment variable(s): ${missing.join(', ')}`,
     );
   }
+
+  // Format validation before secret presence logging.
+  parseDatabaseUrl(process.env.DATABASE_URL);
+  parseNodeEnv(process.env.NODE_ENV);
+  parsePort(process.env.PORT);
+  parseLogLevel(process.env.LOG_LEVEL);
 
   for (const name of required) {
     if (SECRET_VARIABLES.has(name)) {

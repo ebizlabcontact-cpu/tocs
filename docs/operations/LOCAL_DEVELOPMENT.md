@@ -167,6 +167,17 @@ npm run test:integration
 
 Tests load `.env` via `dotenv/config`. DB-backed suites are skipped only when `DATABASE_URL` is unset (`hasDatabase` guard); a wrong URL causes real failures instead of skip.
 
+### Health check smoke test
+
+After the server starts (or via integration inject):
+
+```powershell
+# Optional: start server in another terminal, then:
+curl http://127.0.0.1:3000/api/v1/health
+```
+
+Expected JSON fields: `ok`, `status`, `service`, `version`, `environment`, `timestamp`. No database round-trip.
+
 ---
 
 ## 6. Troubleshooting
@@ -222,3 +233,4 @@ Then re-apply §4.
 | Date | Change |
 |------|--------|
 | 2026-06-23 | v1.2.3 — Initial local development guide (Production Hardening) |
+| 2026-06-23 | v1.2.4 — Health check smoke test; stale `DATABASE_URL` reminder |
