@@ -582,3 +582,32 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/operations/LOCAL_DEVELOPMENT.md`](../operations/LOCAL_DEVELOPMENT.md) — bootstrap and schema apply
 
 상태: ACCEPTED
+
+---
+
+### DL-037. PostgreSQL Backup and Restore Policy
+
+**Title:** PostgreSQL Backup and Restore Policy
+
+**Status:** ACCEPTED
+
+**결정**
+
+| Environment | Backup | Retention |
+|-------------|--------|-----------|
+| Local | Manual `pg_dump` (developer-initiated) | Latest dump only |
+| CI | None — ephemeral Postgres service | Job lifetime only |
+| Production | Daily logical backups, weekly snapshots, monthly archive | Platform/DBA policy |
+
+**Rules**
+
+1. Schema recovery uses SQL files in `DB_APPLY_ORDER.md`; dumps are for **data** recovery.
+2. Never restore production data into local or CI databases.
+3. Post-restore verification: row counts, schema smoke (15 tables / 6 views), integration suite `212/212`.
+4. Backup artifacts are sensitive — never commit to git.
+
+**Operational reference**
+
+- [`docs/operations/BACKUP_AND_RESTORE.md`](../operations/BACKUP_AND_RESTORE.md)
+
+상태: ACCEPTED

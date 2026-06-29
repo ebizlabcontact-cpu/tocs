@@ -4,7 +4,7 @@
 
 Step-by-step guide for running TOCS integration tests against a **local Docker PostgreSQL** instance on Windows, without connecting to the host PostgreSQL service by mistake.
 
-**Related:** [`ENVIRONMENT.md`](./ENVIRONMENT.md) (variable policy), [`../DB_APPLY_ORDER.md`](../DB_APPLY_ORDER.md) (schema apply order), [`../decisions/DECISION_LOG.md`](../decisions/DECISION_LOG.md) (DL-036)
+**Related:** [`ENVIRONMENT.md`](./ENVIRONMENT.md) (variable policy), [`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md) (backup/restore), [`../DB_APPLY_ORDER.md`](../DB_APPLY_ORDER.md) (schema apply order), [`../decisions/DECISION_LOG.md`](../decisions/DECISION_LOG.md) (DL-036, DL-037)
 
 ---
 
@@ -228,9 +228,29 @@ Then re-apply §4.
 
 ---
 
+## 7. Local backup and restore
+
+Before destructive operations (drop database, container recreate, experimental SQL):
+
+1. Create `./backups/` (gitignored).
+2. Run manual dump per [`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md) §3.
+3. Retain **latest dump only** locally.
+
+Quick backup:
+
+```powershell
+New-Item -ItemType Directory -Force -Path .\backups | Out-Null
+docker exec tocs-postgres pg_dump -U tocs -d tocs_db --no-owner --no-acl > .\backups\tocs_local_latest.sql
+```
+
+Full empty-DB restore: [`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md) §4.3.
+
+---
+
 ## Document history
 
 | Date | Change |
 |------|--------|
 | 2026-06-23 | v1.2.3 — Initial local development guide (Production Hardening) |
 | 2026-06-23 | v1.2.4 — Health check smoke test; stale `DATABASE_URL` reminder |
+| 2026-06-23 | v1.2.5 — Local backup quick reference; link `BACKUP_AND_RESTORE.md` |

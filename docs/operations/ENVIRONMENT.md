@@ -7,7 +7,7 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 **Scope:** Operations policy and templates only. Auth/RBAC is not implemented in Core MVP; secret variables are **reserved** for a future auth milestone.
 
 **Template:** [`.env.example`](../../.env.example)  
-**Related:** [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md), [`docs/DB_APPLY_ORDER.md`](../DB_APPLY_ORDER.md), [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
+**Related:** [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md), [`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md), [`docs/DB_APPLY_ORDER.md`](../DB_APPLY_ORDER.md), [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
 
 ---
 
@@ -25,6 +25,7 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 2. **Distinct secrets per environment** — JWT/SESSION/ENCRYPTION keys must not be reused across local, test, and production.
 3. **SQL schema** — same 3-file apply order in every environment (`DB_APPLY_ORDER.md`); only connection target differs.
 4. **Prisma** — `prisma generate` only; no `migrate` / `db push` in any environment.
+5. **Backups** — local manual dumps only; CI ephemeral (no backup); production daily/weekly/monthly per [`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md) (DL-037).
 
 ---
 
@@ -366,3 +367,4 @@ docker exec tocs-postgres psql -U tocs -d tocs_db -c "SELECT 1"
 | 2026-06-23 | v1.2.3 — Startup fail-fast validation in `src/config/env.ts` |
 | 2026-06-23 | v1.2.3 — Local PostgreSQL port policy, integration checklist, troubleshooting; link `LOCAL_DEVELOPMENT.md` |
 | 2026-06-23 | v1.2.4 — Health endpoint response contract; fail-fast variable matrix; test env defaults for CI |
+| 2026-06-23 | v1.2.5 — Link backup & restore runbook; retention policy reference (DL-037) |
