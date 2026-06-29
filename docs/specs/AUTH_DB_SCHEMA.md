@@ -4,13 +4,13 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | v1.3.1 (Design only) |
-| **Status** | ACCEPTED (DL-042) |
-| **Implementation** | **Not applied** — no changes to `db/schema/*.sql`, `schema.prisma`, or migrations in this milestone |
+| **Version** | v1.3.7 (Implemented) |
+| **Status** | ACCEPTED (DL-042, DL-048) |
+| **Implementation** | **Applied** — `db/schema/tocs_base_schema.sql` + `prisma/schema.prisma` |
 
 **Related:** [`AUTH_RBAC_SPEC.md`](./AUTH_RBAC_SPEC.md), [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`../DB_APPLY_ORDER.md`](../DB_APPLY_ORDER.md)
 
-**Decision:** DL-042 — Authentication Database Foundation (ACCEPTED)
+**Decision:** DL-042 — Authentication Database Foundation; DL-048 — Auth DB Schema Implementation
 
 ---
 
@@ -22,13 +22,13 @@ Define the **minimum PostgreSQL schema** for Authentication and company-scoped R
 2. **company_memberships** — user ↔ company role assignment  
 3. **sessions** — refresh token persistence  
 
-This design extends the existing TOCS schema (15 business tables) without modifying Core MVP SQL files until an explicit approved apply milestone.
+This design extends the existing TOCS schema (15 business tables + 3 auth tables) in `tocs_base_schema.sql`.
 
 ---
 
 ## 2. Design principles
 
-1. **SQL-first** — Future DDL lives in a new approved SQL file (e.g. `db/schema/tocs_auth_schema.sql`), applied **after** the existing 3-file order — not via Prisma migrate / db push.
+1. **SQL-first** — DDL in `db/schema/tocs_base_schema.sql` (tables 16–18) — not via Prisma migrate / db push.
 2. **Formula First preserved** — Auth tables are horizontal; they do not replace `formula_participants` or add Deal/Order entities.
 3. **Company horizontal** — `companies` remains a participant registry (DL-004); `company_memberships.role` is **API access within a company context**, not `formula_participants.role_group`.
 4. **Secrets never stored** — Only password and refresh token **hashes** in DB; JWTs remain stateless.
@@ -92,8 +92,9 @@ Proposed PostgreSQL ENUM (`user_status`):
 | Value | Description |
 |-------|-------------|
 | `ACTIVE` | May authenticate |
+| `INVITED` | Account created; password not yet set or invitation incomplete |
 | `SUSPENDED` | Login rejected |
-| `PENDING` | Account created; not yet activated (invitation flow deferred) |
+| `LOCKED` | Temporary lockout (DL-044); auto-expires |
 
 ---
 
@@ -102,9 +103,9 @@ Proposed PostgreSQL ENUM (`user_status`):
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
 | `id` | `UUID` | `PRIMARY KEY`, `DEFAULT gen_random_uuid()` | Stable subject for JWT `sub` |
-| `email` | `VARCHAR(320)` | `NOT NULL`, `UNIQUE` | Login identifier; case-normalize to lower in Service |
-| `password_hash` | `VARCHAR(255)` | `NOT NULL` | Argon2id or bcrypt; never plaintext |
-| `name` | `VARCHAR(200)` | `NOT NULL` | Display name |
+| `email` | `VARCHAR(255)` | `NOT NULL`, `UNIQUE` | Login identifier; case-normalize to lower in Service |
+| `password_hash` | `TEXT` | `NOT NULL` | Argon2id PHC string; never plaintext |
+| `name` | `VARCHAR(100)` | `NULL` | Display name |
 | `status` | `user_status` | `NOT NULL`, `DEFAULT 'ACTIVE'` | |
 | `last_login_at` | `TIMESTAMPTZ` | `NULL` | Updated on successful login |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `DEFAULT NOW()` | |
@@ -127,8 +128,8 @@ Links a **user** to a **company** with a **membership role**.
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
 | `id` | `UUID` | `PRIMARY KEY`, `DEFAULT gen_random_uuid()` | |
-| `company_id` | `UUID` | `NOT NULL`, `FK → companies(id)` | Existing Core MVP table |
-| `user_id` | `UUID` | `NOT NULL`, `FK → users(id)` | |
+| `company_id` | `UUID` | `NOT NULL`, `FK → companies(id) ON DELETE RESTRICT` | Existing Core MVP table |
+| `user_id` | `UUID` | `NOT NULL`, `FK → users(id) ON DELETE CASCADE` | |
 | `role` | `membership_role` | `NOT NULL` | See §4 |
 | `is_active` | `BOOLEAN` | `NOT NULL`, `DEFAULT TRUE` | Soft disable without delete |
 | `joined_at` | `TIMESTAMPTZ` | `NOT NULL`, `DEFAULT NOW()` | |
@@ -140,16 +141,17 @@ Links a **user** to a **company** with a **membership role**.
 | Constraint | Definition |
 |------------|------------|
 | `uq_company_memberships_company_user` | `UNIQUE (company_id, user_id)` — one membership row per pair |
-| `fk_company_memberships_company` | `REFERENCES companies(id)` |
-| `fk_company_memberships_user` | `REFERENCES users(id)` |
+| `fk_company_memberships_company` | `REFERENCES companies(id) ON DELETE RESTRICT` |
+| `fk_company_memberships_user` | `REFERENCES users(id) ON DELETE CASCADE` |
 
 ### Indexes (proposed)
 
 | Index | Columns | Purpose |
 |-------|---------|---------|
-| `idx_company_memberships_user_id` | `user_id` | Load all companies for user at login |
-| `idx_company_memberships_company_id` | `company_id` | List members of company |
-| `idx_company_memberships_active` | `company_id`, `is_active` | Partial: `WHERE is_active = TRUE` (optional) |
+| `idx_cm_company_id` | `company_id` | List members of company |
+| `idx_cm_user_id` | `user_id` | Load all companies for user at login |
+| `idx_cm_role` | `role` | Role filtering |
+| `idx_cm_is_active` | `is_active` | Active membership lookup |
 
 ---
 
@@ -160,8 +162,8 @@ Server-side refresh session records. Access JWTs are **not** stored.
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
 | `id` | `UUID` | `PRIMARY KEY`, `DEFAULT gen_random_uuid()` | Session id; may appear in JWT refresh claims |
-| `user_id` | `UUID` | `NOT NULL`, `FK → users(id)` | |
-| `refresh_token_hash` | `VARCHAR(255)` | `NOT NULL`, `UNIQUE` | Hash of refresh token; never store raw token |
+| `user_id` | `UUID` | `NOT NULL`, `FK → users(id) ON DELETE CASCADE` | |
+| `refresh_token_hash` | `TEXT` | `NOT NULL`, `UNIQUE` | Hash of refresh token; never store raw token |
 | `expires_at` | `TIMESTAMPTZ` | `NOT NULL` | Absolute expiry |
 | `revoked_at` | `TIMESTAMPTZ` | `NULL` | Set on logout or reuse detection |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL`, `DEFAULT NOW()` | |
@@ -172,7 +174,8 @@ Server-side refresh session records. Access JWTs are **not** stored.
 |-------|---------|---------|
 | `idx_sessions_user_id` | `user_id` | Revoke all sessions for user |
 | `idx_sessions_expires_at` | `expires_at` | Cleanup job (future) |
-| `sessions_refresh_token_hash_key` | `refresh_token_hash` | Lookup on refresh |
+| `idx_sessions_revoked_at` | `revoked_at` | Revoked session queries |
+| `sessions_refresh_token_hash_key` | `refresh_token_hash` | Unique lookup on refresh |
 
 ### Session validity rule (application)
 
@@ -195,20 +198,21 @@ A user with active membership on `company_id = X` may be authorized (via future 
 
 ---
 
-## 10. Apply order (future — not executed in v1.3.1)
+## 10. Apply order
 
-When SQL implementation is approved:
+Auth tables are included in the standard 3-file apply (no separate auth SQL file):
 
 ```
-1. db/schema/tocs_base_schema.sql          (existing)
-2. db/schema/tocs_supplement.sql           (existing)
-3. db/fixes/tocs_fix_amount_verified.sql   (existing)
-4. db/schema/tocs_auth_schema.sql          (NEW — users, enums, memberships, sessions)
+1. db/schema/tocs_base_schema.sql          (tables 1–18 incl. auth)
+2. db/schema/tocs_supplement.sql
+3. db/fixes/tocs_fix_amount_verified.sql
 ```
 
-Update `DB_APPLY_ORDER.md` in that milestone. **Backup required** before production apply ([`BACKUP_AND_RESTORE.md`](../operations/BACKUP_AND_RESTORE.md)).
+**Backup required** before production apply on existing databases ([`BACKUP_AND_RESTORE.md`](../operations/BACKUP_AND_RESTORE.md)).
 
-Prisma: `schema.prisma` models added only after PostgreSQL DDL is source-of-truth approved.
+Prisma: `User`, `CompanyMembership`, `Session` models in `schema.prisma` — `npx prisma generate` only.
+
+Schema verification: `src/tests/auth.schema.integration.test.ts`.
 
 ---
 
@@ -246,7 +250,7 @@ Not in v1.3.1 schema design implementation:
 
 1. **password_hash** — Use Argon2id (preferred) or bcrypt with per-password salt; work factor from platform policy.
 2. **refresh_token_hash** — Store SHA-256 or HMAC of refresh token with pepper from `SESSION_SECRET`; compare constant-time.
-3. **Cascade deletes** — `ON DELETE RESTRICT` on FKs by default; user delete requires explicit session/membership cleanup policy.
+3. **Cascade deletes** — User delete cascades to `company_memberships` and `sessions`; company delete **RESTRICT** when memberships exist.
 4. **No PII in logs** — Email/password never logged (`LOGGING.md`, `ERROR_HANDLING.md`).
 5. **Email uniqueness** — Enforced at DB level.
 
@@ -257,3 +261,4 @@ Not in v1.3.1 schema design implementation:
 | Date | Change |
 |------|--------|
 | 2026-06-23 | v1.3.1 — Auth DB schema design (DL-042); documentation only |
+| 2026-06-23 | v1.3.7 — Auth schema applied in `tocs_base_schema.sql` + Prisma (DL-048) |

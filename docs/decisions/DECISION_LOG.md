@@ -876,3 +876,28 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/specs/AUTH_IMPLEMENTATION_PLAN.md`](../specs/AUTH_IMPLEMENTATION_PLAN.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-048. Auth DB Schema Implementation
+
+**Title:** Auth DB Schema Implementation
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — v1.3.7 implements **Implementation Phase 1** (DL-047): auth DDL + Prisma mapping + schema integration test only.
+2. **SQL location** — Auth enums and tables (`users`, `company_memberships`, `sessions`) added to `db/schema/tocs_base_schema.sql` (tables 16–18).
+3. **Enums** — `user_status` (`ACTIVE`, `INVITED`, `SUSPENDED`, `LOCKED`); `membership_role` (`SUPER_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `VIEWER`).
+4. **FK policy** — `company_memberships.company_id` → `RESTRICT`; `user_id` / `sessions.user_id` → `CASCADE` on user delete.
+5. **Prisma** — `User`, `CompanyMembership`, `Session` models; `UserStatus`, `MembershipRole` enums; `prisma generate` only.
+6. **Verification** — `src/tests/auth.schema.integration.test.ts` (unique, cascade, restrict).
+7. **Explicitly not in scope** — Login API, JWT, password hashing, middleware, route protection, bootstrap, Core domain changes.
+8. **Integration gate** — Existing **212/212** preserved; **+1** auth schema test.
+
+**Operational reference**
+
+- [`docs/specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
+
+상태: ACCEPTED

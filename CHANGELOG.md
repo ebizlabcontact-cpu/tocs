@@ -38,7 +38,13 @@ Operational runbooks and governance docs; no application or schema code changes.
 | v1.3.5 | `ROUTE_PROTECTION_POLICY.md`, DL-046 (48-route protection registry) |
 | v1.3.6 | `AUTH_IMPLEMENTATION_PLAN.md`, DL-047 (7-phase execution order) |
 
-No application, schema SQL, middleware, or route implementation in these batches.
+Documentation-only batches (v1.3.0–v1.3.6) precede code implementation.
+
+| Batch | Scope |
+|-------|--------|
+| v1.3.7 | Auth DB schema in `tocs_base_schema.sql`, Prisma models, DL-048 |
+
+No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
 ### Added
 
@@ -52,8 +58,13 @@ No application, schema SQL, middleware, or route implementation in these batches
 - **RBAC permission matrix** — `docs/specs/RBAC_PERMISSION_MATRIX.md` (membership roles, resource actions, company scope, sensitive ops).
 - **Route protection policy** — `docs/specs/ROUTE_PROTECTION_POLICY.md` (48-route auth/RBAC/scope registry).
 - **Auth implementation plan** — `docs/specs/AUTH_IMPLEMENTATION_PLAN.md` (Phases 1–7, non-goals, gates).
+- **Auth schema integration test** — `src/tests/auth.schema.integration.test.ts` (users, memberships, sessions constraints).
 
 ### Changed
+
+- `db/schema/tocs_base_schema.sql` — `user_status`, `membership_role` enums; `users`, `company_memberships`, `sessions` tables (v1.3.7).
+- `prisma/schema.prisma` — `User`, `CompanyMembership`, `Session` models; `UserStatus`, `MembershipRole` enums.
+- `docs/specs/AUTH_DB_SCHEMA.md` — v1.3.7 implemented status; column/FK/index alignment.
 
 - `docs/specs/AUTH_RBAC_SPEC.md` — §8–§9 aligned to v1.3.2 token/session policy.
 - `docs/specs/AUTH_RBAC_SPEC.md` — §10 credential policy summary (DL-044).
@@ -76,6 +87,7 @@ No application, schema SQL, middleware, or route implementation in these batches
 - `DECISION_LOG.md` DL-045 — RBAC Permission Matrix.
 - `DECISION_LOG.md` DL-046 — Route Protection Policy.
 - `DECISION_LOG.md` DL-047 — Authentication Implementation Plan.
+- `DECISION_LOG.md` DL-048 — Auth DB Schema Implementation.
 
 ---
 

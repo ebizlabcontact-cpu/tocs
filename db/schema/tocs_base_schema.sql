@@ -57,6 +57,12 @@ CREATE TYPE status_target AS ENUM (
     'CASH_OUT_STATUS', 'INVOICE_STATUS', 'LOGISTICS_STATUS'
 );
 
+CREATE TYPE user_status AS ENUM ('ACTIVE', 'INVITED', 'SUSPENDED', 'LOCKED');
+
+CREATE TYPE membership_role AS ENUM (
+    'SUPER_ADMIN', 'COMPANY_ADMIN', 'MANAGER', 'VIEWER'
+);
+
 -- ============================================================
 -- Sequence + 채번 함수
 -- (함수는 DDL 객체이지만 formulas.formula_no DEFAULT가 즉시 필요로 하므로
@@ -441,6 +447,47 @@ CREATE TABLE audit_logs (
 );
 
 -- ============================================================
+-- 16. users (Auth — v1.3.7)
+-- ============================================================
+CREATE TABLE users (
+    id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    email           VARCHAR(255) NOT NULL UNIQUE,
+    password_hash   TEXT         NOT NULL,
+    name            VARCHAR(100),
+    status          user_status  NOT NULL DEFAULT 'ACTIVE',
+    last_login_at   TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 17. company_memberships (Auth — v1.3.7)
+-- ============================================================
+CREATE TABLE company_memberships (
+    id          UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id  UUID             NOT NULL REFERENCES companies(id) ON DELETE RESTRICT,
+    user_id     UUID             NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role        membership_role  NOT NULL,
+    is_active   BOOLEAN          NOT NULL DEFAULT TRUE,
+    joined_at   TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    created_at  TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_company_memberships_company_user UNIQUE (company_id, user_id)
+);
+
+-- ============================================================
+-- 18. sessions (Auth — v1.3.7)
+-- ============================================================
+CREATE TABLE sessions (
+    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token_hash  TEXT        NOT NULL UNIQUE,
+    expires_at          TIMESTAMPTZ NOT NULL,
+    revoked_at          TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
 -- 기본 인덱스 (테이블당 FK/조회 기본 인덱스만. Partial Index는 supplement)
 -- ============================================================
 
@@ -483,3 +530,14 @@ CREATE INDEX idx_fcs_formula_id ON formula_calculation_snapshots(formula_id);
 CREATE INDEX idx_fsl_formula_id ON formula_status_logs(formula_id);
 
 CREATE INDEX idx_al_table_name ON audit_logs(table_name);
+
+CREATE INDEX idx_users_status ON users(status);
+
+CREATE INDEX idx_cm_company_id ON company_memberships(company_id);
+CREATE INDEX idx_cm_user_id    ON company_memberships(user_id);
+CREATE INDEX idx_cm_role       ON company_memberships(role);
+CREATE INDEX idx_cm_is_active  ON company_memberships(is_active);
+
+CREATE INDEX idx_sessions_user_id    ON sessions(user_id);
+CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX idx_sessions_revoked_at ON sessions(revoked_at);

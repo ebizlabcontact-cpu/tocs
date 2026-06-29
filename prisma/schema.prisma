@@ -30,7 +30,7 @@ datasource db {
 }
 
 // =============================================================================
-// ENUM — 10개, PostgreSQL ENUM과 값 1:1 일치
+// ENUM — 12개, PostgreSQL ENUM과 값 1:1 일치
 // =============================================================================
 
 enum TradeType {
@@ -129,6 +129,24 @@ enum StatusTarget {
   @@map("status_target")
 }
 
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  LOCKED
+
+  @@map("user_status")
+}
+
+enum MembershipRole {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  MANAGER
+  VIEWER
+
+  @@map("membership_role")
+}
+
 // =============================================================================
 // MODEL 1 — Company (companies)
 // =============================================================================
@@ -156,6 +174,7 @@ model Company {
   invoicesAsIssuer                Invoice[]            @relation("InvoiceIssuerCompany")
   invoicesAsReceiver               Invoice[]            @relation("InvoiceReceiverCompany")
   sharesAsTarget                   Share[]              @relation("ShareTargetCompany")
+  memberships                      CompanyMembership[]
 
   @@map("companies")
 }
@@ -632,4 +651,65 @@ model AuditLog {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("audit_logs")
+}
+
+// =============================================================================
+// MODEL 16 — User (users)
+// =============================================================================
+
+model User {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String     @unique @db.VarChar(255)
+  passwordHash String     @map("password_hash")
+  name         String?    @db.VarChar(100)
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?  @map("last_login_at") @db.Timestamptz
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime   @default(now()) @map("updated_at") @db.Timestamptz
+
+  memberships CompanyMembership[]
+  sessions    Session[]
+
+  @@map("users")
+}
+
+// =============================================================================
+// MODEL 17 — CompanyMembership (company_memberships)
+// =============================================================================
+
+model CompanyMembership {
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId String         @map("company_id") @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  role      MembershipRole
+  isActive  Boolean        @default(true) @map("is_active")
+  joinedAt  DateTime       @default(now()) @map("joined_at") @db.Timestamptz
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime       @default(now()) @map("updated_at") @db.Timestamptz
+
+  // ON DELETE RESTRICT — companies(id) 삭제 시 membership 존재하면 거부
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  // ON DELETE CASCADE — users(id) 삭제 시 membership 함께 삭제
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId], name: "uq_company_memberships_company_user")
+  @@map("company_memberships")
+}
+
+// =============================================================================
+// MODEL 18 — Session (sessions)
+// =============================================================================
+
+model Session {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  // ON DELETE CASCADE — users(id) 삭제 시 sessions 함께 삭제
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
 }
