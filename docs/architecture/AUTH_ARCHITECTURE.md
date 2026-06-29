@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Describe how Authentication and RBAC fit into the TOCS Backend architecture. **v1.3.0** — RBAC spec (DL-041); **v1.3.1** — DB schema (DL-042); **v1.3.2** — JWT/session strategy (DL-043). No runtime code in these milestones.
+Describe how Authentication and RBAC fit into the TOCS Backend architecture. **v1.3.0** — RBAC spec (DL-041); **v1.3.1** — DB schema (DL-042); **v1.3.2** — JWT/session strategy (DL-043); **v1.3.3** — password/credential policy (DL-044). No runtime code in these milestones.
 
 **Status:** Design accepted — SQL apply and middleware follow in later milestones.
 
-**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md), [`../specs/AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
+**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md), [`../specs/AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md), [`../specs/AUTH_CREDENTIAL_POLICY.md`](../specs/AUTH_CREDENTIAL_POLICY.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
 
 ---
 
@@ -80,6 +80,7 @@ Authorization for **business rules** (closed formula, version trigger, cancel tw
 | Component | Location (planned) | Responsibility |
 |-----------|-------------------|----------------|
 | `AuthService` | `src/services/auth.service.ts` | Credential validation, token issue/refresh |
+| `CredentialService` | `src/services/credential.service.ts` | Argon2id hash/verify, lockout, password validation (future) |
 | `TokenService` | `src/services/token.service.ts` | JWT sign/verify using `JWT_SECRET` |
 | `SessionService` | `src/services/session.service.ts` | Refresh session using `SESSION_SECRET` |
 | `RbacService` | `src/services/rbac.service.ts` | Role → permission resolution |
@@ -128,13 +129,20 @@ Routes pass `userId` into Actions **only when audit requires**; most existing Ac
 - Access JWT 15m; refresh opaque 14d; rotation + reuse detection documented.
 - See [`AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md).
 
-### Phase D — Middleware (v1.3.3+, planned)
+### Phase D — Credential policy (v1.3.3, DL-044)
+
+- Argon2id password hashing; validation rules; login lockout (5 / 15m).
+- Account statuses: `ACTIVE`, `INVITED`, `SUSPENDED`, `LOCKED`.
+- One-time admin bootstrap with explicit env vars + audit.
+- See [`AUTH_CREDENTIAL_POLICY.md`](../specs/AUTH_CREDENTIAL_POLICY.md).
+
+### Phase E — Middleware (v1.3.4+, planned)
 
 - Register auth + RBAC plugins in `createServer()` **after** request logger, **before** business routes.
 - Route metadata: `{ permission: 'formula:read' }`.
 - Opt-in per route group; dual-mode period with env flag `AUTH_ENFORCE=false` in dev optional.
 
-### Phase E — Enforcement (v1.3.x, planned)
+### Phase F — Enforcement (v1.3.x, planned)
 
 - Production: `AUTH_ENFORCE=true` mandatory.
 - Integration test slice: authenticated + forbidden cases.
@@ -172,6 +180,8 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | Table | Purpose |
 |-------|---------|
 | `users` | Identity, `password_hash`, `status`, `last_login_at` |
+
+**User status enum (v1.3.3):** `ACTIVE` | `INVITED` | `SUSPENDED` | `LOCKED` — reconciles v1.3.1 `PENDING` → `INVITED` at SQL apply.
 | `company_memberships` | `user_id` + `company_id` + `membership_role` enum |
 | `sessions` | `refresh_token_hash`, `expires_at`, `revoked_at` |
 
@@ -193,7 +203,7 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | **logger.ts** | Log auth failures at `warn`; never log tokens |
 | **ERROR_HANDLING.md** | 401/403 taxonomy; `UNAUTHORIZED` / `FORBIDDEN` codes |
 | **request-logger** | Continue `request_id` correlation for denied requests |
-| **212 integration tests** | Unchanged until auth test milestone; no header required until Phase D |
+| **212 integration tests** | Unchanged until auth test milestone; no header required until Phase E |
 
 ---
 
@@ -214,6 +224,8 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | Privilege escalation | Server-side RBAC check; roles not client-editable |
 | Secret leakage | redactSensitive; env validation; no secrets in repo |
 | Confused deputy (business vs API role) | Separate RBAC from `formula_participants` |
+| Credential stuffing | Lockout 5/15m; generic errors; Argon2id; rate limit (optional) |
+| Weak bootstrap password | Explicit env only; validation §3; no prod defaults; audit log |
 
 ---
 
@@ -224,3 +236,4 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | 2026-06-23 | v1.3.0 — Auth architecture foundation (DL-041); design only |
 | 2026-06-23 | v1.3.1 — Auth DB schema (`users`, `company_memberships`, `sessions`); phased rollout updated (DL-042) |
 | 2026-06-23 | v1.3.2 — JWT/session strategy, rotation, logout; phases C–E (DL-043) |
+| 2026-06-23 | v1.3.3 — Credential policy, bootstrap, lockout; Phase D; middleware → Phase E (DL-044) |

@@ -33,6 +33,7 @@ Operational runbooks and governance docs; no application or schema code changes.
 | v1.3.0 | `AUTH_RBAC_SPEC.md`, `AUTH_ARCHITECTURE.md`, DL-041 |
 | v1.3.1 | `AUTH_DB_SCHEMA.md`, DL-042 (`users`, `company_memberships`, `sessions`) |
 | v1.3.2 | `AUTH_TOKEN_SESSION_STRATEGY.md`, DL-043 (JWT 15m, refresh 14d, rotation) |
+| v1.3.3 | `AUTH_CREDENTIAL_POLICY.md`, DL-044 (Argon2id, lockout, bootstrap) |
 
 No application, schema SQL, middleware, or route implementation in these batches.
 
@@ -44,11 +45,13 @@ No application, schema SQL, middleware, or route implementation in these batches
 - **Auth architecture** — `docs/architecture/AUTH_ARCHITECTURE.md` (HTTP layer placement, separation from Formula business roles, phased rollout).
 - **Auth database schema (design)** — `docs/specs/AUTH_DB_SCHEMA.md` (users, company_memberships, sessions; membership role enum).
 - **JWT & session strategy** — `docs/specs/AUTH_TOKEN_SESSION_STRATEGY.md` (access/refresh TTL, rotation, reuse detection, logout).
+- **Password & credential policy** — `docs/specs/AUTH_CREDENTIAL_POLICY.md` (Argon2id, validation, lockout, bootstrap, sensitive-data rules).
 
 ### Changed
 
 - `docs/specs/AUTH_RBAC_SPEC.md` — §8–§9 aligned to v1.3.2 token/session policy.
-- `docs/architecture/AUTH_ARCHITECTURE.md` — v1.3.1 data model, company-scoped membership roles, phased rollout (B=schema, C=token strategy, D=middleware).
+- `docs/specs/AUTH_RBAC_SPEC.md` — §10 credential policy summary (DL-044).
+- `docs/architecture/AUTH_ARCHITECTURE.md` — v1.3.1 data model, company-scoped membership roles, phased rollout (B=schema, C=token strategy, D=credential policy, E=middleware).
 
 - `docs/operations/ENVIRONMENT.md` — production checklist links CI green, backup-before-schema, rollback point.
 - `docs/operations/INCIDENT_RESPONSE.md` — deployment / rollback incident section.
@@ -60,6 +63,7 @@ No application, schema SQL, middleware, or route implementation in these batches
 - `DECISION_LOG.md` DL-041 — Authentication and RBAC Foundation.
 - `DECISION_LOG.md` DL-042 — Authentication Database Foundation.
 - `DECISION_LOG.md` DL-043 — JWT and Session Strategy.
+- `DECISION_LOG.md` DL-044 — Password and Credential Policy.
 
 ---
 

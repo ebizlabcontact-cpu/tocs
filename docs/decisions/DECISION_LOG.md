@@ -769,3 +769,30 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/specs/AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-044. Password and Credential Policy
+
+**Title:** Password and Credential Policy
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — v1.3.3 is **credential policy documentation only**; no password hashing, login API, user table SQL, or bootstrap command.
+2. **Hashing** — **Argon2id** primary (m=65536, t=3, p=4); **bcrypt** cost ≥ 12 fallback only if Argon2 runtime unavailable.
+3. **Validation** — Min length **12**; passphrases allowed; ≥ 2 character categories; block email-as-password and obvious service/company tokens.
+4. **Lockout** — **5** failures within **15** minutes → **LOCKED** for **15** minutes; reset counter on successful login.
+5. **Account status** — `ACTIVE`, `INVITED`, `SUSPENDED`, `LOCKED` (supersedes v1.3.1 `PENDING` at SQL apply).
+6. **Bootstrap** — One-time admin via explicit env vars; **no** production default password; `audit_logs` required.
+7. **Password reset** — **Deferred**; no email reset in Auth MVP; admin reset documented as future scope.
+8. **Sensitive data** — Never log or return password / `password_hash`; generic credential error messages.
+9. **Deferred** — Password reset email, 2FA, breach DB, device trust, SSO/OAuth.
+10. **Integration gate unchanged** — 212/212 without auth until implementation milestone.
+
+**Operational reference**
+
+- [`docs/specs/AUTH_CREDENTIAL_POLICY.md`](../specs/AUTH_CREDENTIAL_POLICY.md)
+
+상태: ACCEPTED

@@ -8,7 +8,7 @@
 | **Status** | ACCEPTED (DL-041) |
 | **Implementation** | **Not started** — no DB, API, middleware, or JWT code in this milestone |
 
-**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
+**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
 
 ---
 
@@ -127,7 +127,7 @@ Resources map to TOCS API domains (Formula First). Permission checks are **route
 Client                          TOCS API
   |                                |
   |-- POST /api/v1/auth/login --->|  (future route)
-  |    { email, password }         |  Validate credentials (future User store)
+  |    { email, password }         |  Validate credentials (AUTH_CREDENTIAL_POLICY)
   |                                |  Issue access JWT + refresh session
   |<-- 200 { access_token, ... } --|
   |    Set-Cookie: refresh (opt)   |
@@ -216,7 +216,25 @@ Access tokens remain **stateless JWT**; sessions manage **refresh only**.
 
 ---
 
-## 10. Future expansion
+## 10. Credential policy
+
+Canonical detail: [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md) (DL-044).
+
+| Aspect | Policy |
+|--------|--------|
+| **Hashing** | Argon2id (primary); bcrypt cost ≥ 12 fallback only if Argon2 unavailable |
+| **Minimum length** | **12** characters; passphrases allowed |
+| **Composition** | ≥ 2 categories among letters, digits, symbols |
+| **Rejections** | Email-as-password; obvious service/company tokens |
+| **Login lockout** | **5** failures in **15** minutes → **LOCKED** for **15** minutes |
+| **Account status** | `ACTIVE`, `INVITED`, `SUSPENDED`, `LOCKED` |
+| **Bootstrap** | One-time; explicit env vars; no production default password; audit required |
+| **Password reset** | **Deferred** — no email reset in Auth MVP |
+| **Sensitive data** | Never log or return password / `password_hash`; generic login errors |
+
+---
+
+## 11. Future expansion
 
 | Area | Direction |
 |------|-----------|
@@ -231,25 +249,25 @@ Access tokens remain **stateless JWT**; sessions manage **refresh only**.
 
 ---
 
-## 11. Deferred scope
+## 12. Deferred scope
 
-Not in Auth Foundation v1.3.0 specification implementation:
+Not in Auth Foundation v1.3.0–v1.3.3 specification implementation:
 
 | Item | Notes |
 |------|-------|
-| User / credentials tables | SQL design in follow-up milestone |
+| User / credentials tables | SQL design in DL-042; apply in SQL milestone |
 | Company membership model | Link user ↔ company; not `formula_participants` |
-| Login / refresh HTTP routes | v1.3.1+ |
+| Login / refresh HTTP routes | After middleware milestone |
 | Auth middleware on existing 48 routes | Gradual rollout with test slice |
-| Password reset / email verification | V2 |
-| OAuth, MFA, API keys | V2 |
+| Password reset email / self-service forgot | V2 (admin reset future scope — DL-044) |
+| OAuth, MFA, API keys, breach DB | V2 |
 | Permission admin UI | V2 |
 | CI auth integration tests | When middleware lands |
 | Prisma/schema changes | Separate approved SQL milestone |
 
 ---
 
-## 12. Security principles
+## 13. Security principles
 
 1. **Fail closed** — Unauthenticated requests to protected routes are rejected.
 2. **Separate secrets** — `JWT_SECRET` ≠ `SESSION_SECRET` ≠ `ENCRYPTION_KEY`.
@@ -261,6 +279,7 @@ Not in Auth Foundation v1.3.0 specification implementation:
 8. **Production gate** — `JWT_SECRET` + `SESSION_SECRET` required when `NODE_ENV=production` (existing env validation).
 9. **HTTPS only** in production for cookies and tokens.
 10. **Least privilege** — Default role for new users: `VIEWER` or none until assigned.
+11. **Credential hygiene** — Argon2id hashing; lockout policy; no password material in logs or API (DL-044).
 
 ---
 
@@ -270,3 +289,4 @@ Not in Auth Foundation v1.3.0 specification implementation:
 |------|--------|
 | 2026-06-23 | v1.3.0 — Auth/RBAC foundation specification (DL-041); design only |
 | 2026-06-23 | v1.3.2 — JWT/session summary aligned to AUTH_TOKEN_SESSION_STRATEGY (DL-043) |
+| 2026-06-23 | v1.3.3 — Credential policy summary aligned to AUTH_CREDENTIAL_POLICY (DL-044) |
