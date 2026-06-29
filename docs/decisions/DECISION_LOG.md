@@ -641,3 +641,32 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/operations/LOGGING.md`](../operations/LOGGING.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-039. Release and Deployment Governance
+
+**Title:** Release and Deployment Governance
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Release gates** — `main` CI green, `typecheck` pass, integration **212/212**, CHANGELOG/RELEASE_NOTES updated before tag.
+2. **Tag policy** — SemVer `vMAJOR.MINOR.PATCH` only (DL-035); v1.0.x MVP, v1.1.x CI, v1.2.x hardening, v1.3.x Auth (future), v2.x expansion; **4-part tags forbidden**.
+3. **Deployment** — Env validation, SQL-first schema (base → supplement → fix), **backup before production schema apply**, health check, rollback point required.
+4. **Rollback** — App redeploy prior tag; DB restore from backup (no Prisma down-migrate).
+5. **Hotfix** — Branch from latest accepted tag, minimal fix, CI green, PATCH bump only.
+6. **CI gate** — Failed CI on `main` → **release forbidden**.
+
+**Excluded**
+
+- Deploy automation / CD pipelines (V2)
+- Auth/RBAC release (v1.3.x milestone)
+
+**Operational reference**
+
+- [`docs/operations/RELEASE_AND_DEPLOYMENT.md`](../operations/RELEASE_AND_DEPLOYMENT.md)
+- [`docs/releases/RELEASE_GOVERNANCE.md`](../releases/RELEASE_GOVERNANCE.md)
+
+상태: ACCEPTED

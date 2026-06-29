@@ -13,7 +13,30 @@ See [`docs/releases/RELEASE_GOVERNANCE.md`](docs/releases/RELEASE_GOVERNANCE.md)
 
 ## [Unreleased]
 
-_No changes yet._
+### Documentation — Production Hardening (changelog-only batches)
+
+Operational runbooks and governance docs; no application or schema code changes.
+
+| Batch | Scope |
+|-------|--------|
+| v1.2.3 | Local port policy, startup validation docs |
+| v1.2.4 | Health response contract, CI env notes |
+| v1.2.5 | `BACKUP_AND_RESTORE.md`, DL-037 |
+| v1.2.6 | `ERROR_HANDLING.md`, `INCIDENT_RESPONSE.md`, DL-038 |
+| v1.2.7 | `RELEASE_AND_DEPLOYMENT.md`, DL-039 release/deploy/rollback governance |
+
+### Added
+
+- **Release & deployment runbook** — `docs/operations/RELEASE_AND_DEPLOYMENT.md` (release gates, deployment checklist, SQL-first deploy, rollback, hotfix flow, CI release gate).
+
+### Changed
+
+- `docs/operations/ENVIRONMENT.md` — production checklist links CI green, backup-before-schema, rollback point.
+- `docs/operations/INCIDENT_RESPONSE.md` — deployment / rollback incident section.
+
+### Decision
+
+- `DECISION_LOG.md` DL-039 — Release and Deployment Governance.
 
 ---
 

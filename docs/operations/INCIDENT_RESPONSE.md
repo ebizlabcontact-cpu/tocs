@@ -6,7 +6,7 @@ Operational playbooks for common TOCS failures: quick diagnosis, recovery, and v
 
 **Scope:** Runbooks only — no notification system, on-call tooling, or code changes in this milestone.
 
-**Related:** [`ERROR_HANDLING.md`](./ERROR_HANDLING.md), [`LOGGING.md`](./LOGGING.md), [`ENVIRONMENT.md`](./ENVIRONMENT.md), [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md), [`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md)  
+**Related:** [`ERROR_HANDLING.md`](./ERROR_HANDLING.md), [`LOGGING.md`](./LOGGING.md), [`ENVIRONMENT.md`](./ENVIRONMENT.md), [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md), [`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md), [`RELEASE_AND_DEPLOYMENT.md`](./RELEASE_AND_DEPLOYMENT.md)  
 **Decision:** DL-038 — Error Handling and Incident Response Policy (ACCEPTED)
 
 ---
@@ -236,8 +236,28 @@ Notification/on-call integration: **V2** — not in Core MVP.
 
 ---
 
+## 9. Deployment / rollback incident
+
+**Symptoms**
+
+- Post-deploy 500 spike, health check failure, startup `EnvironmentValidationError`
+- Wrong version running after deploy
+- Schema apply failure mid-migration
+
+**Recovery**
+
+1. **Stop traffic** to new version.
+2. **Application rollback** — redeploy prior tag/image ([`RELEASE_AND_DEPLOYMENT.md`](./RELEASE_AND_DEPLOYMENT.md) §5.1).
+3. **Database** — if schema changed, restore from pre-deploy backup ([`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md) §4).
+4. **Verify** — §7.1–7.3 + health with `environment: production`.
+
+**Release gate reminder:** Do not re-deploy failed release until root cause fixed and **CI green** on fix commit.
+
+---
+
 ## Document history
 
 | Date | Change |
 |------|--------|
 | 2026-06-23 | v1.2.6 — Initial incident response runbooks (Production Hardening) |
+| 2026-06-23 | v1.2.7 — Deployment / rollback incident section; link release runbook |

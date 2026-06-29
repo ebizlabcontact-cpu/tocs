@@ -7,7 +7,7 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 **Scope:** Operations policy and templates only. Auth/RBAC is not implemented in Core MVP; secret variables are **reserved** for a future auth milestone.
 
 **Template:** [`.env.example`](../../.env.example)  
-**Related:** [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md), [`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md), [`docs/DB_APPLY_ORDER.md`](../DB_APPLY_ORDER.md), [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
+**Related:** [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md), [`BACKUP_AND_RESTORE.md`](./BACKUP_AND_RESTORE.md), [`RELEASE_AND_DEPLOYMENT.md`](./RELEASE_AND_DEPLOYMENT.md), [`docs/DB_APPLY_ORDER.md`](../DB_APPLY_ORDER.md), [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
 
 ---
 
@@ -281,16 +281,20 @@ No JWT/SESSION/ENCRYPTION in CI for Core MVP.
 
 ## 8. Production checklist (pre-deploy)
 
+Full procedure: [`RELEASE_AND_DEPLOYMENT.md`](./RELEASE_AND_DEPLOYMENT.md) §3.
+
+- [ ] **CI green** on release commit (`gh run list --branch main`)
 - [ ] `NODE_ENV=production`
 - [ ] `DATABASE_URL` points to production cluster (least-privilege DB user)
 - [ ] `PORT` matches reverse proxy / container port
 - [ ] `LOG_LEVEL=info` or `warn`
 - [ ] `JWT_SECRET`, `SESSION_SECRET`, `ENCRYPTION_KEY` set from CSPRNG (unique values)
 - [ ] Secrets stored in host/secret manager — not in git
-- [ ] DB schema applied per `DB_APPLY_ORDER.md`
-- [ ] `npx prisma generate` in build image
+- [ ] DB schema applied per `DB_APPLY_ORDER.md` (**backup before schema change** — DL-037)
+- [ ] `npx prisma generate` in build image (**no** migrate / db push)
 - [ ] Startup validation passes (`validateEnvironment()` — v1.2.3)
 - [ ] Health check: `GET /api/v1/health`
+- [ ] Rollback point recorded (prior tag, image, backup) — [`RELEASE_AND_DEPLOYMENT.md`](./RELEASE_AND_DEPLOYMENT.md) §3.5
 
 ---
 
@@ -368,3 +372,4 @@ docker exec tocs-postgres psql -U tocs -d tocs_db -c "SELECT 1"
 | 2026-06-23 | v1.2.3 — Local PostgreSQL port policy, integration checklist, troubleshooting; link `LOCAL_DEVELOPMENT.md` |
 | 2026-06-23 | v1.2.4 — Health endpoint response contract; fail-fast variable matrix; test env defaults for CI |
 | 2026-06-23 | v1.2.5 — Link backup & restore runbook; retention policy reference (DL-037) |
+| 2026-06-23 | v1.2.7 — Link release & deployment runbook; production checklist CI/rollback (DL-039) |
