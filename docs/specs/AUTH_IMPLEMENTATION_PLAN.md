@@ -131,7 +131,7 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 |-------|-----------------|
 | Routes | `src/http/routes/auth.routes.ts` |
 | Actions | `src/actions/auth.actions.ts` |
-| Services | `AuthService` orchestration |
+| Services | `AuthService` orchestration — **implemented (v1.3.11, no JWT)** |
 
 ### Rules
 
