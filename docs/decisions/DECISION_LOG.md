@@ -823,3 +823,29 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/specs/RBAC_PERMISSION_MATRIX.md`](../specs/RBAC_PERMISSION_MATRIX.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-046. Route Protection Policy
+
+**Title:** Route Protection Policy
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — v1.3.5 is **route protection documentation only**; no middleware, route code, Service, or test changes.
+2. **Route count** — All **48** Core MVP HTTP routes classified (verified against `src/http/routes/*.ts` and `API_MVP_SCOPE.md`).
+3. **Protection levels** — `PUBLIC`, `AUTHENTICATED`, `RBAC`, `COMPANY_SCOPED`, `SUPER_ADMIN_ONLY`.
+4. **Public** — `GET /api/v1/health` only; **47** business routes require authentication in production.
+5. **RBAC floors** — Aligned with DL-045: `VIEWER` read; `MANAGER` operational mutations; `COMPANY_ADMIN`+ for cancel, close, settlement, payment record cancel, company create.
+6. **Company scope** — `SUPER_ADMIN` bypass; others via `company_memberships` + formula `formula_participants` linkage; dashboard company filter mandatory.
+7. **Route registry** — Per-route method, path, domain, protection level, min role, permission key, scope rule in `ROUTE_PROTECTION_POLICY.md` §7.
+8. **Deferred** — RLS, policy engine, custom permissions, API keys, service accounts, external auditor, public share links.
+9. **Integration gate unchanged** — 212/212 without auth headers until middleware milestone.
+
+**Operational reference**
+
+- [`docs/specs/ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md)
+
+상태: ACCEPTED

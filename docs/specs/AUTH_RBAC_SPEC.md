@@ -8,7 +8,7 @@
 | **Status** | ACCEPTED (DL-041) |
 | **Implementation** | **Not started** — no DB, API, middleware, or JWT code in this milestone |
 
-**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md), [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
+**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md), [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md), [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
 
 ---
 
@@ -105,6 +105,8 @@ Canonical detail: [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) (DL
 | `VIEWER` | Company | None (read only) | **Denied** |
 
 Full cell-level matrix: [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) §6.
+
+Per-route policy (48 routes): [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md) (DL-046).
 
 ### 5.2 HTTP status mapping (authorization)
 
@@ -244,7 +246,21 @@ Canonical detail: [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) (DL
 
 ---
 
-## 12. Future expansion
+## 12. Route protection policy
+
+Canonical detail: [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md) (DL-046).
+
+| Aspect | Policy |
+|--------|--------|
+| **Public routes** | `GET /api/v1/health` only |
+| **Business routes (47)** | `AUTHENTICATED` + `RBAC` + `COMPANY_SCOPED` |
+| **Protection levels** | `PUBLIC`, `AUTHENTICATED`, `RBAC`, `COMPANY_SCOPED`, `SUPER_ADMIN_ONLY` |
+| **Sensitive routes** | Cancel, close, settlement POST, payment record cancel, company create → `COMPANY_ADMIN`+ |
+| **Scope** | Formula via `formula_participants`; dashboard company filter mandatory |
+
+---
+
+## 13. Future expansion
 
 | Area | Direction |
 |------|-----------|
@@ -259,16 +275,16 @@ Canonical detail: [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) (DL
 
 ---
 
-## 13. Deferred scope
+## 14. Deferred scope
 
-Not in Auth Foundation v1.3.0–v1.3.4 specification implementation:
+Not in Auth Foundation v1.3.0–v1.3.5 specification implementation:
 
 | Item | Notes |
 |------|-------|
 | User / credentials tables | SQL design in DL-042; apply in SQL milestone |
 | Company membership model | Link user ↔ company; not `formula_participants` |
 | Login / refresh HTTP routes | After middleware milestone |
-| Auth middleware on existing 48 routes | Gradual rollout with test slice |
+| Auth middleware on existing 48 routes | Policy in DL-046; implementation in middleware milestone |
 | Password reset email / self-service forgot | V2 (admin reset future scope — DL-044) |
 | OAuth, MFA, API keys, breach DB | V2 |
 | Permission admin UI | V2 |
@@ -278,7 +294,7 @@ Not in Auth Foundation v1.3.0–v1.3.4 specification implementation:
 
 ---
 
-## 14. Security principles
+## 15. Security principles
 
 1. **Fail closed** — Unauthenticated requests to protected routes are rejected.
 2. **Separate secrets** — `JWT_SECRET` ≠ `SESSION_SECRET` ≠ `ENCRYPTION_KEY`.
@@ -292,6 +308,7 @@ Not in Auth Foundation v1.3.0–v1.3.4 specification implementation:
 10. **Least privilege** — Default role for new users: `VIEWER` or none until assigned.
 11. **Credential hygiene** — Argon2id hashing; lockout policy; no password material in logs or API (DL-044).
 12. **Company scope** — Non–`SUPER_ADMIN` roles constrained by `company_memberships`; dashboard KPI requires company filter (DL-045).
+13. **Route protection** — 48-route registry with min role and scope rules (DL-046).
 
 ---
 
@@ -303,3 +320,4 @@ Not in Auth Foundation v1.3.0–v1.3.4 specification implementation:
 | 2026-06-23 | v1.3.2 — JWT/session summary aligned to AUTH_TOKEN_SESSION_STRATEGY (DL-043) |
 | 2026-06-23 | v1.3.3 — Credential policy summary aligned to AUTH_CREDENTIAL_POLICY (DL-044) |
 | 2026-06-23 | v1.3.4 — Membership roles + matrix summary; RBAC_PERMISSION_MATRIX canonical (DL-045) |
+| 2026-06-23 | v1.3.5 — Route protection summary; ROUTE_PROTECTION_POLICY canonical (DL-046) |

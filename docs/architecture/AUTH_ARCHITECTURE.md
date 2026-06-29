@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Describe how Authentication and RBAC fit into the TOCS Backend architecture. **v1.3.0** — RBAC spec (DL-041); **v1.3.1** — DB schema (DL-042); **v1.3.2** — JWT/session strategy (DL-043); **v1.3.3** — password/credential policy (DL-044); **v1.3.4** — RBAC permission matrix (DL-045). No runtime code in these milestones.
+Describe how Authentication and RBAC fit into the TOCS Backend architecture. **v1.3.0** — RBAC spec (DL-041); **v1.3.1** — DB schema (DL-042); **v1.3.2** — JWT/session strategy (DL-043); **v1.3.3** — password/credential policy (DL-044); **v1.3.4** — RBAC permission matrix (DL-045); **v1.3.5** — route protection policy (DL-046). No runtime code in these milestones.
 
 **Status:** Design accepted — SQL apply and middleware follow in later milestones.
 
-**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md), [`../specs/AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md), [`../specs/AUTH_CREDENTIAL_POLICY.md`](../specs/AUTH_CREDENTIAL_POLICY.md), [`../specs/RBAC_PERMISSION_MATRIX.md`](../specs/RBAC_PERMISSION_MATRIX.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
+**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md), [`../specs/AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md), [`../specs/AUTH_CREDENTIAL_POLICY.md`](../specs/AUTH_CREDENTIAL_POLICY.md), [`../specs/RBAC_PERMISSION_MATRIX.md`](../specs/RBAC_PERMISSION_MATRIX.md), [`../specs/ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
 
 ---
 
@@ -143,13 +143,19 @@ Routes pass `userId` into Actions **only when audit requires**; most existing Ac
 - Sensitive ops floor: `COMPANY_ADMIN`+.
 - See [`RBAC_PERMISSION_MATRIX.md`](../specs/RBAC_PERMISSION_MATRIX.md).
 
-### Phase F — Middleware (v1.3.5+, planned)
+### Phase F — Route protection policy (v1.3.5, DL-046)
+
+- All **48** MVP routes classified: protection level, min role, permission key, scope rule.
+- Public: health only; 47 business routes require auth + RBAC + company scope.
+- See [`ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md).
+
+### Phase G — Middleware (v1.3.6+, planned)
 
 - Register auth + RBAC plugins in `createServer()` **after** request logger, **before** business routes.
 - Route metadata: `{ permission: 'formula:read' }`.
 - Opt-in per route group; dual-mode period with env flag `AUTH_ENFORCE=false` in dev optional.
 
-### Phase G — Enforcement (v1.3.x, planned)
+### Phase H — Enforcement (v1.3.x, planned)
 
 - Production: `AUTH_ENFORCE=true` mandatory.
 - Integration test slice: authenticated + forbidden cases.
@@ -210,7 +216,7 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | **logger.ts** | Log auth failures at `warn`; never log tokens |
 | **ERROR_HANDLING.md** | 401/403 taxonomy; `UNAUTHORIZED` / `FORBIDDEN` codes |
 | **request-logger** | Continue `request_id` correlation for denied requests |
-| **212 integration tests** | Unchanged until auth test milestone; no header required until Phase F |
+| **212 integration tests** | Unchanged until auth test milestone; no header required until Phase G |
 
 ---
 
@@ -246,4 +252,5 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | 2026-06-23 | v1.3.1 — Auth DB schema (`users`, `company_memberships`, `sessions`); phased rollout updated (DL-042) |
 | 2026-06-23 | v1.3.2 — JWT/session strategy, rotation, logout; phases C–E (DL-043) |
 | 2026-06-23 | v1.3.3 — Credential policy, bootstrap, lockout; Phase D; middleware → Phase F (DL-044) |
-| 2026-06-23 | v1.3.4 — RBAC permission matrix; Phase E; middleware → Phase F (DL-045) |
+| 2026-06-23 | v1.3.4 — RBAC permission matrix; Phase E; middleware → Phase G (DL-045) |
+| 2026-06-23 | v1.3.5 — Route protection policy (48 routes); Phase F; middleware → Phase G (DL-046) |

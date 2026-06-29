@@ -8,7 +8,7 @@
 | **Status** | ACCEPTED (DL-045) |
 | **Implementation** | **Not started** — no middleware, route metadata, or `RbacService` code |
 
-**Related:** [`AUTH_RBAC_SPEC.md`](./AUTH_RBAC_SPEC.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md)
+**Related:** [`AUTH_RBAC_SPEC.md`](./AUTH_RBAC_SPEC.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md), [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md)
 
 **Decision:** DL-045 — RBAC Permission Matrix (ACCEPTED)
 
@@ -283,7 +283,9 @@ When a user holds memberships on companies A and B:
 
 ## 10. Route → permission mapping (reference)
 
-Implementation milestone registers these on route metadata. Illustrative — not exhaustive.
+**Canonical per-route registry (48 routes):** [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md) §7 (DL-046).
+
+Implementation milestone registers metadata from that table. Illustrative subset:
 
 | Method | Route pattern | Permission |
 |--------|---------------|------------|
@@ -338,3 +340,4 @@ Not in v1.3.4 matrix implementation:
 | Date | Change |
 |------|--------|
 | 2026-06-23 | v1.3.4 — RBAC permission matrix (DL-045); documentation only |
+| 2026-06-23 | v1.3.5 — Route registry delegated to ROUTE_PROTECTION_POLICY (DL-046) |

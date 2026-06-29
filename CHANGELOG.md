@@ -35,6 +35,7 @@ Operational runbooks and governance docs; no application or schema code changes.
 | v1.3.2 | `AUTH_TOKEN_SESSION_STRATEGY.md`, DL-043 (JWT 15m, refresh 14d, rotation) |
 | v1.3.3 | `AUTH_CREDENTIAL_POLICY.md`, DL-044 (Argon2id, lockout, bootstrap) |
 | v1.3.4 | `RBAC_PERMISSION_MATRIX.md`, DL-045 (membership roles, company scope) |
+| v1.3.5 | `ROUTE_PROTECTION_POLICY.md`, DL-046 (48-route protection registry) |
 
 No application, schema SQL, middleware, or route implementation in these batches.
 
@@ -48,13 +49,16 @@ No application, schema SQL, middleware, or route implementation in these batches
 - **JWT & session strategy** — `docs/specs/AUTH_TOKEN_SESSION_STRATEGY.md` (access/refresh TTL, rotation, reuse detection, logout).
 - **Password & credential policy** — `docs/specs/AUTH_CREDENTIAL_POLICY.md` (Argon2id, validation, lockout, bootstrap, sensitive-data rules).
 - **RBAC permission matrix** — `docs/specs/RBAC_PERMISSION_MATRIX.md` (membership roles, resource actions, company scope, sensitive ops).
+- **Route protection policy** — `docs/specs/ROUTE_PROTECTION_POLICY.md` (48-route auth/RBAC/scope registry).
 
 ### Changed
 
 - `docs/specs/AUTH_RBAC_SPEC.md` — §8–§9 aligned to v1.3.2 token/session policy.
 - `docs/specs/AUTH_RBAC_SPEC.md` — §10 credential policy summary (DL-044).
 - `docs/specs/AUTH_RBAC_SPEC.md` — §3/§5/§11 membership roles and matrix summary (DL-045).
-- `docs/architecture/AUTH_ARCHITECTURE.md` — v1.3.1 data model, company-scoped membership roles, phased rollout (B=schema, C=token, D=credential, E=matrix, F=middleware).
+- `docs/specs/AUTH_RBAC_SPEC.md` — §12 route protection summary (DL-046).
+- `docs/specs/RBAC_PERMISSION_MATRIX.md` — §9 points to canonical route registry (DL-046).
+- `docs/architecture/AUTH_ARCHITECTURE.md` — phased rollout (B=schema, C=token, D=credential, E=matrix, F=route policy, G=middleware).
 
 - `docs/operations/ENVIRONMENT.md` — production checklist links CI green, backup-before-schema, rollback point.
 - `docs/operations/INCIDENT_RESPONSE.md` — deployment / rollback incident section.
@@ -68,6 +72,7 @@ No application, schema SQL, middleware, or route implementation in these batches
 - `DECISION_LOG.md` DL-043 — JWT and Session Strategy.
 - `DECISION_LOG.md` DL-044 — Password and Credential Policy.
 - `DECISION_LOG.md` DL-045 — RBAC Permission Matrix.
+- `DECISION_LOG.md` DL-046 — Route Protection Policy.
 
 ---
 
