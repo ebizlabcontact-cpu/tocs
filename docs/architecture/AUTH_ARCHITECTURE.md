@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Describe how Authentication and RBAC fit into the TOCS Backend architecture. **v1.3.0** — RBAC specification (DL-041); **v1.3.1** — database schema design (DL-042). No runtime code or SQL files in these milestones.
+Describe how Authentication and RBAC fit into the TOCS Backend architecture. **v1.3.0** — RBAC spec (DL-041); **v1.3.1** — DB schema (DL-042); **v1.3.2** — JWT/session strategy (DL-043). No runtime code in these milestones.
 
 **Status:** Design accepted — SQL apply and middleware follow in later milestones.
 
-**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
+**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md), [`../specs/AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
 
 ---
 
@@ -123,13 +123,18 @@ Routes pass `userId` into Actions **only when audit requires**; most existing Ac
 - **No** `db/schema/*.sql` or Prisma changes in this phase.
 - Future: `tocs_auth_schema.sql` as 4th apply file.
 
-### Phase C — Middleware (v1.3.2+, planned)
+### Phase C — Token strategy (v1.3.2, DL-043)
+
+- Access JWT 15m; refresh opaque 14d; rotation + reuse detection documented.
+- See [`AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md).
+
+### Phase D — Middleware (v1.3.3+, planned)
 
 - Register auth + RBAC plugins in `createServer()` **after** request logger, **before** business routes.
 - Route metadata: `{ permission: 'formula:read' }`.
 - Opt-in per route group; dual-mode period with env flag `AUTH_ENFORCE=false` in dev optional.
 
-### Phase D — Enforcement (v1.3.x, planned)
+### Phase E — Enforcement (v1.3.x, planned)
 
 - Production: `AUTH_ENFORCE=true` mandatory.
 - Integration test slice: authenticated + forbidden cases.
@@ -139,23 +144,24 @@ Routes pass `userId` into Actions **only when audit requires**; most existing Ac
 
 ## 6. Token lifecycle architecture
 
+Canonical flows: [`AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md).
+
 ```
-┌──────────┐     login      ┌─────────────┐
-│  Client  │ ──────────────▶│ AuthService │
-└──────────┘                └──────┬──────┘
+┌──────────┐     login      ┌─────────────┐     insert      ┌──────────┐
+│  Client  │ ──────────────▶│ AuthService │ ───────────────▶│ sessions │
+└──────────┘                └──────┬──────┘                 └──────────┘
      ▲                             │
-     │         access JWT          │ refresh session
-     │         (short TTL)         │ (SESSION_SECRET)
-     │                             ▼
-     │                      ┌─────────────┐
-     └──── refresh ────────│SessionService│
+     │  access JWT (15m, Bearer)   │ refresh opaque (14d, cookie)
+     │                             │ hash with SESSION_SECRET
+     │                      ┌──────▼──────┐
+     └──── refresh ────────│SessionService│── rotation: revoke old row
                             └─────────────┘
 ```
 
-| Token | Storage | Validates with |
-|-------|---------|----------------|
-| Access JWT | Client memory / Authorization header | `JWT_SECRET` |
-| Refresh | HttpOnly cookie or secure store | `SESSION_SECRET` + `sessions.refresh_token_hash` row |
+| Token | TTL | Storage | Validates with |
+|-------|-----|---------|----------------|
+| Access JWT | **15 min** | Client memory / `Authorization` header | `JWT_SECRET` |
+| Refresh | **14 days** | HttpOnly cookie; DB hash only | `SESSION_SECRET` + `sessions.refresh_token_hash` |
 
 ---
 
@@ -187,7 +193,7 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | **logger.ts** | Log auth failures at `warn`; never log tokens |
 | **ERROR_HANDLING.md** | 401/403 taxonomy; `UNAUTHORIZED` / `FORBIDDEN` codes |
 | **request-logger** | Continue `request_id` correlation for denied requests |
-| **212 integration tests** | Unchanged until auth test milestone; no header required until Phase C |
+| **212 integration tests** | Unchanged until auth test milestone; no header required until Phase D |
 
 ---
 
@@ -204,7 +210,7 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | Threat | Mitigation |
 |--------|------------|
 | Stolen access JWT | Short TTL; HTTPS; refresh rotation |
-| Stolen refresh cookie | HttpOnly, Secure, SameSite; server revocation |
+| Stolen refresh cookie | HttpOnly, Secure, SameSite; rotation; reuse → logout all |
 | Privilege escalation | Server-side RBAC check; roles not client-editable |
 | Secret leakage | redactSensitive; env validation; no secrets in repo |
 | Confused deputy (business vs API role) | Separate RBAC from `formula_participants` |
@@ -217,3 +223,4 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 |------|--------|
 | 2026-06-23 | v1.3.0 — Auth architecture foundation (DL-041); design only |
 | 2026-06-23 | v1.3.1 — Auth DB schema (`users`, `company_memberships`, `sessions`); phased rollout updated (DL-042) |
+| 2026-06-23 | v1.3.2 — JWT/session strategy, rotation, logout; phases C–E (DL-043) |

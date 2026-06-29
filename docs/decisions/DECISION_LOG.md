@@ -743,3 +743,29 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-043. JWT and Session Strategy
+
+**Title:** JWT and Session Strategy
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — v1.3.2 is **strategy documentation only**; no JWT library, session repository, login API, or middleware.
+2. **Access token** — JWT HS256, **15 minutes** TTL; claims: `sub`, `email`, `roles`, `memberships` summary, `iat`, `exp`; signed with `JWT_SECRET`.
+3. **Refresh token** — Opaque random, **14 days** TTL; HttpOnly Secure SameSite cookie; DB stores `refresh_token_hash` only.
+4. **Rotation** — Each refresh issues new access + refresh; prior session `revoked_at = NOW()`.
+5. **Reuse detection** — Presenting revoked refresh → revoke **all** user sessions + 401.
+6. **Logout** — Revoke current session + clear cookie; **logout all** revokes all active sessions for user.
+7. **Security** — `JWT_SECRET` + `SESSION_SECRET` required in production; no tokens in logs; `ENCRYPTION_KEY` reserved.
+8. **Deferred** — OAuth, 2FA, device fingerprinting, anomaly detection, password reset, email verification.
+9. **Integration gate unchanged** — 212/212 without auth until middleware milestone.
+
+**Operational reference**
+
+- [`docs/specs/AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md)
+
+상태: ACCEPTED

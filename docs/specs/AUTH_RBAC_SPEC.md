@@ -8,7 +8,7 @@
 | **Status** | ACCEPTED (DL-041) |
 | **Implementation** | **Not started** — no DB, API, middleware, or JWT code in this milestone |
 
-**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
+**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
 
 ---
 
@@ -184,35 +184,35 @@ HTTP Request
 
 ## 8. JWT strategy
 
+Canonical detail: [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md) (DL-043).
+
 | Aspect | Policy |
 |--------|--------|
-| **Format** | JWT (RFC 7519) |
-| **Signing** | HS256 with `JWT_SECRET` (production); RS256 optional V2 |
-| **Access token TTL** | **15 minutes** default (configurable; max 1 hour v1.3) |
-| **Claims (required)** | `sub` (user UUID), `iat`, `exp`, `jti` |
-| **Claims (optional)** | `roles` (string array of role codes), `ver` (token schema version) |
+| **Format** | JWT (RFC 7519), HS256, `JWT_SECRET` |
+| **Access token TTL** | **15 minutes** |
+| **Claims** | `sub`, `email`, `roles`, `memberships` (summary), `iat`, `exp` |
 | **Transport** | `Authorization: Bearer <token>` |
-| **Storage (client)** | Memory or secure storage; not localStorage for web (implementation guide — frontend out of scope) |
-| **Revocation** | Short TTL + refresh rotation; denylist optional V2 |
-| **Validation** | Signature, `exp`, issuer/audience if configured |
+| **Revocation** | Short TTL; refresh rotation; no access denylist in v1.3.2 |
 
-**Explicitly not in JWT:** `DATABASE_URL`, passwords, full user PII, `formula_participants` business roles.
+**Explicitly not in JWT:** passwords, secrets, refresh tokens, `formula_participants.role_group` as auth source.
 
 ---
 
 ## 9. Session strategy
 
+Canonical detail: [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md) (DL-043).
+
 | Aspect | Policy |
 |--------|--------|
-| **Purpose** | Refresh token lifecycle; optional server-side session record |
-| **Refresh TTL** | **7 days** default (configurable); sliding expiration optional V2 |
-| **Secret** | `SESSION_SECRET` — distinct from `JWT_SECRET` |
-| **Delivery** | `HttpOnly`, `Secure`, `SameSite=Strict` cookie (browser clients) or body field (API clients) |
-| **Rotation** | New refresh token on each refresh; reuse detection → revoke all sessions (V2) |
-| **Server store** | Optional `sessions` table (future SQL milestone); until then opaque signed cookie acceptable for v1.3.1 |
-| **Logout** | Invalidate refresh session server-side + client discards access token |
+| **Refresh token** | Opaque random; **14 days** TTL |
+| **Cookie** | HttpOnly, Secure, SameSite=Strict |
+| **DB** | `sessions.refresh_token_hash` only — raw token never stored |
+| **Rotation** | Every refresh issues new access + refresh; old session revoked |
+| **Reuse detection** | Revoked refresh replay → revoke all user sessions |
+| **Logout** | `revoked_at = now()` + clear cookie |
+| **Logout all** | Revoke all active sessions for `user_id` |
 
-Access tokens remain **stateless JWT**; sessions manage **refresh only** in the recommended v1.3 design.
+Access tokens remain **stateless JWT**; sessions manage **refresh only**.
 
 ---
 
@@ -269,3 +269,4 @@ Not in Auth Foundation v1.3.0 specification implementation:
 | Date | Change |
 |------|--------|
 | 2026-06-23 | v1.3.0 — Auth/RBAC foundation specification (DL-041); design only |
+| 2026-06-23 | v1.3.2 — JWT/session summary aligned to AUTH_TOKEN_SESSION_STRATEGY (DL-043) |
