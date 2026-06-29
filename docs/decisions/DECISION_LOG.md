@@ -796,3 +796,30 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/specs/AUTH_CREDENTIAL_POLICY.md`](../specs/AUTH_CREDENTIAL_POLICY.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-045. RBAC Permission Matrix
+
+**Title:** RBAC Permission Matrix
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — v1.3.4 is **permission matrix documentation only**; no middleware, route protection, or `RbacService` code.
+2. **Roles** — `SUPER_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `VIEWER` on `company_memberships.role` (canonical; supersedes v1.3.0 global roles).
+3. **Actions** — `read`, `create`, `update`, `delete`, `cancel`, `close`, `settle`, `admin`; `approve` reserved (deferred).
+4. **SUPER_ADMIN** — All resources/actions; no company scope limit.
+5. **COMPANY_ADMIN** — Company-scoped; sensitive ops allowed (cancel, close, settlement, membership, company update, session revoke-all).
+6. **MANAGER** — Company-scoped operational create/update; **denied** cancel, close, settlement, membership admin, payment cancel.
+7. **VIEWER** — Company-scoped read + dashboard only; no mutations.
+8. **Company scope** — Formula access via `formula_participants.company_id`; dashboard requires company filter.
+9. **Deferred** — ABAC, custom permission builder, RLS, approval workflow, delegated admin, external auditor role.
+10. **Integration gate unchanged** — 212/212 without auth until middleware milestone.
+
+**Operational reference**
+
+- [`docs/specs/RBAC_PERMISSION_MATRIX.md`](../specs/RBAC_PERMISSION_MATRIX.md)
+
+상태: ACCEPTED

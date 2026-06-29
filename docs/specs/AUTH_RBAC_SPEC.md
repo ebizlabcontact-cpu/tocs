@@ -8,7 +8,7 @@
 | **Status** | ACCEPTED (DL-041) |
 | **Implementation** | **Not started** — no DB, API, middleware, or JWT code in this milestone |
 
-**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
+**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md), [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
 
 ---
 
@@ -26,7 +26,7 @@
 ## 2. RBAC goals
 
 1. **Least privilege** — Grant minimum permissions required per operator function.
-2. **Role-based defaults** — Permissions assigned via **system roles**, not via `formula_participants.role_group` (business role ≠ API role — DL-004).
+2. **Role-based defaults** — Permissions assigned via **membership roles** on `company_memberships` (DL-042, DL-045), not via `formula_participants.role_group` (business role ≠ API role — DL-004).
 3. **Resource-oriented** — Permissions named `{resource}:{action}` aligned with API domains.
 4. **Explicit deny** — Default deny; allow only via role grants.
 5. **Auditable** — Auth failures and privilege denials logged with `request_id` (no secrets).
@@ -36,21 +36,27 @@
 
 ## 3. Role definitions
 
-System roles apply to **API access control** only.
+Canonical matrix: [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) (DL-045).
+
+**Membership roles** (stored on `company_memberships.role`) apply to **API access control** only.
 
 | Role | Code | Description |
 |------|------|-------------|
-| **System Administrator** | `SYSTEM_ADMIN` | Full API access; user/role management (future admin APIs) |
-| **Operations Manager** | `OPS_MANAGER` | Formula lifecycle, participants, logistics, version, share, cancel (not close unless granted) |
-| **Finance Operator** | `FINANCE` | Payment, invoice, settlement, dashboard KPI/read |
-| **Read-only Analyst** | `VIEWER` | Read APIs across permitted resources; no mutations |
-| **Closer** | `CLOSER` | Close formula + read dependencies (subset of OPS + close) |
+| **Super Admin** | `SUPER_ADMIN` | All resources/actions; no company scope limit |
+| **Company Admin** | `COMPANY_ADMIN` | Full control within assigned company(ies); sensitive ops allowed |
+| **Manager** | `MANAGER` | Operational create/update within company; no cancel/close/settlement admin |
+| **Viewer** | `VIEWER` | Read-only within assigned company(ies) |
 
-### Assignment model (future implementation)
+### Assignment model
 
-- One user → one or more roles (many-to-many).
-- Roles are **global** in v1.3.0 foundation; **company-scoped roles** deferred to v1.3.x+ (see §11).
-- Service/machine accounts: `SERVICE_ACCOUNT` role with explicit narrow grants (V2).
+- One user → many **company memberships** (one row per `user_id` + `company_id`).
+- Role is **per company**; JWT `memberships` claim lists active assignments.
+- `RbacService` resolves effective role for the **context company** of each request.
+- Service/machine accounts: deferred (V2).
+
+### Superseded (v1.3.0 provisional)
+
+v1.3.0 listed global roles (`SYSTEM_ADMIN`, `OPS_MANAGER`, `FINANCE`, `CLOSER`, `VIEWER`). **v1.3.4 replaces** that model with company-scoped membership roles above. Do not implement the old global role table.
 
 ---
 
@@ -70,8 +76,11 @@ Resources map to TOCS API domains (Formula First). Permission checks are **route
 | `share` | Share CRUD | Version-triggering |
 | `version` | Version create/read | Snapshot policy |
 | `close` | Formula close | High privilege |
+| `cancel` | Formula cancel | Irreversible lifecycle |
 | `settlement` | Settlement schedules, notes | Post-close allowed ops |
-| `dashboard` | KPI, receivable/payable, unmatched | Read-heavy |
+| `dashboard` | KPI, receivable/payable, unmatched | Read-heavy; company filter required |
+| `membership` | Company membership admin | Future admin APIs |
+| `session` | Session revoke-all | Auth admin |
 | `auth` | Login, logout, refresh, me (future) | Auth endpoints themselves |
 
 **Not a resource:** `formula_participants.role_group` (SUPPLIER, BUYER, etc.) — business semantics inside Formula; never copied into JWT as authorization source of truth.
@@ -80,36 +89,22 @@ Resources map to TOCS API domains (Formula First). Permission checks are **route
 
 ## 5. Permission matrix
 
-**Legend:** ✓ = granted, — = denied, ◐ = read-only subset
+Canonical detail: [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) (DL-045).
 
-### 5.1 Mutation permissions
+**Actions:** `read`, `create`, `update`, `delete`, `approve` (deferred), `cancel`, `close`, `settle`, `admin`.
 
-| Permission | SYSTEM_ADMIN | OPS_MANAGER | FINANCE | CLOSER | VIEWER |
-|------------|:------------:|:-----------:|:-------:|:------:|:------:|
-| `formula:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `formula:create` | ✓ | ✓ | — | — | — |
-| `formula:patch` | ✓ | ✓ | — | — | — |
-| `formula:cancel` | ✓ | ✓ | — | — | — |
-| `company:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `company:write` | ✓ | ✓ | — | — | — |
-| `participant:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `participant:write` | ✓ | ✓ | — | — | — |
-| `payment:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `payment:write` | ✓ | — | ✓ | — | — |
-| `payment:cancel` | ✓ | — | ✓ | — | — |
-| `invoice:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `invoice:write` | ✓ | — | ✓ | — | — |
-| `logistics:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `logistics:write` | ✓ | ✓ | — | — | — |
-| `share:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `share:write` | ✓ | ✓ | — | — | — |
-| `version:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `version:write` | ✓ | ✓ | — | — | — |
-| `close:execute` | ✓ | — | — | ✓ | — |
-| `settlement:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `settlement:write` | ✓ | — | ✓ | — | — |
-| `dashboard:read` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `auth:admin` | ✓ | — | — | — | — |
+**Legend:** ✓ = granted within company scope, — = denied, ◐ = read-only subset, **S** = sensitive (`COMPANY_ADMIN`+)
+
+### 5.1 Summary by role
+
+| Role | Scope | Mutations | Sensitive ops (§7 of matrix) |
+|------|-------|-----------|------------------------------|
+| `SUPER_ADMIN` | Global | All | All |
+| `COMPANY_ADMIN` | Company | Most domains | Allowed |
+| `MANAGER` | Company | Formula, participant, payment, invoice, logistics, share, version | **Denied** |
+| `VIEWER` | Company | None (read only) | **Denied** |
+
+Full cell-level matrix: [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) §6.
 
 ### 5.2 HTTP status mapping (authorization)
 
@@ -117,6 +112,7 @@ Resources map to TOCS API domains (Formula First). Permission checks are **route
 |-----------|------|------------------------------------------|
 | No / invalid token | 401 | `UNAUTHORIZED` |
 | Valid token, insufficient permission | 403 | `FORBIDDEN` |
+| Valid token, permission OK, outside company scope | 404 | `NOT_FOUND` |
 | Valid token, resource not found | 404 | `NOT_FOUND` (existing Action behavior) |
 
 ---
@@ -234,7 +230,21 @@ Canonical detail: [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md) (DL
 
 ---
 
-## 11. Future expansion
+## 11. RBAC permission matrix
+
+Canonical detail: [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) (DL-045).
+
+| Aspect | Policy |
+|--------|--------|
+| **Roles** | `SUPER_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `VIEWER` |
+| **Scope** | Company membership; formula via `formula_participants.company_id` |
+| **Sensitive ops** | Cancel, close, settlement, membership admin, company update, session revoke-all → `COMPANY_ADMIN`+ |
+| **MANAGER limit** | No cancel/close/settle; approval workflow deferred |
+| **VIEWER** | Read + dashboard only |
+
+---
+
+## 12. Future expansion
 
 | Area | Direction |
 |------|-----------|
@@ -249,9 +259,9 @@ Canonical detail: [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md) (DL
 
 ---
 
-## 12. Deferred scope
+## 13. Deferred scope
 
-Not in Auth Foundation v1.3.0–v1.3.3 specification implementation:
+Not in Auth Foundation v1.3.0–v1.3.4 specification implementation:
 
 | Item | Notes |
 |------|-------|
@@ -262,12 +272,13 @@ Not in Auth Foundation v1.3.0–v1.3.3 specification implementation:
 | Password reset email / self-service forgot | V2 (admin reset future scope — DL-044) |
 | OAuth, MFA, API keys, breach DB | V2 |
 | Permission admin UI | V2 |
+| ABAC / custom permission builder / RLS | V2 (DL-045 deferred) |
 | CI auth integration tests | When middleware lands |
 | Prisma/schema changes | Separate approved SQL milestone |
 
 ---
 
-## 13. Security principles
+## 14. Security principles
 
 1. **Fail closed** — Unauthenticated requests to protected routes are rejected.
 2. **Separate secrets** — `JWT_SECRET` ≠ `SESSION_SECRET` ≠ `ENCRYPTION_KEY`.
@@ -280,6 +291,7 @@ Not in Auth Foundation v1.3.0–v1.3.3 specification implementation:
 9. **HTTPS only** in production for cookies and tokens.
 10. **Least privilege** — Default role for new users: `VIEWER` or none until assigned.
 11. **Credential hygiene** — Argon2id hashing; lockout policy; no password material in logs or API (DL-044).
+12. **Company scope** — Non–`SUPER_ADMIN` roles constrained by `company_memberships`; dashboard KPI requires company filter (DL-045).
 
 ---
 
@@ -290,3 +302,4 @@ Not in Auth Foundation v1.3.0–v1.3.3 specification implementation:
 | 2026-06-23 | v1.3.0 — Auth/RBAC foundation specification (DL-041); design only |
 | 2026-06-23 | v1.3.2 — JWT/session summary aligned to AUTH_TOKEN_SESSION_STRATEGY (DL-043) |
 | 2026-06-23 | v1.3.3 — Credential policy summary aligned to AUTH_CREDENTIAL_POLICY (DL-044) |
+| 2026-06-23 | v1.3.4 — Membership roles + matrix summary; RBAC_PERMISSION_MATRIX canonical (DL-045) |
