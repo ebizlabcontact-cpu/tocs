@@ -36,6 +36,7 @@ Operational runbooks and governance docs; no application or schema code changes.
 | v1.3.3 | `AUTH_CREDENTIAL_POLICY.md`, DL-044 (Argon2id, lockout, bootstrap) |
 | v1.3.4 | `RBAC_PERMISSION_MATRIX.md`, DL-045 (membership roles, company scope) |
 | v1.3.5 | `ROUTE_PROTECTION_POLICY.md`, DL-046 (48-route protection registry) |
+| v1.3.6 | `AUTH_IMPLEMENTATION_PLAN.md`, DL-047 (7-phase execution order) |
 
 No application, schema SQL, middleware, or route implementation in these batches.
 
@@ -50,6 +51,7 @@ No application, schema SQL, middleware, or route implementation in these batches
 - **Password & credential policy** — `docs/specs/AUTH_CREDENTIAL_POLICY.md` (Argon2id, validation, lockout, bootstrap, sensitive-data rules).
 - **RBAC permission matrix** — `docs/specs/RBAC_PERMISSION_MATRIX.md` (membership roles, resource actions, company scope, sensitive ops).
 - **Route protection policy** — `docs/specs/ROUTE_PROTECTION_POLICY.md` (48-route auth/RBAC/scope registry).
+- **Auth implementation plan** — `docs/specs/AUTH_IMPLEMENTATION_PLAN.md` (Phases 1–7, non-goals, gates).
 
 ### Changed
 
@@ -57,8 +59,8 @@ No application, schema SQL, middleware, or route implementation in these batches
 - `docs/specs/AUTH_RBAC_SPEC.md` — §10 credential policy summary (DL-044).
 - `docs/specs/AUTH_RBAC_SPEC.md` — §3/§5/§11 membership roles and matrix summary (DL-045).
 - `docs/specs/AUTH_RBAC_SPEC.md` — §12 route protection summary (DL-046).
-- `docs/specs/RBAC_PERMISSION_MATRIX.md` — §9 points to canonical route registry (DL-046).
-- `docs/architecture/AUTH_ARCHITECTURE.md` — phased rollout (B=schema, C=token, D=credential, E=matrix, F=route policy, G=middleware).
+- `docs/specs/AUTH_RBAC_SPEC.md` — §13 implementation plan summary (DL-047).
+- `docs/architecture/AUTH_ARCHITECTURE.md` — doc phases A–G complete; code Phases 1–7 per DL-047.
 
 - `docs/operations/ENVIRONMENT.md` — production checklist links CI green, backup-before-schema, rollback point.
 - `docs/operations/INCIDENT_RESPONSE.md` — deployment / rollback incident section.
@@ -73,6 +75,7 @@ No application, schema SQL, middleware, or route implementation in these batches
 - `DECISION_LOG.md` DL-044 — Password and Credential Policy.
 - `DECISION_LOG.md` DL-045 — RBAC Permission Matrix.
 - `DECISION_LOG.md` DL-046 — Route Protection Policy.
+- `DECISION_LOG.md` DL-047 — Authentication Implementation Plan.
 
 ---
 

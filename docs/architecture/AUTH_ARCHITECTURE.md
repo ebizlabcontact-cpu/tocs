@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Describe how Authentication and RBAC fit into the TOCS Backend architecture. **v1.3.0** — RBAC spec (DL-041); **v1.3.1** — DB schema (DL-042); **v1.3.2** — JWT/session strategy (DL-043); **v1.3.3** — password/credential policy (DL-044); **v1.3.4** — RBAC permission matrix (DL-045); **v1.3.5** — route protection policy (DL-046). No runtime code in these milestones.
+Describe how Authentication and RBAC fit into the TOCS Backend architecture. **v1.3.0** — RBAC spec (DL-041); **v1.3.1** — DB schema (DL-042); **v1.3.2** — JWT/session strategy (DL-043); **v1.3.3** — password/credential policy (DL-044); **v1.3.4** — RBAC permission matrix (DL-045); **v1.3.5** — route protection policy (DL-046); **v1.3.6** — implementation plan (DL-047). Documentation milestones complete; code follows [`AUTH_IMPLEMENTATION_PLAN.md`](../specs/AUTH_IMPLEMENTATION_PLAN.md).
 
-**Status:** Design accepted — SQL apply and middleware follow in later milestones.
+**Status:** Design and plan accepted — implementation Phases 1–7 execute per DL-047.
 
-**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md), [`../specs/AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md), [`../specs/AUTH_CREDENTIAL_POLICY.md`](../specs/AUTH_CREDENTIAL_POLICY.md), [`../specs/RBAC_PERMISSION_MATRIX.md`](../specs/RBAC_PERMISSION_MATRIX.md), [`../specs/ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
+**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md), [`../specs/AUTH_TOKEN_SESSION_STRATEGY.md`](../specs/AUTH_TOKEN_SESSION_STRATEGY.md), [`../specs/AUTH_CREDENTIAL_POLICY.md`](../specs/AUTH_CREDENTIAL_POLICY.md), [`../specs/RBAC_PERMISSION_MATRIX.md`](../specs/RBAC_PERMISSION_MATRIX.md), [`../specs/ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md), [`../specs/AUTH_IMPLEMENTATION_PLAN.md`](../specs/AUTH_IMPLEMENTATION_PLAN.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
 
 ---
 
@@ -149,17 +149,24 @@ Routes pass `userId` into Actions **only when audit requires**; most existing Ac
 - Public: health only; 47 business routes require auth + RBAC + company scope.
 - See [`ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md).
 
-### Phase G — Middleware (v1.3.6+, planned)
+### Phase G — Implementation plan (v1.3.6, DL-047)
 
-- Register auth + RBAC plugins in `createServer()` **after** request logger, **before** business routes.
-- Route metadata: `{ permission: 'formula:read' }`.
-- Opt-in per route group; dual-mode period with env flag `AUTH_ENFORCE=false` in dev optional.
+- Seven-phase code execution order documented; explicit non-goals.
+- See [`AUTH_IMPLEMENTATION_PLAN.md`](../specs/AUTH_IMPLEMENTATION_PLAN.md).
 
-### Phase H — Enforcement (v1.3.x, planned)
+### Code phases (DL-047 — execution, not v1.3.x doc batches)
 
-- Production: `AUTH_ENFORCE=true` mandatory.
-- Integration test slice: authenticated + forbidden cases.
-- CI: issue test JWT via test secret (ephemeral).
+| Impl phase | Deliverable |
+|------------|-------------|
+| 1 | Auth SQL apply |
+| 2 | Repositories + credentials |
+| 3 | Auth routes (login, logout, refresh, me) |
+| 4 | JWT + session rotation |
+| 5 | Auth middleware + scope |
+| 6 | RBAC middleware + 48-route guards |
+| 7 | Integration tests |
+
+**212/212** gate until Phase 7 adds auth test slice. Production: `AUTH_ENFORCE=true` after Phase 6.
 
 ---
 
@@ -216,7 +223,7 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | **logger.ts** | Log auth failures at `warn`; never log tokens |
 | **ERROR_HANDLING.md** | 401/403 taxonomy; `UNAUTHORIZED` / `FORBIDDEN` codes |
 | **request-logger** | Continue `request_id` correlation for denied requests |
-| **212 integration tests** | Unchanged until auth test milestone; no header required until Phase G |
+| **212 integration tests** | Unchanged until Implementation Phase 7; `AUTH_ENFORCE=false` in CI until then |
 
 ---
 
@@ -253,4 +260,5 @@ Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 | 2026-06-23 | v1.3.2 — JWT/session strategy, rotation, logout; phases C–E (DL-043) |
 | 2026-06-23 | v1.3.3 — Credential policy, bootstrap, lockout; Phase D; middleware → Phase F (DL-044) |
 | 2026-06-23 | v1.3.4 — RBAC permission matrix; Phase E; middleware → Phase G (DL-045) |
-| 2026-06-23 | v1.3.5 — Route protection policy (48 routes); Phase F; middleware → Phase G (DL-046) |
+| 2026-06-23 | v1.3.5 — Route protection policy (48 routes); Phase F (DL-046) |
+| 2026-06-23 | v1.3.6 — Implementation plan; code Phases 1–7 (DL-047) |

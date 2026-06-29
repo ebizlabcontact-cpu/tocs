@@ -8,7 +8,7 @@
 | **Status** | ACCEPTED (DL-041) |
 | **Implementation** | **Not started** — no DB, API, middleware, or JWT code in this milestone |
 
-**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md), [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md), [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
+**Related:** [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`AUTH_CREDENTIAL_POLICY.md`](./AUTH_CREDENTIAL_POLICY.md), [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md), [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md), [`AUTH_IMPLEMENTATION_PLAN.md`](./AUTH_IMPLEMENTATION_PLAN.md), [`AUTH_DB_SCHEMA.md`](./AUTH_DB_SCHEMA.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md), [`../operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md), [`../operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
 
 ---
 
@@ -260,7 +260,25 @@ Canonical detail: [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md) (
 
 ---
 
-## 13. Future expansion
+## 13. Implementation plan
+
+Canonical detail: [`AUTH_IMPLEMENTATION_PLAN.md`](./AUTH_IMPLEMENTATION_PLAN.md) (DL-047).
+
+| Phase | Scope |
+|-------|--------|
+| **1** | Auth SQL apply (`users`, `company_memberships`, `sessions`) |
+| **2** | Repositories + Argon2id credential validation |
+| **3** | Auth services + login / logout / refresh / me routes |
+| **4** | JWT issuing + refresh rotation + session revocation |
+| **5** | Auth middleware + request context + company scope |
+| **6** | RBAC middleware + 48-route protection |
+| **7** | Integration tests (auth, authorization, session) |
+
+**Non-goals (Phases 1–7):** OAuth, SSO, 2FA, API keys, password reset email, external IdP, custom policy engine, ABAC.
+
+---
+
+## 14. Future expansion
 
 | Area | Direction |
 |------|-----------|
@@ -275,26 +293,25 @@ Canonical detail: [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md) (
 
 ---
 
-## 14. Deferred scope
+## 15. Deferred scope
 
-Not in Auth Foundation v1.3.0–v1.3.5 specification implementation:
+Not in Auth Foundation v1.3.0–v1.3.6 specification/documentation:
 
 | Item | Notes |
 |------|-------|
-| User / credentials tables | SQL design in DL-042; apply in SQL milestone |
-| Company membership model | Link user ↔ company; not `formula_participants` |
-| Login / refresh HTTP routes | After middleware milestone |
-| Auth middleware on existing 48 routes | Policy in DL-046; implementation in middleware milestone |
-| Password reset email / self-service forgot | V2 (admin reset future scope — DL-044) |
-| OAuth, MFA, API keys, breach DB | V2 |
+| User / credentials tables | Implementation Phase 1 (DL-047) |
+| Login / refresh HTTP routes | Implementation Phase 3 |
+| Auth middleware on existing 48 routes | Implementation Phase 5–6 |
+| CI auth integration tests | Implementation Phase 7 |
+| Prisma/schema changes | Implementation Phase 1 (SQL-first) |
+| Password reset email / self-service forgot | V2 (DL-044; non-goal DL-047) |
+| OAuth, SSO, 2FA, API keys, external IdP | V2 (non-goals DL-047) |
+| ABAC / custom policy engine / RLS | V2 |
 | Permission admin UI | V2 |
-| ABAC / custom permission builder / RLS | V2 (DL-045 deferred) |
-| CI auth integration tests | When middleware lands |
-| Prisma/schema changes | Separate approved SQL milestone |
 
 ---
 
-## 15. Security principles
+## 16. Security principles
 
 1. **Fail closed** — Unauthenticated requests to protected routes are rejected.
 2. **Separate secrets** — `JWT_SECRET` ≠ `SESSION_SECRET` ≠ `ENCRYPTION_KEY`.
@@ -309,6 +326,7 @@ Not in Auth Foundation v1.3.0–v1.3.5 specification implementation:
 11. **Credential hygiene** — Argon2id hashing; lockout policy; no password material in logs or API (DL-044).
 12. **Company scope** — Non–`SUPER_ADMIN` roles constrained by `company_memberships`; dashboard KPI requires company filter (DL-045).
 13. **Route protection** — 48-route registry with min role and scope rules (DL-046).
+14. **Phased implementation** — Seven-phase execution order; no scope creep into non-goals (DL-047).
 
 ---
 
@@ -321,3 +339,4 @@ Not in Auth Foundation v1.3.0–v1.3.5 specification implementation:
 | 2026-06-23 | v1.3.3 — Credential policy summary aligned to AUTH_CREDENTIAL_POLICY (DL-044) |
 | 2026-06-23 | v1.3.4 — Membership roles + matrix summary; RBAC_PERMISSION_MATRIX canonical (DL-045) |
 | 2026-06-23 | v1.3.5 — Route protection summary; ROUTE_PROTECTION_POLICY canonical (DL-046) |
+| 2026-06-23 | v1.3.6 — Implementation plan summary; AUTH_IMPLEMENTATION_PLAN canonical (DL-047) |

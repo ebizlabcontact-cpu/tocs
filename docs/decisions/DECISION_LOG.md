@@ -849,3 +849,30 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/specs/ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-047. Authentication Implementation Plan
+
+**Title:** Authentication Implementation Plan
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — v1.3.6 is **implementation plan documentation only**; no SQL, Prisma, Service, middleware, route, or test code.
+2. **Phase 1** — Auth SQL apply: `users`, `company_memberships`, `sessions` (`tocs_auth_schema.sql`).
+3. **Phase 2** — Repositories + Argon2id credential validation + bootstrap.
+4. **Phase 3** — Auth services + HTTP routes: login, logout, refresh, me.
+5. **Phase 4** — JWT issuing, refresh rotation, session revocation (DL-043).
+6. **Phase 5** — Auth middleware, request context, company scope resolution.
+7. **Phase 6** — RBAC middleware, permission guards, 48-route protection (DL-046).
+8. **Phase 7** — Integration tests: authentication, authorization, session.
+9. **Non-goals** — OAuth, SSO, 2FA, API keys, password reset email, external IdP, custom policy engine, ABAC.
+10. **Integration gate** — **212/212** maintained through Phases 1–6; Phase 7 adds auth test slice.
+
+**Operational reference**
+
+- [`docs/specs/AUTH_IMPLEMENTATION_PLAN.md`](../specs/AUTH_IMPLEMENTATION_PLAN.md)
+
+상태: ACCEPTED
