@@ -718,3 +718,28 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-042. Authentication Database Foundation
+
+**Title:** Authentication Database Foundation
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — v1.3.1 is **schema design documentation only**; no `db/schema/*.sql`, Prisma, or migration changes in this milestone.
+2. **Tables** — `users`, `company_memberships`, `sessions` (minimum auth persistence).
+3. **Membership role enum** — `SUPER_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `VIEWER` on `company_memberships.role`.
+4. **Relationships** — user → memberships → `companies`; indirect formula access via `formula_participants.company_id`.
+5. **Sessions** — store `refresh_token_hash` only; access JWT remains stateless.
+6. **Apply order (future)** — 4th file `tocs_auth_schema.sql` after existing 3 SQL files; update `DB_APPLY_ORDER.md` when implemented.
+7. **Deferred** — OAuth, 2FA, invitation, API keys, permission builder, ABAC, multi-organization.
+8. **Integration gate unchanged** — 212/212 without auth tables until SQL apply milestone.
+
+**Operational reference**
+
+- [`docs/specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
+
+상태: ACCEPTED

@@ -31,8 +31,9 @@ Operational runbooks and governance docs; no application or schema code changes.
 | Batch | Scope |
 |-------|--------|
 | v1.3.0 | `AUTH_RBAC_SPEC.md`, `AUTH_ARCHITECTURE.md`, DL-041 |
+| v1.3.1 | `AUTH_DB_SCHEMA.md`, DL-042 (`users`, `company_memberships`, `sessions`) |
 
-No application, schema, middleware, or route implementation in this batch.
+No application, schema SQL, middleware, or route implementation in these batches.
 
 ### Added
 
@@ -40,8 +41,11 @@ No application, schema, middleware, or route implementation in this batch.
 - **Production readiness review** — `docs/operations/PRODUCTION_READINESS_REVIEW.md` (readiness matrix, go-live recommendation: **Production Hardened Candidate**, **Production Ready: NO**).
 - **Auth/RBAC specification** — `docs/specs/AUTH_RBAC_SPEC.md` (roles, resources, permission matrix, JWT/session strategy, security principles).
 - **Auth architecture** — `docs/architecture/AUTH_ARCHITECTURE.md` (HTTP layer placement, separation from Formula business roles, phased rollout).
+- **Auth database schema (design)** — `docs/specs/AUTH_DB_SCHEMA.md` (users, company_memberships, sessions; membership role enum).
 
 ### Changed
+
+- `docs/architecture/AUTH_ARCHITECTURE.md` — v1.3.1 data model, company-scoped membership roles, phased rollout (B=schema, C=middleware).
 
 - `docs/operations/ENVIRONMENT.md` — production checklist links CI green, backup-before-schema, rollback point.
 - `docs/operations/INCIDENT_RESPONSE.md` — deployment / rollback incident section.
@@ -51,6 +55,7 @@ No application, schema, middleware, or route implementation in this batch.
 - `DECISION_LOG.md` DL-039 — Release and Deployment Governance.
 - `DECISION_LOG.md` DL-040 — Production Readiness Assessment.
 - `DECISION_LOG.md` DL-041 — Authentication and RBAC Foundation.
+- `DECISION_LOG.md` DL-042 — Authentication Database Foundation.
 
 ---
 

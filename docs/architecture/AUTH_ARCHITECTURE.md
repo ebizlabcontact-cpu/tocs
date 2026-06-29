@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Describe how Authentication and RBAC fit into the TOCS Backend architecture **without implementing code** in Auth Foundation v1.3.0.
+Describe how Authentication and RBAC fit into the TOCS Backend architecture. **v1.3.0** — RBAC specification (DL-041); **v1.3.1** — database schema design (DL-042). No runtime code or SQL files in these milestones.
 
-**Status:** Design accepted (DL-041) — implementation milestones follow separately.
+**Status:** Design accepted — SQL apply and middleware follow in later milestones.
 
-**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
+**Related:** [`../specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md), [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md), [`../master/TOCS_MASTER_SPEC.md`](../master/TOCS_MASTER_SPEC.md), [`../operations/ENVIRONMENT.md`](../operations/ENVIRONMENT.md)
 
 ---
 
@@ -51,17 +51,19 @@ Service → parse Authorization header directly (prefer injected actorId)
 
 | Concept | Layer | Purpose |
 |---------|-------|---------|
-| **System role** (`OPS_MANAGER`, `FINANCE`, …) | API RBAC | Who may call which endpoint |
+| **Membership role** (`SUPER_ADMIN`, `COMPANY_ADMIN`, `MANAGER`, `VIEWER`) | Auth DB — `company_memberships.role` | Company-scoped access (DL-042) |
+| **API permission** (`formula:read`, …) | RBAC spec — `RbacService` | Endpoint authorization (DL-041) |
 | **Participant role** (`role_group` in `formula_participants`) | Formula domain | Trade structure inside a Formula |
-| **Company** | Horizontal entity | No fixed API role (DL-004) |
+| **Company** | Horizontal entity | No fixed business role (DL-004) |
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    API RBAC (v1.3)                       │
-│  User ──has──▶ System Role ──grants──▶ Permission       │
+│              Auth DB (v1.3.1 — DL-042)                   │
+│  User ──membership──▶ Company + membership_role          │
+│  User ──sessions──▶ refresh token hash                   │
 └─────────────────────────────────────────────────────────┘
                           │
-                          │ protects
+                          │ RbacService maps role → permission
                           ▼
 ┌─────────────────────────────────────────────────────────┐
 │              Formula First Business Layer                │
@@ -81,12 +83,13 @@ Authorization for **business rules** (closed formula, version trigger, cancel tw
 | `TokenService` | `src/services/token.service.ts` | JWT sign/verify using `JWT_SECRET` |
 | `SessionService` | `src/services/session.service.ts` | Refresh session using `SESSION_SECRET` |
 | `RbacService` | `src/services/rbac.service.ts` | Role → permission resolution |
-| `AuthRepository` | `src/repositories/auth.repository.ts` | User/session persistence (future tables) |
-| `auth.middleware` | `src/http/plugins/auth.middleware.ts` | Bearer JWT validation |
-| `rbac.middleware` | `src/http/plugins/rbac.middleware.ts` | Route permission enforcement |
-| `auth.routes` | `src/http/routes/auth.routes.ts` | login, refresh, logout, me |
+| `AuthRepository` | `src/repositories/auth.repository.ts` | `users`, `company_memberships`, `sessions` persistence |
+| `auth.middleware` | `src/http/plugins/auth.middleware.ts` | Bearer JWT validation (future) |
+| `rbac.middleware` | `src/http/plugins/rbac.middleware.ts` | Route permission enforcement (future) |
+| `auth.routes` | `src/http/routes/auth.routes.ts` | login, refresh, logout, me (future) |
 
-**v1.3.0 milestone:** None of the above files are created yet — architecture only.
+**v1.3.0 milestone:** Specification only (DL-041).  
+**v1.3.1 milestone:** DB schema design documented in [`AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md) (DL-042) — no SQL files yet.
 
 ---
 
@@ -97,8 +100,8 @@ After auth middleware (future), attach to Fastify request:
 ```typescript
 interface AuthContext {
   userId: string;
-  roles: readonly string[];  // e.g. ['FINANCE']
-  tokenId: string;           // jti
+  memberships: readonly { companyId: string; role: string }[];
+  tokenId: string;           // jti / session id
 }
 ```
 
@@ -108,19 +111,25 @@ Routes pass `userId` into Actions **only when audit requires**; most existing Ac
 
 ## 5. Route protection strategy
 
-### Phase A — Foundation (v1.3.0)
+### Phase A — Specification (v1.3.0, DL-041)
 
-- Specification + architecture documents only.
+- RBAC spec + architecture documents.
 - All routes remain open (current behavior).
 - `GET /api/v1/health` permanently public.
 
-### Phase B — Middleware (v1.3.1, planned)
+### Phase B — Database design (v1.3.1, DL-042)
+
+- `users`, `company_memberships`, `sessions` schema documented.
+- **No** `db/schema/*.sql` or Prisma changes in this phase.
+- Future: `tocs_auth_schema.sql` as 4th apply file.
+
+### Phase C — Middleware (v1.3.2+, planned)
 
 - Register auth + RBAC plugins in `createServer()` **after** request logger, **before** business routes.
 - Route metadata: `{ permission: 'formula:read' }`.
 - Opt-in per route group; dual-mode period with env flag `AUTH_ENFORCE=false` in dev optional.
 
-### Phase C — Enforcement (v1.3.x, planned)
+### Phase D — Enforcement (v1.3.x, planned)
 
 - Production: `AUTH_ENFORCE=true` mandatory.
 - Integration test slice: authenticated + forbidden cases.
@@ -146,22 +155,27 @@ Routes pass `userId` into Actions **only when audit requires**; most existing Ac
 | Token | Storage | Validates with |
 |-------|---------|----------------|
 | Access JWT | Client memory / Authorization header | `JWT_SECRET` |
-| Refresh | HttpOnly cookie or secure store | `SESSION_SECRET` + optional DB session row |
+| Refresh | HttpOnly cookie or secure store | `SESSION_SECRET` + `sessions.refresh_token_hash` row |
 
 ---
 
-## 7. Data model direction (not implemented)
+## 7. Data model (v1.3.1 — design only)
 
-Future SQL milestone (requires explicit approval — not part of v1.3.0):
+Canonical definition: [`../specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md) (DL-042).
 
-| Table (proposed) | Purpose |
-|------------------|---------|
-| `users` | Identity, password hash, status |
-| `roles` | Role catalog (`SYSTEM_ADMIN`, …) |
-| `user_roles` | Many-to-many assignment |
-| `sessions` | Refresh token hash, expiry, user_id |
+| Table | Purpose |
+|-------|---------|
+| `users` | Identity, `password_hash`, `status`, `last_login_at` |
+| `company_memberships` | `user_id` + `company_id` + `membership_role` enum |
+| `sessions` | `refresh_token_hash`, `expires_at`, `revoked_at` |
 
-**No migration in v1.3.0.** Prisma migrate / db push remain forbidden.
+**Membership role enum:** `SUPER_ADMIN` | `COMPANY_ADMIN` | `MANAGER` | `VIEWER`
+
+**Relationships:** user → memberships → companies → formula_participants → formulas (indirect).
+
+**Not in v1.3.1:** global `roles` / `user_roles` tables (superseded by company-scoped memberships).
+
+**No migration in v1.3.1.** Prisma migrate / db push remain forbidden until SQL file is approved and applied.
 
 ---
 
@@ -173,7 +187,7 @@ Future SQL milestone (requires explicit approval — not part of v1.3.0):
 | **logger.ts** | Log auth failures at `warn`; never log tokens |
 | **ERROR_HANDLING.md** | 401/403 taxonomy; `UNAUTHORIZED` / `FORBIDDEN` codes |
 | **request-logger** | Continue `request_id` correlation for denied requests |
-| **212 integration tests** | Unchanged until auth test milestone; no header required until Phase B |
+| **212 integration tests** | Unchanged until auth test milestone; no header required until Phase C |
 
 ---
 
@@ -202,3 +216,4 @@ Future SQL milestone (requires explicit approval — not part of v1.3.0):
 | Date | Change |
 |------|--------|
 | 2026-06-23 | v1.3.0 — Auth architecture foundation (DL-041); design only |
+| 2026-06-23 | v1.3.1 — Auth DB schema (`users`, `company_memberships`, `sessions`); phased rollout updated (DL-042) |
