@@ -93,7 +93,7 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 
 | Component | Location (planned) | Responsibility |
 |-----------|-------------------|----------------|
-| `AuthRepository` | `src/repositories/auth.repository.ts` | `users`, `company_memberships`, `sessions` CRUD |
+| `AuthRepository` | `src/repositories/auth.repository.ts` | `users`, `company_memberships`, `sessions` CRUD — **implemented (v1.3.8)** |
 | `CredentialService` | `src/services/credential.service.ts` | Argon2id hash/verify; password validation; lockout counters |
 | Bootstrap command | `scripts/` or npm script | One-time admin per DL-044 §6 |
 

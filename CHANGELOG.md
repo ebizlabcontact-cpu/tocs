@@ -43,6 +43,7 @@ Documentation-only batches (v1.3.0–v1.3.6) precede code implementation.
 | Batch | Scope |
 |-------|--------|
 | v1.3.7 | Auth DB schema in `tocs_base_schema.sql`, Prisma models, DL-048 |
+| v1.3.8 | `AuthRepository` + integration tests (Phase 2 partial) |
 
 No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
@@ -59,6 +60,8 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - **Route protection policy** — `docs/specs/ROUTE_PROTECTION_POLICY.md` (48-route auth/RBAC/scope registry).
 - **Auth implementation plan** — `docs/specs/AUTH_IMPLEMENTATION_PLAN.md` (Phases 1–7, non-goals, gates).
 - **Auth schema integration test** — `src/tests/auth.schema.integration.test.ts` (users, memberships, sessions constraints).
+- **Auth repository** — `src/repositories/auth.repository.ts` (users, memberships, sessions CRUD).
+- **Auth repository integration test** — `src/tests/auth.repository.integration.test.ts`.
 
 ### Changed
 
