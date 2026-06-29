@@ -201,6 +201,7 @@ npm run test:integration
 | v1.3.7 | Auth DDL in `tocs_base_schema.sql`, Prisma models (DL-048) |
 | v1.3.8 | `AuthRepository` — users, memberships, sessions CRUD |
 | v1.3.9 | `CredentialService` — Argon2id, validation, lockout (DL-044) |
+| v1.3.10 | Bootstrap admin CLI — env-driven SUPER_ADMIN bootstrap (DL-044 §6) |
 
 ### Schema objects live
 
@@ -209,24 +210,23 @@ npm run test:integration
 
 ### Integration gate
 
-**224 / 224 PASS** (includes auth schema, auth repository, credential service tests).
+**228 / 228 PASS** (includes auth schema, auth repository, credential service, bootstrap admin tests).
 
 ---
 
 ## 11. Current Milestone
 
-### v1.3.9 — CredentialService ✅ COMPLETED
+### v1.3.10 — Bootstrap Admin CLI ✅ COMPLETED
 
 | Component | Location | Status |
 |-----------|----------|--------|
-| Password validation | `src/utils/credential.validation.ts` | Done |
-| Lockout store | `src/services/credential.lockout-store.ts` | Done |
-| `CredentialService` | `src/services/credential.service.ts` | Done |
-| Integration test | `src/tests/credential.service.integration.test.ts` | Done |
+| Bootstrap script | `src/scripts/bootstrap-admin.ts` | Done |
+| npm script | `bootstrap:admin` | Done |
+| Integration test | `src/tests/bootstrap-admin.integration.test.ts` | Done |
 
-**Next (Phase 2 remainder — DL-047):** bootstrap admin CLI — **not started**.
+**Next (Phase 3 — DL-047):** Auth HTTP routes (login/logout/refresh/me) — **not started**.
 
-### Explicitly not allowed in v1.3.9 scope (still forbidden until approved)
+### Explicitly not allowed in v1.3.10 scope (still forbidden until approved)
 
 - Login API
 - JWT / session token services
@@ -241,7 +241,7 @@ npm run test:integration
 1. **SQL-first always** — schema changes in SQL files first; then `schema.prisma` mapping.
 2. **Formula First** — no alternate business roots; all flows from Formula.
 3. **Deferred = no code** until explicit approval.
-4. **Core domain changes** require integration suite green (224/224).
+4. **Core domain changes** require integration suite green (228/228).
 5. **CI green** on `main` before merge.
 6. **No scope creep** — touch only requested files; no drive-by refactors.
 7. **`formula_no`** — DB DEFAULT `generate_formula_no()` only; never manual assign.
@@ -310,8 +310,8 @@ Current state:
 - Core MVP ACCEPTED (DL-034); 48 HTTP routes; gap 0
 - Integration 224/224 PASS; GitHub Actions GREEN on main
 - Auth foundation docs v1.3.0–v1.3.6 ACCEPTED
-- Auth schema v1.3.7 + AuthRepository v1.3.8 + CredentialService v1.3.9 IMPLEMENTED
-- Next: bootstrap admin CLI (Phase 2 remainder, DL-047)
+- Auth schema v1.3.7 + AuthRepository v1.3.8 + CredentialService v1.3.9 + Bootstrap CLI v1.3.10 IMPLEMENTED
+- Next: Auth HTTP routes Phase 3 (DL-047)
 
 Non-negotiable:
 - Formula First Architecture — Formula is source of truth

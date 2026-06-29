@@ -45,6 +45,7 @@ Documentation-only batches (v1.3.0–v1.3.6) precede code implementation.
 | v1.3.7 | Auth DB schema in `tocs_base_schema.sql`, Prisma models, DL-048 |
 | v1.3.8 | `AuthRepository` + integration tests (Phase 2 partial) |
 | v1.3.9 | `CredentialService` — Argon2id, validation, lockout (Phase 2 remainder) |
+| v1.3.10 | Bootstrap admin CLI — one-time SUPER_ADMIN creation (DL-044 §6) |
 
 No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
@@ -67,6 +68,8 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - **Credential lockout store** — `src/services/credential.lockout-store.ts` (in-memory 5/15m policy).
 - **Credential service** — `src/services/credential.service.ts` (Argon2id hash/verify, login eligibility, lockout).
 - **Credential service integration test** — `src/tests/credential.service.integration.test.ts`.
+- **Bootstrap admin CLI** — `src/scripts/bootstrap-admin.ts` (`npm run bootstrap:admin`).
+- **Bootstrap admin integration test** — `src/tests/bootstrap-admin.integration.test.ts`.
 
 ### Changed
 

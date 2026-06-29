@@ -94,8 +94,8 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 | Component | Location (planned) | Responsibility |
 |-----------|-------------------|----------------|
 | `AuthRepository` | `src/repositories/auth.repository.ts` | `users`, `company_memberships`, `sessions` CRUD — **implemented (v1.3.8)** |
-| `CredentialService` | `src/services/credential.service.ts` | Argon2id hash/verify; password validation; lockout counters |
-| Bootstrap command | `scripts/` or npm script | One-time admin per DL-044 §6 |
+| `CredentialService` | `src/services/credential.service.ts` | Argon2id hash/verify; password validation; lockout counters — **implemented (v1.3.9)** |
+| Bootstrap command | `src/scripts/bootstrap-admin.ts` | One-time SUPER_ADMIN per DL-044 §6 — **implemented (v1.3.10)** |
 
 ### Policy sources
 
@@ -108,7 +108,7 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 
 ### Gate
 
-- Unit or isolated tests for credential service optional; **212/212** integration unchanged.
+- Credential + bootstrap integration tests; **228/228** integration suite.
 - CI green.
 
 ---
