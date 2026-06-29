@@ -670,3 +670,26 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/releases/RELEASE_GOVERNANCE.md`](../releases/RELEASE_GOVERNANCE.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-040. Production Readiness Assessment
+
+**Title:** Production Readiness Assessment
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Assessment scope** — Backend, database, environment, CI, logging, errors, incidents, release, security, monitoring, backup (`docs/operations/PRODUCTION_READINESS_REVIEW.md`).
+2. **Gate status** — Core MVP **ACCEPTED** (DL-034); integration **212/212**; CI and typecheck **green**.
+3. **Readiness matrix** — Core backend, schema, CI, env, logging, health, incident/release runbooks: **READY**; error envelope, monitoring, backup: **PARTIAL**; Auth/RBAC, deploy automation: **NOT_READY**.
+4. **Go-live recommendation** — Label: **Production Hardened Candidate**; **Production Ready: NO** — Auth/RBAC and automated ops intentionally deferred.
+5. **Production blockers** — Auth/RBAC, secret rotation automation, monitoring stack, backup automation, deployment automation.
+6. **Next milestone** — **v1.3.0 Auth/RBAC Foundation**.
+
+**Operational reference**
+
+- [`docs/operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
+
+상태: ACCEPTED

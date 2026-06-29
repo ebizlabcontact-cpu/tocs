@@ -24,10 +24,12 @@ Operational runbooks and governance docs; no application or schema code changes.
 | v1.2.5 | `BACKUP_AND_RESTORE.md`, DL-037 |
 | v1.2.6 | `ERROR_HANDLING.md`, `INCIDENT_RESPONSE.md`, DL-038 |
 | v1.2.7 | `RELEASE_AND_DEPLOYMENT.md`, DL-039 release/deploy/rollback governance |
+| v1.2.8 | `PRODUCTION_READINESS_REVIEW.md`, DL-040 production readiness assessment |
 
 ### Added
 
 - **Release & deployment runbook** — `docs/operations/RELEASE_AND_DEPLOYMENT.md` (release gates, deployment checklist, SQL-first deploy, rollback, hotfix flow, CI release gate).
+- **Production readiness review** — `docs/operations/PRODUCTION_READINESS_REVIEW.md` (readiness matrix, go-live recommendation: **Production Hardened Candidate**, **Production Ready: NO**).
 
 ### Changed
 
@@ -37,6 +39,7 @@ Operational runbooks and governance docs; no application or schema code changes.
 ### Decision
 
 - `DECISION_LOG.md` DL-039 — Release and Deployment Governance.
+- `DECISION_LOG.md` DL-040 — Production Readiness Assessment.
 
 ---
 
