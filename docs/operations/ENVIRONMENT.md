@@ -7,7 +7,7 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 **Scope:** Operations policy and templates only. Auth/RBAC is not implemented in Core MVP; secret variables are **reserved** for a future auth milestone.
 
 **Template:** [`.env.example`](../../.env.example)  
-**Related:** [`docs/DB_APPLY_ORDER.md`](../DB_APPLY_ORDER.md), [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
+**Related:** [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md), [`docs/DB_APPLY_ORDER.md`](../DB_APPLY_ORDER.md), [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)
 
 ---
 
@@ -50,7 +50,8 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 ### `DATABASE_URL`
 
 - **Description:** PostgreSQL connection string for `@prisma/adapter-pg` + `pg.Pool`.
-- **Example (local):** `postgresql://tocs:localdev@localhost:5432/tocs_db`
+- **Example (local — Docker on Windows):** `postgresql://tocs:tocs@localhost:5433/tocs_db?schema=public`  
+  See **Local PostgreSQL Port Policy** (§9) and [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md).
 - **Example (CI):** `postgresql://tocs:tocs_ci_password@localhost:5432/tocs_db`
 - **Example (production):** `postgresql://tocs_app:***@db.internal:5432/tocs_prod`
 - **Ownership:** Platform / DBA — credentials rotated with DB user policy.
@@ -201,14 +202,17 @@ Integration tests skip DB suites when `DATABASE_URL` is unset (`hasDatabase`); C
 
 ## 6. Local setup quick start
 
-```bash
-cp .env.example .env.local
-# Edit DATABASE_URL and secrets for local only
-# Load: dotenv reads .env by default; for .env.local use export or symlink policy per team
+Full walkthrough: [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md).
+
+```powershell
+cp .env.example .env
+# Set DATABASE_URL to localhost:5433 (TOCS Docker — not Windows PG on 5432)
+# Set NODE_ENV, PORT, LOG_LEVEL (required by startup validation)
 
 npm ci
 npx prisma generate
 npm run typecheck
+Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
 npm run test:integration   # requires DATABASE_URL + applied SQL schema
 ```
 
@@ -246,7 +250,60 @@ No JWT/SESSION/ENCRYPTION in CI for Core MVP.
 
 ---
 
-## 9. Secret ownership summary
+## 9. Local PostgreSQL port policy
+
+**Decision:** DL-036 — [`docs/decisions/DECISION_LOG.md`](../decisions/DECISION_LOG.md)
+
+| PostgreSQL instance | Host port | Use with TOCS |
+|--------------------|-----------|---------------|
+| Windows PostgreSQL service | **5432** | **No** — separate OS install; wrong target for TOCS local dev |
+| TOCS Docker (`tocs-postgres`) | **5433** | **Yes** — host `5433` maps to container `5432` |
+
+**Rules:**
+
+1. Local `DATABASE_URL` must use **`localhost:5433`** when using the standard TOCS Docker container.
+2. Do not point local integration tests at `localhost:5432` unless you intentionally run Postgres on 5432 with TOCS credentials and schema (not recommended on Windows).
+3. CI uses port **5432** inside the Linux runner (no Windows service conflict) — local and CI port numbers may differ; only the connection string for your environment matters.
+
+---
+
+## 10. Local integration test checklist
+
+Before `npm run test:integration`:
+
+- [ ] Docker Desktop running; `tocs-postgres` container up with `5433:5432` mapping
+- [ ] Schema applied in order: `tocs_base_schema.sql` → `tocs_supplement.sql` → `tocs_fix_amount_verified.sql`
+- [ ] `.env` contains `DATABASE_URL`, `NODE_ENV`, `PORT`, `LOG_LEVEL`
+- [ ] `DATABASE_URL` uses **`localhost:5433`** and matches Docker user/password (`tocs` / `tocs` by default)
+- [ ] Shell `DATABASE_URL` cleared: `Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue`
+- [ ] `npx prisma generate` completed after clone or schema change
+- [ ] Expect **212 pass / 0 fail / 0 skip**
+
+Details: [`LOCAL_DEVELOPMENT.md`](./LOCAL_DEVELOPMENT.md).
+
+---
+
+## 11. Troubleshooting — Authentication failed against the database server
+
+Prisma or `pg` may report authentication failure when the client reaches the **wrong** PostgreSQL instance or uses credentials that do not match the server.
+
+| Symptom | Likely cause | Action |
+|---------|--------------|--------|
+| Auth failed, URL shows `:5432` | Connected to Windows PostgreSQL instead of TOCS Docker | Set `DATABASE_URL` to **`localhost:5433`** (DL-036) |
+| Auth failed after `.env` edit | Stale `$env:DATABASE_URL` in PowerShell | `Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue`; rerun tests |
+| Auth failed, URL looks correct | Password mismatch vs container | Recreate container with known `POSTGRES_PASSWORD` or align URL |
+| `connection refused` on 5433 | Container stopped or wrong mapping | `docker ps --filter name=tocs-postgres`; recreate per `LOCAL_DEVELOPMENT.md` §2 |
+| Tests skip DB cases | Empty `DATABASE_URL` | Populate `.env`; do not rely on skip as success |
+
+Verify Docker Postgres directly (bypasses app):
+
+```powershell
+docker exec tocs-postgres psql -U tocs -d tocs_db -c "SELECT 1"
+```
+
+---
+
+## 12. Secret ownership summary
 
 | Asset | Owner |
 |-------|--------|
@@ -264,3 +321,4 @@ No JWT/SESSION/ENCRYPTION in CI for Core MVP.
 |------|--------|
 | 2026-06-28 | v1.2.1 — Initial environment & secret policy (Production Hardening) |
 | 2026-06-23 | v1.2.3 — Startup fail-fast validation in `src/config/env.ts` |
+| 2026-06-23 | v1.2.3 — Local PostgreSQL port policy, integration checklist, troubleshooting; link `LOCAL_DEVELOPMENT.md` |
