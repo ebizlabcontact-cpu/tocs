@@ -5,7 +5,8 @@
 Minimum structured logging for HTTP requests, domain events, and errors in local, test, and production environments.
 
 **Implementation:** [`src/lib/logger.ts`](../../src/lib/logger.ts), [`src/http/plugins/request-logger.ts`](../../src/http/plugins/request-logger.ts)  
-**Configuration:** [`docs/operations/ENVIRONMENT.md`](./ENVIRONMENT.md) — `LOG_LEVEL`, `NODE_ENV`
+**Configuration:** [`ENVIRONMENT.md`](./ENVIRONMENT.md) — `LOG_LEVEL`, `NODE_ENV`  
+**Related:** [`ERROR_HANDLING.md`](./ERROR_HANDLING.md), [`INCIDENT_RESPONSE.md`](./INCIDENT_RESPONSE.md)
 
 ---
 
@@ -36,11 +37,12 @@ import { logger, logDomainEvent, DOMAIN_EVENTS } from '../lib/logger.js';
 
 | Setting | Effect |
 |---------|--------|
-| Unset | **`info`** (all environments) |
+| Unset at runtime | **`info`** (logger fallback) |
+| Required at startup | **`LOG_LEVEL` must be set** for `development` / `production`; `test` may default to `info` (`src/config/env.ts` v1.2.4) |
 | `LOG_LEVEL=debug` | Includes `debug` lines |
 | `LOG_LEVEL=warn` | `warn` + `error` only |
 | `LOG_LEVEL=error` | `error` only |
-| `NODE_ENV=production` | Default remains **`info`**; `debug` off unless `LOG_LEVEL=debug` |
+| `NODE_ENV=production` | Use **`info`** or `warn`; avoid `debug` |
 
 Production policy: **default `info`**, **no debug** unless explicitly enabled.
 
@@ -134,6 +136,8 @@ Core MVP: logger and event constants are ready; **service-layer calls are a foll
 
 ## 5. Sensitive data policy
 
+Canonical policy: [`ERROR_HANDLING.md`](./ERROR_HANDLING.md) §4.
+
 **Never log** values for:
 
 - `DATABASE_URL`
@@ -143,9 +147,9 @@ Core MVP: logger and event constants are ready; **service-layer calls are a foll
 - `ENCRYPTION_KEY`
 - Connection strings (`postgresql://`, `mysql://`, `mongodb://`)
 
-Redaction rules (`redactSensitive`):
+Redaction rules (`redactSensitive` in `src/lib/logger.ts`):
 
-1. Matching **keys** → `[REDACTED]`
+1. Matching **keys** (`password`, `database_url`, `jwt_secret`, `session_secret`, `encryption_key`, `secret`, `token`, `authorization`) → `[REDACTED]`
 2. Matching **string values** (URL credentials) → `[REDACTED]`
 3. Applied recursively to nested objects and arrays
 
@@ -189,6 +193,10 @@ Avoid logging full `error` objects (may contain stack with env paths). Stack tra
 
 Logging does not replace metrics. Use `GET /api/v1/health` for liveness; use HTTP log `status_code` / `duration_ms` for SLI inputs in a later observability milestone.
 
+### Incidents
+
+For auth failures, CI red, integration failures: [`INCIDENT_RESPONSE.md`](./INCIDENT_RESPONSE.md). Correlate using log field `request_id` and response header `x-request-id`.
+
 ---
 
 ## Document history
@@ -196,3 +204,4 @@ Logging does not replace metrics. Use `GET /api/v1/health` for liveness; use HTT
 | Date | Change |
 |------|--------|
 | 2026-06-28 | v1.2.2 — Logger singleton, HTTP request plugin, domain event constants |
+| 2026-06-23 | v1.2.6 — Cross-links to error handling & incident runbooks; startup LOG_LEVEL policy |

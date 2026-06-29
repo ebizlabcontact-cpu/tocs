@@ -611,3 +611,33 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/operations/BACKUP_AND_RESTORE.md`](../operations/BACKUP_AND_RESTORE.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-038. Error Handling and Incident Response Policy
+
+**Title:** Error Handling and Incident Response Policy
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Error taxonomy** — ValidationError, ActionError, NotFound, Conflict, InfrastructureError, UnexpectedError (`docs/operations/ERROR_HANDLING.md`).
+2. **HTTP errors** — Target body: `request_id`, `status`, `code`, `message`; Core MVP returns `{ message }` + `x-request-id` header until HTTP error envelope milestone.
+3. **Logging** — JSON lines; levels `error` / `warn` / `info` / `debug`; `redactSensitive()` mandatory for secrets.
+4. **Incidents** — Runbooks for PostgreSQL auth/unavailable, port collision, CI/integration/GitHub Actions failure (`docs/operations/INCIDENT_RESPONSE.md`).
+5. **Recovery verification** — `pg_isready`, health check, `212/212` integration, CI green.
+
+**Excluded (V2)**
+
+- Notification / on-call
+- Auth/RBAC error codes
+- Full error `code` field in HTTP JSON body
+
+**Operational references**
+
+- [`docs/operations/ERROR_HANDLING.md`](../operations/ERROR_HANDLING.md)
+- [`docs/operations/INCIDENT_RESPONSE.md`](../operations/INCIDENT_RESPONSE.md)
+- [`docs/operations/LOGGING.md`](../operations/LOGGING.md)
+
+상태: ACCEPTED
