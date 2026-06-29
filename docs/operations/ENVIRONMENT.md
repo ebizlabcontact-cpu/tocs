@@ -34,8 +34,8 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 |----------|:-----:|:---------:|:----------:|-------|
 | `DATABASE_URL` | **R** | **R** | **R** | App + Prisma adapter; missing → current code throws at import |
 | `NODE_ENV` | **R** | **R** | **R** | `local` / `test` / `production` |
-| `PORT` | O | O | **R** | Default `3000` if unset (`src/http/server.ts`) |
-| `LOG_LEVEL` | O | O | **R** | Policy until structured logging is wired |
+| `PORT` | **R** | **R** | **R** | Validated at startup (`src/config/env.ts`) |
+| `LOG_LEVEL` | **R** | **R** | **R** | Validated at startup (`src/config/env.ts`) |
 | `JWT_SECRET` | O | O | **R** | Reserved — Auth not in Core MVP |
 | `SESSION_SECRET` | O | O | **R** | Reserved — Auth not in Core MVP |
 | `ENCRYPTION_KEY` | O | O | **R** | Reserved — field/token encryption future use |
@@ -54,7 +54,7 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 - **Example (CI):** `postgresql://tocs:tocs_ci_password@localhost:5432/tocs_db`
 - **Example (production):** `postgresql://tocs_app:***@db.internal:5432/tocs_prod`
 - **Ownership:** Platform / DBA — credentials rotated with DB user policy.
-- **Current behavior:** `src/lib/prisma.ts` throws if unset when the module loads.
+- **Current behavior:** `src/config/env.ts` fail-fast on startup; `src/lib/prisma.ts` also throws if unset when the module loads.
 
 ### `NODE_ENV`
 
@@ -66,14 +66,14 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 ### `PORT`
 
 - **Description:** HTTP server bind port for `src/http/server.ts`.
-- **Default:** `3000`
+- **Required:** always set (no default at startup validation)
 - **Example:** `PORT=8080`
 - **Ownership:** DevOps (load balancer must match).
 
 ### `LOG_LEVEL`
 
 - **Description:** Minimum log severity (policy standard; implement in logging layer when added).
-- **Values:** `trace` | `debug` | `info` | `warn` | `error`
+- **Values:** `error` | `warn` | `info` | `debug` (validated by `src/config/env.ts`)
 - **Example:** `LOG_LEVEL=info` (production), `LOG_LEVEL=debug` (local)
 - **Ownership:** DevOps + backend lead.
 
@@ -151,33 +151,51 @@ Standardize how TOCS separates **local**, **test**, and **production** environme
 
 ## 5. Startup validation policy (Fail Fast)
 
-**Policy (target behavior for Production Hardening follow-ups):**
+**Implementation:** `src/config/env.ts` — Production Hardening v1.2.3
 
-1. On process start, validate all **environment-required** variables for the current `NODE_ENV`.
-2. If any required variable is missing or empty → log a single clear error (variable name only, not value) → **`process.exit(1)`**.
-3. Do not start HTTP listener or open DB pool until validation passes.
+1. On process start, `loadEnvironment()` calls `validateEnvironment()` before parsing values.
+2. If any required variable is missing or empty → throw `EnvironmentValidationError` (variable names only, never values) → caller exits with code 1.
+3. HTTP listener must not bind until validation passes (`src/http/server.ts` calls `loadEnvironment()` first).
 4. Do not lazy-fail on first request.
+
+### API
+
+| Function | Purpose |
+|----------|---------|
+| `validateEnvironment()` | Presence check for all required variables; logs secret **presence only** |
+| `getRequiredEnvironmentVariables(nodeEnv?)` | Returns required variable names for the given `NODE_ENV` |
+| `EnvironmentValidationError` | Thrown when required variables are missing or invalid |
 
 ### Required-by-environment (validation matrix)
 
-| Check | local | test | production |
-|-------|:-----:|:----:|:----------:|
+| Check | local / development | test | production |
+|-------|:-------------------:|:----:|:----------:|
 | `DATABASE_URL` present | Yes | Yes | Yes |
 | `NODE_ENV` present | Yes | Yes | Yes |
-| `PORT` present | No (default 3000) | No | Yes |
-| `LOG_LEVEL` present | No | No | Yes |
+| `PORT` present | Yes | Yes | Yes |
+| `LOG_LEVEL` present | Yes | Yes | Yes |
 | `JWT_SECRET` present | No | No | Yes |
 | `SESSION_SECRET` present | No | No | Yes |
 | `ENCRYPTION_KEY` present | No | No | Yes |
 
-### Current implementation status (Core MVP)
+### Logging policy
 
-| Variable | Fail-fast today |
-|----------|-----------------|
-| `DATABASE_URL` | **Yes** — `src/lib/prisma.ts` throws on import if missing |
-| Others | **No** — documented here; implement in a dedicated `src/config/env.ts` milestone (no Auth code in same change unless approved) |
+- Secret variables (`DATABASE_URL`, `JWT_SECRET`, `SESSION_SECRET`, `ENCRYPTION_KEY`): log `[env] VAR=present` only — **never** log values.
+- Non-secret variables: validated but not echoed at startup.
 
-Integration tests skip DB suites when `DATABASE_URL` is unset (`hasDatabase`); CI always sets `DATABASE_URL` to avoid false green.
+### Current implementation status
+
+| Variable | Fail-fast |
+|----------|-----------|
+| `DATABASE_URL` | **Yes** — `validateEnvironment()` + `src/lib/prisma.ts` |
+| `NODE_ENV` | **Yes** — `validateEnvironment()` |
+| `PORT` | **Yes** — `validateEnvironment()` |
+| `LOG_LEVEL` | **Yes** — `validateEnvironment()` |
+| `JWT_SECRET` | **Yes** — production only |
+| `SESSION_SECRET` | **Yes** — production only |
+| `ENCRYPTION_KEY` | **Yes** — production only |
+
+Integration tests skip DB suites when `DATABASE_URL` is unset (`hasDatabase`); CI and local runs must set all always-required variables.
 
 ---
 
@@ -205,6 +223,8 @@ env:
   DATABASE_URL: postgresql://tocs:tocs_ci_password@localhost:5432/tocs_db
   CI: true
   NODE_ENV: test
+  PORT: "3000"
+  LOG_LEVEL: info
 ```
 
 No JWT/SESSION/ENCRYPTION in CI for Core MVP.
@@ -221,7 +241,7 @@ No JWT/SESSION/ENCRYPTION in CI for Core MVP.
 - [ ] Secrets stored in host/secret manager — not in git
 - [ ] DB schema applied per `DB_APPLY_ORDER.md`
 - [ ] `npx prisma generate` in build image
-- [ ] Startup validation enabled (when implemented)
+- [ ] Startup validation passes (`validateEnvironment()` — v1.2.3)
 - [ ] Health check: `GET /api/v1/health`
 
 ---
@@ -243,3 +263,4 @@ No JWT/SESSION/ENCRYPTION in CI for Core MVP.
 | Date | Change |
 |------|--------|
 | 2026-06-28 | v1.2.1 — Initial environment & secret policy (Production Hardening) |
+| 2026-06-23 | v1.2.3 — Startup fail-fast validation in `src/config/env.ts` |

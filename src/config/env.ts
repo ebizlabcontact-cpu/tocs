@@ -4,6 +4,15 @@ export type NodeEnv = 'development' | 'test' | 'production';
 
 export type EnvLogLevel = 'error' | 'warn' | 'info' | 'debug';
 
+export type RequiredEnvironmentVariable =
+  | 'DATABASE_URL'
+  | 'NODE_ENV'
+  | 'PORT'
+  | 'LOG_LEVEL'
+  | 'JWT_SECRET'
+  | 'SESSION_SECRET'
+  | 'ENCRYPTION_KEY';
+
 export interface AppEnvironment {
   databaseUrl: string;
   nodeEnv: NodeEnv;
@@ -18,17 +27,77 @@ export class EnvironmentValidationError extends Error {
   }
 }
 
+const ALWAYS_REQUIRED: readonly RequiredEnvironmentVariable[] = [
+  'DATABASE_URL',
+  'NODE_ENV',
+  'PORT',
+  'LOG_LEVEL',
+];
+
+const PRODUCTION_SECRETS: readonly RequiredEnvironmentVariable[] = [
+  'JWT_SECRET',
+  'SESSION_SECRET',
+  'ENCRYPTION_KEY',
+];
+
+const SECRET_VARIABLES: ReadonlySet<RequiredEnvironmentVariable> = new Set([
+  'DATABASE_URL',
+  ...PRODUCTION_SECRETS,
+]);
+
 let cachedEnvironment: AppEnvironment | undefined;
 
 const NODE_ENV_VALUES: ReadonlySet<NodeEnv> = new Set(['development', 'test', 'production']);
 
 const LOG_LEVEL_VALUES: ReadonlySet<EnvLogLevel> = new Set(['error', 'warn', 'info', 'debug']);
 
+function isPresent(raw: string | undefined): boolean {
+  return Boolean(raw?.trim());
+}
+
+export function getRequiredEnvironmentVariables(
+  nodeEnv?: string,
+): readonly RequiredEnvironmentVariable[] {
+  if (nodeEnv?.trim() === 'production') {
+    return [...ALWAYS_REQUIRED, ...PRODUCTION_SECRETS];
+  }
+
+  return ALWAYS_REQUIRED;
+}
+
+function logVariablePresence(name: RequiredEnvironmentVariable): void {
+  console.log(`[env] ${name}=present`);
+}
+
+export function validateEnvironment(): void {
+  const rawNodeEnv = process.env.NODE_ENV;
+  const required = getRequiredEnvironmentVariables(rawNodeEnv);
+  const missing: RequiredEnvironmentVariable[] = [];
+
+  for (const name of required) {
+    if (!isPresent(process.env[name])) {
+      missing.push(name);
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new EnvironmentValidationError(
+      `Missing required environment variable(s): ${missing.join(', ')}`,
+    );
+  }
+
+  for (const name of required) {
+    if (SECRET_VARIABLES.has(name)) {
+      logVariablePresence(name);
+    }
+  }
+}
+
 function parseNodeEnv(raw: string | undefined): NodeEnv {
   const value = raw?.trim();
 
   if (!value) {
-    return 'development';
+    throw new EnvironmentValidationError('NODE_ENV is required');
   }
 
   if (value === 'local') {
@@ -48,7 +117,7 @@ function parsePort(raw: string | undefined): number {
   const value = raw?.trim();
 
   if (!value) {
-    return 3000;
+    throw new EnvironmentValidationError('PORT is required');
   }
 
   const port = Number(value);
@@ -64,7 +133,7 @@ function parseLogLevel(raw: string | undefined): EnvLogLevel {
   const value = raw?.trim().toLowerCase();
 
   if (!value) {
-    return 'info';
+    throw new EnvironmentValidationError('LOG_LEVEL is required');
   }
 
   if (LOG_LEVEL_VALUES.has(value as EnvLogLevel)) {
@@ -90,6 +159,8 @@ export function loadEnvironment(): AppEnvironment {
   if (cachedEnvironment) {
     return cachedEnvironment;
   }
+
+  validateEnvironment();
 
   cachedEnvironment = {
     databaseUrl: parseDatabaseUrl(process.env.DATABASE_URL),
