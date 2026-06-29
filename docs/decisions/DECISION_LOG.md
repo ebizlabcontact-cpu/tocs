@@ -693,3 +693,28 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/operations/PRODUCTION_READINESS_REVIEW.md`](../operations/PRODUCTION_READINESS_REVIEW.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-041. Authentication and RBAC Foundation
+
+**Title:** Authentication and RBAC Foundation
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — Auth Foundation v1.3.0 is **specification and architecture only**; no DB schema, routes, middleware, JWT, or user tables in this milestone.
+2. **Authentication** — Bearer JWT access tokens (`JWT_SECRET`); refresh via session strategy (`SESSION_SECRET`); fail closed on protected routes (future enforcement).
+3. **RBAC** — System roles (`SYSTEM_ADMIN`, `OPS_MANAGER`, `FINANCE`, `CLOSER`, `VIEWER`) grant `{resource}:{action}` permissions; **separate from** `formula_participants.role_group` (DL-004).
+4. **Architecture** — Auth/RBAC at HTTP boundary only; Action → Service → Repository discipline preserved.
+5. **Public endpoint** — `GET /api/v1/health` remains unauthenticated.
+6. **Phased rollout** — v1.3.0 docs → v1.3.1 middleware → v1.3.x enforcement + test slice.
+7. **Integration gate unchanged** — 212/212 without auth headers until auth test milestone approved.
+
+**Operational references**
+
+- [`docs/specs/AUTH_RBAC_SPEC.md`](../specs/AUTH_RBAC_SPEC.md)
+- [`docs/architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md)
+
+상태: ACCEPTED

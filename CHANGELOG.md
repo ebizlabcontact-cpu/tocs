@@ -26,10 +26,20 @@ Operational runbooks and governance docs; no application or schema code changes.
 | v1.2.7 | `RELEASE_AND_DEPLOYMENT.md`, DL-039 release/deploy/rollback governance |
 | v1.2.8 | `PRODUCTION_READINESS_REVIEW.md`, DL-040 production readiness assessment |
 
+### Documentation — Auth Foundation v1.3.0 (specification only)
+
+| Batch | Scope |
+|-------|--------|
+| v1.3.0 | `AUTH_RBAC_SPEC.md`, `AUTH_ARCHITECTURE.md`, DL-041 |
+
+No application, schema, middleware, or route implementation in this batch.
+
 ### Added
 
 - **Release & deployment runbook** — `docs/operations/RELEASE_AND_DEPLOYMENT.md` (release gates, deployment checklist, SQL-first deploy, rollback, hotfix flow, CI release gate).
 - **Production readiness review** — `docs/operations/PRODUCTION_READINESS_REVIEW.md` (readiness matrix, go-live recommendation: **Production Hardened Candidate**, **Production Ready: NO**).
+- **Auth/RBAC specification** — `docs/specs/AUTH_RBAC_SPEC.md` (roles, resources, permission matrix, JWT/session strategy, security principles).
+- **Auth architecture** — `docs/architecture/AUTH_ARCHITECTURE.md` (HTTP layer placement, separation from Formula business roles, phased rollout).
 
 ### Changed
 
@@ -40,6 +50,7 @@ Operational runbooks and governance docs; no application or schema code changes.
 
 - `DECISION_LOG.md` DL-039 — Release and Deployment Governance.
 - `DECISION_LOG.md` DL-040 — Production Readiness Assessment.
+- `DECISION_LOG.md` DL-041 — Authentication and RBAC Foundation.
 
 ---
 
