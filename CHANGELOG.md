@@ -44,6 +44,7 @@ Documentation-only batches (v1.3.0–v1.3.6) precede code implementation.
 |-------|--------|
 | v1.3.7 | Auth DB schema in `tocs_base_schema.sql`, Prisma models, DL-048 |
 | v1.3.8 | `AuthRepository` + integration tests (Phase 2 partial) |
+| v1.3.9 | `CredentialService` — Argon2id, validation, lockout (Phase 2 remainder) |
 
 No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
@@ -62,6 +63,10 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - **Auth schema integration test** — `src/tests/auth.schema.integration.test.ts` (users, memberships, sessions constraints).
 - **Auth repository** — `src/repositories/auth.repository.ts` (users, memberships, sessions CRUD).
 - **Auth repository integration test** — `src/tests/auth.repository.integration.test.ts`.
+- **Credential validation** — `src/utils/credential.validation.ts` (length, categories, blocklist, email/company rejection).
+- **Credential lockout store** — `src/services/credential.lockout-store.ts` (in-memory 5/15m policy).
+- **Credential service** — `src/services/credential.service.ts` (Argon2id hash/verify, login eligibility, lockout).
+- **Credential service integration test** — `src/tests/credential.service.integration.test.ts`.
 
 ### Changed
 
