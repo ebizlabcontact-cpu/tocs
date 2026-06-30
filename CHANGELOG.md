@@ -48,6 +48,7 @@ Documentation-only batches (v1.3.0–v1.3.6) precede code implementation.
 | v1.3.10 | Bootstrap admin CLI — one-time SUPER_ADMIN creation (DL-044 §6) |
 | v1.3.11 | `AuthService` — login/logout/refresh/getCurrentUser orchestration |
 | v1.3.12 | `TokenService` + `SessionService` — JWT access + refresh rotation (DL-043) |
+| v1.3.13 | `AuthActions` — login/logout/refresh/me HTTP action layer |
 
 No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
@@ -77,6 +78,8 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - **Token service** — `src/services/token.service.ts` (HS256 access JWT, 15m TTL).
 - **Session service** — `src/services/session.service.ts` (opaque refresh, HMAC hash, rotation, reuse detection).
 - **Token/session integration test** — `src/tests/token.service.integration.test.ts`.
+- **Auth actions** — `src/actions/auth.actions.ts` (login, logout, refresh, me).
+- **Auth actions integration test** — `src/tests/auth.actions.integration.test.ts`.
 
 ### Changed
 

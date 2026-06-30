@@ -130,8 +130,8 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 | Layer | Files (planned) |
 |-------|-----------------|
 | Routes | `src/http/routes/auth.routes.ts` |
-| Actions | `src/actions/auth.actions.ts` |
-| Services | `AuthService` orchestration — **implemented (v1.3.11, no JWT)** |
+| Services | `AuthService` — **implemented (v1.3.11)** |
+| Actions | `src/actions/auth.actions.ts` — **implemented (v1.3.13, no Fastify routes)** |
 
 ### Rules
 
@@ -172,7 +172,7 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 ### Gate
 
 - Session rotation and reuse paths verified in `token.service.integration.test.ts`.
-- **250/250** integration suite (includes token/session tests).
+- **250/250** integration suite baseline; auth actions add **262/262** total.
 - CI green.
 
 ---
