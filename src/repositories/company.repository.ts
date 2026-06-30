@@ -23,6 +23,7 @@ export interface CompanyListParams {
   isActive?: boolean;
   page?: number;
   pageSize?: number;
+  scopeCompanyId?: string;
 }
 
 export interface CompanyListResult {
@@ -68,6 +69,10 @@ export class CompanyRepository {
 
     if (params.isActive !== undefined) {
       where.isActive = params.isActive;
+    }
+
+    if (params.scopeCompanyId !== undefined) {
+      where.id = params.scopeCompanyId;
     }
 
     return where;

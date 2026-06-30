@@ -25,6 +25,7 @@ import type {
   ParticipantVersionPayloadInput,
   ValidatedCreateParticipantInput,
 } from '../types/participant.types.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 import {
   validateCreateParticipant,
   ValidationError,
@@ -324,9 +325,12 @@ export class ParticipantActions {
     }
   }
 
-  async listParticipantsByFormulaId(formulaId: string): Promise<ParticipantListResponse> {
+  async listParticipantsByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<ParticipantListResponse> {
     try {
-      const participants = await this.service.listParticipantsByFormulaId(formulaId);
+      const participants = await this.service.listParticipantsByFormulaId(formulaId, companyScope);
       return {
         items: participants.map(toParticipantResponse),
       };
@@ -351,6 +355,7 @@ export async function getParticipantById(participantId: string): Promise<Partici
 
 export async function listParticipantsByFormulaId(
   formulaId: string,
+  companyScope?: CompanyScopeFilter,
 ): Promise<ParticipantListResponse> {
-  return participantActions.listParticipantsByFormulaId(formulaId);
+  return participantActions.listParticipantsByFormulaId(formulaId, companyScope);
 }

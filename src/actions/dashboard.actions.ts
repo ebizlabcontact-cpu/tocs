@@ -12,6 +12,7 @@ import type {
   PaymentUnmatched,
 } from '../services/dashboard.service.js';
 import type { ValidatedDashboardListInput } from '../types/dashboard.types.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 import {
   validateDashboardListInput,
   validateFormulaIdInput,
@@ -308,8 +309,12 @@ export class DashboardActions {
 
   async listParticipantConfirmedKpi(
     query: DashboardListRequest = {},
+    companyScope?: CompanyScopeFilter,
   ): Promise<DashboardListResponse<ParticipantConfirmedKpiResponse>> {
-    const items = await this.service.listParticipantConfirmedKpi(parseDashboardListRequest(query));
+    const items = await this.service.listParticipantConfirmedKpi({
+      ...parseDashboardListRequest(query),
+      ...(companyScope !== undefined ? { companyScope } : {}),
+    });
 
     return {
       items: items.map(toParticipantConfirmedKpiResponse),
@@ -318,8 +323,12 @@ export class DashboardActions {
 
   async listUnmatchedPayments(
     query: DashboardListRequest = {},
+    companyScope?: CompanyScopeFilter,
   ): Promise<DashboardListResponse<PaymentUnmatchedResponse>> {
-    const items = await this.service.listUnmatchedPayments(parseDashboardListRequest(query));
+    const items = await this.service.listUnmatchedPayments({
+      ...parseDashboardListRequest(query),
+      ...(companyScope !== undefined ? { companyScope } : {}),
+    });
 
     return {
       items: items.map(toPaymentUnmatchedResponse),
@@ -361,12 +370,14 @@ export async function listFormulaProfitEngine(
 
 export async function listParticipantConfirmedKpi(
   query: DashboardListRequest = {},
+  companyScope?: CompanyScopeFilter,
 ): Promise<DashboardListResponse<ParticipantConfirmedKpiResponse>> {
-  return dashboardActions.listParticipantConfirmedKpi(query);
+  return dashboardActions.listParticipantConfirmedKpi(query, companyScope);
 }
 
 export async function listUnmatchedPayments(
   query: DashboardListRequest = {},
+  companyScope?: CompanyScopeFilter,
 ): Promise<DashboardListResponse<PaymentUnmatchedResponse>> {
-  return dashboardActions.listUnmatchedPayments(query);
+  return dashboardActions.listUnmatchedPayments(query, companyScope);
 }

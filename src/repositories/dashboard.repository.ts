@@ -9,6 +9,7 @@ export interface DashboardListParams {
   participantId?: string;
   limit?: number;
   offset?: number;
+  scopeCompanyId?: string;
 }
 
 export interface FormulaConfirmedKpiRow {
@@ -73,6 +74,21 @@ export interface PaymentUnmatchedRow {
   created_at: Date;
 }
 
+function buildCompanyScopeFilter(params: DashboardListParams, formulaColumn: string): Prisma.Sql {
+  if (params.scopeCompanyId === undefined) {
+    return Prisma.empty;
+  }
+
+  return Prisma.sql`
+    AND EXISTS (
+      SELECT 1
+      FROM formula_participants fp
+      WHERE fp.formula_id = ${Prisma.raw(formulaColumn)}
+        AND fp.company_id = ${params.scopeCompanyId}::uuid
+    )
+  `;
+}
+
 function buildFormulaCreatedAtFilters(params: DashboardListParams): Prisma.Sql {
   return Prisma.sql`
     (${params.formulaId ?? null}::uuid IS NULL OR v.formula_id = ${params.formulaId ?? null}::uuid)
@@ -118,6 +134,7 @@ export class DashboardRepository {
 
   async listFormulaConfirmedKpi(params: DashboardListParams = {}): Promise<FormulaConfirmedKpiRow[]> {
     const whereClause = buildFormulaCreatedAtFilters(params);
+    const companyScopeFilter = buildCompanyScopeFilter(params, 'v.formula_id');
 
     return prisma.$queryRaw<FormulaConfirmedKpiRow[]>`
       SELECT
@@ -136,6 +153,7 @@ export class DashboardRepository {
       FROM v_formula_confirmed_kpi v
       INNER JOIN formulas f ON f.id = v.formula_id
       WHERE ${whereClause}
+      ${companyScopeFilter}
       ORDER BY f.created_at DESC, v.formula_id ASC
       ${buildPaginationClause(params)}
     `;
@@ -164,6 +182,7 @@ export class DashboardRepository {
 
   async listFormulaProfitEngine(params: DashboardListParams = {}): Promise<FormulaProfitEngineRow[]> {
     const whereClause = buildFormulaCreatedAtFilters(params);
+    const companyScopeFilter = buildCompanyScopeFilter(params, 'v.formula_id');
 
     return prisma.$queryRaw<FormulaProfitEngineRow[]>`
       SELECT
@@ -181,6 +200,7 @@ export class DashboardRepository {
       FROM v_formula_profit_engine v
       INNER JOIN formulas f ON f.id = v.formula_id
       WHERE ${whereClause}
+      ${companyScopeFilter}
       ORDER BY f.created_at DESC, v.formula_id ASC
       ${buildPaginationClause(params)}
     `;
@@ -194,6 +214,7 @@ export class DashboardRepository {
       AND (${params.participantId ?? null}::uuid IS NULL OR v.participant_id = ${params.participantId ?? null}::uuid)
       AND (${params.dateFrom ?? null}::timestamptz IS NULL OR f.created_at >= ${params.dateFrom ?? null})
       AND (${params.dateTo ?? null}::timestamptz IS NULL OR f.created_at <= ${params.dateTo ?? null})
+      AND (${params.scopeCompanyId ?? null}::uuid IS NULL OR v.company_id = ${params.scopeCompanyId ?? null}::uuid)
     `;
 
     return prisma.$queryRaw<ParticipantConfirmedKpiRow[]>`
@@ -228,6 +249,7 @@ export class DashboardRepository {
       AND (${params.dateFrom ?? null}::timestamptz IS NULL OR v.created_at >= ${params.dateFrom ?? null})
       AND (${params.dateTo ?? null}::timestamptz IS NULL OR v.created_at <= ${params.dateTo ?? null})
     `;
+    const companyScopeFilter = buildCompanyScopeFilter(params, 'v.formula_id');
 
     return prisma.$queryRaw<PaymentUnmatchedRow[]>`
       SELECT
@@ -244,6 +266,7 @@ export class DashboardRepository {
         v.created_at
       FROM v_payment_unmatched v
       WHERE ${whereClause}
+      ${companyScopeFilter}
       ORDER BY v.created_at DESC, v.formula_id ASC, v.id ASC
       ${buildPaginationClause(params)}
     `;

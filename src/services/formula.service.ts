@@ -18,6 +18,8 @@ import type {
   FormulaListResult,
   FormulaPatchData,
 } from '../repositories/formula.repository.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
+import { resolveScopeCompanyId } from '../utils/company-scope.js';
 import { assertNotClosedForTradeMutation } from './guards/closed-formula.guard.js';
 
 export class FormulaNotFoundError extends Error {
@@ -61,6 +63,7 @@ export interface ListFormulasInput {
   createdBefore?: Date;
   page?: number;
   pageSize?: number;
+  companyScope?: CompanyScopeFilter;
 }
 
 export interface PatchFormulaInput {
@@ -179,6 +182,11 @@ export class FormulaService {
     if (input.createdBefore !== undefined) params.createdBefore = input.createdBefore;
     if (input.page !== undefined) params.page = input.page;
     if (input.pageSize !== undefined) params.pageSize = input.pageSize;
+
+    const scopeCompanyId = resolveScopeCompanyId(input.companyScope);
+    if (scopeCompanyId !== undefined) {
+      params.scopeCompanyId = scopeCompanyId;
+    }
 
     return this.repository.list(params);
   }

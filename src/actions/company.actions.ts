@@ -15,6 +15,7 @@ import type {
   ValidatedCreateCompanyInput,
   ValidatedListCompaniesInput,
 } from '../types/company.types.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 import {
   validateCompanyId,
   validateCreateCompany,
@@ -144,10 +145,16 @@ export class CompanyActions {
     }
   }
 
-  async listCompanies(query: ListCompaniesQuery = {}): Promise<CompanyListResponse> {
+  async listCompanies(
+    query: ListCompaniesQuery = {},
+    companyScope?: CompanyScopeFilter,
+  ): Promise<CompanyListResponse> {
     try {
       const validated = validateListCompanies(mapListQuery(query));
-      const result = await this.service.listCompanies(toListCompaniesInput(validated));
+      const result = await this.service.listCompanies({
+        ...toListCompaniesInput(validated),
+        ...(companyScope !== undefined ? { companyScope } : {}),
+      });
 
       return {
         items: result.items.map(toCompanyResponse),
@@ -171,6 +178,9 @@ export async function getCompanyById(companyId: string): Promise<CompanyResponse
   return companyActions.getCompanyById(companyId);
 }
 
-export async function listCompanies(query: ListCompaniesQuery = {}): Promise<CompanyListResponse> {
-  return companyActions.listCompanies(query);
+export async function listCompanies(
+  query: ListCompaniesQuery = {},
+  companyScope?: CompanyScopeFilter,
+): Promise<CompanyListResponse> {
+  return companyActions.listCompanies(query, companyScope);
 }

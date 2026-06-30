@@ -11,6 +11,8 @@ import type {
   ParticipantConfirmedKpiRow,
   PaymentUnmatchedRow,
 } from '../repositories/dashboard.repository.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
+import { resolveScopeCompanyId } from '../utils/company-scope.js';
 
 export class DashboardDataNotFoundError extends Error {
   readonly status = 404 as const;
@@ -28,6 +30,7 @@ export interface DashboardListInput {
   participantId?: string;
   limit?: number;
   offset?: number;
+  companyScope?: CompanyScopeFilter;
 }
 
 export interface FormulaConfirmedKpi {
@@ -115,6 +118,11 @@ function toListParams(input: DashboardListInput): DashboardListParams {
   if (input.participantId !== undefined) params.participantId = input.participantId;
   if (input.limit !== undefined) params.limit = input.limit;
   if (input.offset !== undefined) params.offset = input.offset;
+
+  const scopeCompanyId = resolveScopeCompanyId(input.companyScope);
+  if (scopeCompanyId !== undefined) {
+    params.scopeCompanyId = scopeCompanyId;
+  }
 
   return params;
 }

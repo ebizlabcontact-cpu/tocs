@@ -22,9 +22,15 @@ export class ParticipantRepository {
     return prisma.formulaParticipant.findUnique({ where: { id } });
   }
 
-  async listParticipantsByFormulaId(formulaId: string): Promise<FormulaParticipant[]> {
+  async listParticipantsByFormulaId(
+    formulaId: string,
+    scopeCompanyId?: string,
+  ): Promise<FormulaParticipant[]> {
     return prisma.formulaParticipant.findMany({
-      where: { formulaId },
+      where: {
+        formulaId,
+        ...(scopeCompanyId !== undefined && { companyId: scopeCompanyId }),
+      },
       orderBy: [{ sequenceOrder: 'asc' }, { createdAt: 'asc' }],
     });
   }

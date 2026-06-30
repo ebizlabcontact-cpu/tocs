@@ -11,6 +11,8 @@ import {
   participantRepository,
 } from '../repositories/participant.repository.js';
 import type { ParticipantCreateData } from '../repositories/participant.repository.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
+import { resolveScopeCompanyId } from '../utils/company-scope.js';
 import {
   FormulaRepository,
   formulaRepository,
@@ -176,8 +178,14 @@ export class ParticipantService {
     return participant;
   }
 
-  async listParticipantsByFormulaId(formulaId: string): Promise<FormulaParticipant[]> {
-    return this.repository.listParticipantsByFormulaId(formulaId);
+  async listParticipantsByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<FormulaParticipant[]> {
+    return this.repository.listParticipantsByFormulaId(
+      formulaId,
+      resolveScopeCompanyId(companyScope),
+    );
   }
 
   private toCreateVersionInput(

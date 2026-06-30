@@ -22,6 +22,7 @@ import type {
   ValidatedCancelFormulaInput,
   ValidatedPatchFormulaInput,
 } from '../types/formula.types.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 import {
   validateCancelFormula,
   validatePatchFormula,
@@ -406,8 +407,14 @@ export class FormulaActions {
     }
   }
 
-  async listFormulas(query: ListFormulasQuery = {}): Promise<FormulaListResponse> {
-    const result = await this.service.list(mapListQuery(query));
+  async listFormulas(
+    query: ListFormulasQuery = {},
+    companyScope?: CompanyScopeFilter,
+  ): Promise<FormulaListResponse> {
+    const result = await this.service.list({
+      ...mapListQuery(query),
+      ...(companyScope !== undefined ? { companyScope } : {}),
+    });
 
     return {
       items: result.items.map(toFormulaDetailResponse),
@@ -458,8 +465,11 @@ export async function getFormulaByFormulaNo(formulaNo: string): Promise<FormulaD
   return formulaActions.getFormulaByFormulaNo(formulaNo);
 }
 
-export async function listFormulas(query: ListFormulasQuery = {}): Promise<FormulaListResponse> {
-  return formulaActions.listFormulas(query);
+export async function listFormulas(
+  query: ListFormulasQuery = {},
+  companyScope?: CompanyScopeFilter,
+): Promise<FormulaListResponse> {
+  return formulaActions.listFormulas(query, companyScope);
 }
 
 export async function patchFormula(

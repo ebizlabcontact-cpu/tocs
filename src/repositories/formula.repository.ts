@@ -31,6 +31,7 @@ export interface FormulaListParams {
   createdBefore?: Date;
   page?: number;
   pageSize?: number;
+  scopeCompanyId?: string;
 }
 
 export interface FormulaListResult {
@@ -90,6 +91,14 @@ export class FormulaRepository {
       where.createdAt = {
         ...(params.createdAfter !== undefined && { gte: params.createdAfter }),
         ...(params.createdBefore !== undefined && { lte: params.createdBefore }),
+      };
+    }
+
+    if (params.scopeCompanyId !== undefined) {
+      where.participants = {
+        some: {
+          companyId: params.scopeCompanyId,
+        },
       };
     }
 
