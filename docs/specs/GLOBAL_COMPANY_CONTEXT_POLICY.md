@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | v1.4.0 (Policy — documentation only) |
+| **Version** | v1.4.1 (Middleware — implemented) |
 | **Status** | ACCEPTED (DL-050) |
-| **Implementation** | **Not started** — backend middleware and Service filtering in a future milestone |
+| **Implementation** | **Middleware shipped** (v1.4.1) — `request.companyContext` from headers; Service-layer list filtering **not started** |
 
 **Related:** [`PRODUCTIZATION_V1_PLAN.md`](./PRODUCTIZATION_V1_PLAN.md), [`NAVIGATION_ARCHITECTURE.md`](./NAVIGATION_ARCHITECTURE.md), [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md), [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md), [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md), [`AUTH_RBAC_SPEC.md`](./AUTH_RBAC_SPEC.md)
 
@@ -186,7 +186,8 @@ v1.3 route guards remain. Global company context adds **mandatory active company
 
 | Non-goal | Notes |
 |----------|-------|
-| Backend middleware implementation | Next milestone |
+| Backend middleware implementation | ✅ v1.4.1 — `registerCompanyContext`, header parsing |
+| Service-layer list filtering | Next milestone |
 | Product UI / Header Switcher component | Next milestone |
 | DB schema changes | Forbidden |
 | Per-menu `company_id` query params | Forbidden |
@@ -195,12 +196,12 @@ v1.3 route guards remain. Global company context adds **mandatory active company
 
 ---
 
-## 11. Implementation gate (future code milestone)
+## 11. Implementation gate
 
-- `companyContext` middleware registered after authentication, before business routes.
-- Service-layer list filters accept `CompanyContext` parameter.
-- Integration tests: missing header → 400; non-admin `all` → 403; scoped list returns only active company data.
-- **308/308** baseline preserved until filters land; then extended suite.
+- ✅ v1.4.1 — `companyContext` middleware registered after authentication (`src/http/plugins/company-context.ts`).
+- Service-layer list filters accept `CompanyContext` parameter — **next milestone**.
+- Integration tests: company context middleware suite; existing **308+** baseline preserved.
+- Future: missing header on business route → 400 `COMPANY_CONTEXT_REQUIRED` when Service filters land.
 
 ---
 
@@ -209,3 +210,4 @@ v1.3 route guards remain. Global company context adds **mandatory active company
 | Date | Change |
 |------|--------|
 | 2026-06-30 | v1.4.0 — Global Company Context Policy (DL-050); documentation only |
+| 2026-06-30 | v1.4.1 — Company context middleware implemented; Service filtering deferred |

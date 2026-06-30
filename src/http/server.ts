@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 
 import { loadEnvironment } from '../config/env.js';
 import { registerAuthentication } from './plugins/authentication.js';
+import { registerCompanyContext } from './plugins/company-context.js';
 import { registerRequestLogger } from './plugins/request-logger.js';
 import { registerAuthRoutes } from './routes/auth.routes.js';
 import { registerCloseRoutes } from './routes/close.routes.js';
@@ -25,6 +26,7 @@ export async function createServer() {
   const app = Fastify();
   await registerRequestLogger(app);
   await registerAuthentication(app);
+  await registerCompanyContext(app);
   await registerHealthRoutes(app);
   await registerAuthRoutes(app);
   await registerFormulaRoutes(app);

@@ -90,7 +90,17 @@ Documentation-only batch; no application, schema, middleware, UI, or test change
 
 **Forbidden in v1.4.0:** Dashboard-only company filter; per-menu `company_id` query params; Frontend-only scope filtering; Core DB schema changes; Product UI; backend company-context middleware.
 
-**Next (proposed):** Company context middleware + Service-layer filters (v1.4.1+).
+**Next (proposed):** Service-layer list filters by `request.companyContext` (v1.4.2+).
+
+### Company Context Middleware v1.4.1
+
+| Batch | Scope |
+|-------|--------|
+| v1.4.1 | `company-context-request.ts`, `company-context.ts`, `server.ts` plugin order, integration tests |
+
+**Integration gate:** **320 / 320 PASS** (308 baseline + 12 company context tests).
+
+**Out of scope:** Service-layer filtering, Dashboard/Formula query changes, UI, schema.
 
 ### Added
 
@@ -131,6 +141,15 @@ Documentation-only batch; no application, schema, middleware, UI, or test change
 - **Formula scope resolvers** — child resource → formula linkage in `src/http/plugins/rbac.ts`.
 - **Protected routes integration test** — `src/tests/protected-routes.integration.test.ts`.
 - **HTTP auth test helper** — `src/tests/helpers/http-auth.helper.ts`.
+
+### Company Context Middleware (v1.4.1)
+
+- **company-context-request.ts** — `RequestCompanyContext` type; Fastify `request.companyContext` decoration.
+- **company-context.ts** — `X-Company-Id` / `X-Company-Scope: all` parsing; membership validation; public route exempt list.
+- **server.ts** — plugin order: request logger → authentication → company context → routes.
+- **company-context.middleware.integration.test.ts** — middleware test suite.
+- **GLOBAL_COMPANY_CONTEXT_POLICY.md** — v1.4.1 implementation status.
+- **PROJECT_CONTEXT.md** — v1.4.1 milestone.
 
 ### Productization Foundation (DL-050)
 
