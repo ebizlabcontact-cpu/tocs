@@ -8,6 +8,14 @@ import {
   type ListCompaniesQuery,
 } from '../../actions/company.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import {
+  companyIdFromParam,
+  requireCompanyScope,
+  requireRole,
+  ROLES_COMPANY_ADMIN_AND_ABOVE,
+  ROLES_VIEWER_AND_ABOVE,
+  withProtection,
+} from '../plugins/rbac.js';
 
 function parseListCompaniesQuery(query: Record<string, unknown>): ListCompaniesQuery {
   const result: ListCompaniesQuery = {};
@@ -35,26 +43,38 @@ function parseListCompaniesQuery(query: Record<string, unknown>): ListCompaniesQ
 }
 
 export async function registerCompanyRoutes(app: FastifyInstance): Promise<void> {
-  app.post<{ Body: CreateCompanyRequest }>('/api/v1/companies', async (request, reply) => {
-    const result = await runAction(reply, () => createCompany(request.body));
+  app.post<{ Body: CreateCompanyRequest }>(
+    '/api/v1/companies',
+    withProtection(requireRole(ROLES_COMPANY_ADMIN_AND_ABOVE)),
+    async (request, reply) => {
+      const result = await runAction(reply, () => createCompany(request.body));
 
-    if (result !== undefined) {
-      return reply.status(201).send(result);
-    }
-  });
+      if (result !== undefined) {
+        return reply.status(201).send(result);
+      }
+    },
+  );
 
-  app.get<{ Querystring: Record<string, unknown> }>('/api/v1/companies', async (request, reply) => {
-    const result = await runAction(reply, () =>
-      listCompanies(parseListCompaniesQuery(request.query)),
-    );
+  app.get<{ Querystring: Record<string, unknown> }>(
+    '/api/v1/companies',
+    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE)),
+    async (request, reply) => {
+      const result = await runAction(reply, () =>
+        listCompanies(parseListCompaniesQuery(request.query)),
+      );
 
-    if (result !== undefined) {
-      return reply.send(result);
-    }
-  });
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
 
   app.get<{ Params: { companyId: string } }>(
     '/api/v1/companies/:companyId',
+    withProtection(
+      requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyScope(companyIdFromParam('companyId')),
+    ),
     async (request, reply) => {
       const result = await runAction(reply, () => getCompanyById(request.params.companyId));
 

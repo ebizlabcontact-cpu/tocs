@@ -16,6 +16,17 @@ import {
   type PatchFormulaRequest,
 } from '../../actions/formula.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import {
+  formulaIdFromParam,
+  requireAnyActiveMembership,
+  requireFormulaScope,
+  requireRole,
+  resolveFormulaIdFromFormulaNo,
+  ROLES_COMPANY_ADMIN_AND_ABOVE,
+  ROLES_MANAGER_AND_ABOVE,
+  ROLES_VIEWER_AND_ABOVE,
+  withProtection,
+} from '../plugins/rbac.js';
 
 function parseListFormulasQuery(query: Record<string, unknown>): ListFormulasQuery {
   const result: ListFormulasQuery = {};
@@ -53,26 +64,38 @@ function parseListFormulasQuery(query: Record<string, unknown>): ListFormulasQue
 }
 
 export async function registerFormulaRoutes(app: FastifyInstance): Promise<void> {
-  app.post<{ Body: CreateFormulaRequest }>('/api/v1/formulas', async (request, reply) => {
-    const result = await runAction(reply, () => createFormula(request.body));
+  app.post<{ Body: CreateFormulaRequest }>(
+    '/api/v1/formulas',
+    withProtection(requireRole(ROLES_MANAGER_AND_ABOVE), requireAnyActiveMembership()),
+    async (request, reply) => {
+      const result = await runAction(reply, () => createFormula(request.body));
 
-    if (result !== undefined) {
-      return reply.status(201).send(result);
-    }
-  });
+      if (result !== undefined) {
+        return reply.status(201).send(result);
+      }
+    },
+  );
 
-  app.get<{ Querystring: Record<string, unknown> }>('/api/v1/formulas', async (request, reply) => {
-    const result = await runAction(reply, () =>
-      listFormulas(parseListFormulasQuery(request.query)),
-    );
+  app.get<{ Querystring: Record<string, unknown> }>(
+    '/api/v1/formulas',
+    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE)),
+    async (request, reply) => {
+      const result = await runAction(reply, () =>
+        listFormulas(parseListFormulasQuery(request.query)),
+      );
 
-    if (result !== undefined) {
-      return reply.send(result);
-    }
-  });
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
 
   app.get<{ Params: { formulaNo: string } }>(
     '/api/v1/formulas/by-formula-no/:formulaNo',
+    withProtection(
+      requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireFormulaScope(resolveFormulaIdFromFormulaNo),
+    ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
         getFormulaByFormulaNo(request.params.formulaNo),
@@ -86,6 +109,10 @@ export async function registerFormulaRoutes(app: FastifyInstance): Promise<void>
 
   app.get<{ Params: { formulaId: string } }>(
     '/api/v1/formulas/:formulaId/status',
+    withProtection(
+      requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireFormulaScope(formulaIdFromParam('formulaId')),
+    ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
         getFormulaCloseStatus(request.params.formulaId),
@@ -100,18 +127,29 @@ export async function registerFormulaRoutes(app: FastifyInstance): Promise<void>
   app.post<{
     Params: { formulaId: string };
     Body: CancelFormulaRequest;
-  }>('/api/v1/formulas/:formulaId/cancel', async (request, reply) => {
-    const result = await runAction(reply, () =>
-      cancelFormula(request.params.formulaId, request.body),
-    );
+  }>(
+    '/api/v1/formulas/:formulaId/cancel',
+    withProtection(
+      requireRole(ROLES_COMPANY_ADMIN_AND_ABOVE),
+      requireFormulaScope(formulaIdFromParam('formulaId')),
+    ),
+    async (request, reply) => {
+      const result = await runAction(reply, () =>
+        cancelFormula(request.params.formulaId, request.body),
+      );
 
-    if (result !== undefined) {
-      return reply.send(result);
-    }
-  });
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
 
   app.get<{ Params: { formulaId: string } }>(
     '/api/v1/formulas/:formulaId',
+    withProtection(
+      requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireFormulaScope(formulaIdFromParam('formulaId')),
+    ),
     async (request, reply) => {
       const result = await runAction(reply, () => getFormulaById(request.params.formulaId));
 
@@ -124,13 +162,20 @@ export async function registerFormulaRoutes(app: FastifyInstance): Promise<void>
   app.patch<{
     Params: { formulaId: string };
     Body: PatchFormulaRequest;
-  }>('/api/v1/formulas/:formulaId', async (request, reply) => {
-    const result = await runAction(reply, () =>
-      patchFormula(request.params.formulaId, request.body),
-    );
+  }>(
+    '/api/v1/formulas/:formulaId',
+    withProtection(
+      requireRole(ROLES_MANAGER_AND_ABOVE),
+      requireFormulaScope(formulaIdFromParam('formulaId')),
+    ),
+    async (request, reply) => {
+      const result = await runAction(reply, () =>
+        patchFormula(request.params.formulaId, request.body),
+      );
 
-    if (result !== undefined) {
-      return reply.send(result);
-    }
-  });
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
 }

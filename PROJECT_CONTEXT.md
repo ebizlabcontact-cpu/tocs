@@ -208,6 +208,7 @@ npm run test:integration
 | v1.3.14 | Auth Fastify routes — `/api/v1/auth/*` (Phase 3 partial) |
 | v1.3.15 | Authentication middleware — JWT Bearer, `request.auth` (Phase 5 partial) |
 | v1.3.16 | RBAC middleware — `requireRole`, `requireCompanyScope` (Phase 6 partial) |
+| v1.3.17 | Protected routes — 47 business routes + auth/me JWT (Phase 6 partial) |
 
 ### Schema objects live
 
@@ -216,28 +217,32 @@ npm run test:integration
 
 ### Integration gate
 
-**295 / 295 PASS** (includes auth + RBAC middleware tests).
+**308 / 308 PASS** (includes protected route tests).
 
 ---
 
 ## 11. Current Milestone
 
-### v1.3.16 — RBAC Middleware ✅ COMPLETED
+### v1.3.17 — Protected Routes ✅ COMPLETED
 
 | Component | Location | Status |
 |-----------|----------|--------|
-| RBAC preHandlers | `src/http/plugins/rbac.ts` | Done |
-| Integration test | `src/tests/rbac.middleware.integration.test.ts` | Done |
+| Route guards | `src/http/routes/*.ts` | Done |
+| Scope helpers | `src/http/plugins/rbac.ts` | Done |
+| Auth `/me` JWT | `src/http/routes/auth.routes.ts` | Done |
+| Integration test | `src/tests/protected-routes.integration.test.ts` | Done |
+| HTTP test helper | `src/tests/helpers/http-auth.helper.ts` | Done |
 
-**Next (Phase 6 remainder — DL-047):** Route protection registry + business route guards — **not started**.
+**Public routes:** `GET /api/v1/health`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout` (session_id policy unchanged).
 
-### Explicitly not allowed in v1.3.16 scope (still forbidden until approved)
+**Next (Phase 7 — DL-047):** Auth regression with JWT fixtures on full business suite — **partial** (HTTP tests updated).
 
-- Business route protection application
-- Formula / Payment route modification
-- `AUTH_ENFORCE` rollout
+### Explicitly not allowed in v1.3.17 scope (still forbidden until approved)
+
+- `AUTH_ENFORCE` env rollout
 - Cookie-based refresh transport
-- Core domain modification
+- Core domain / Service policy changes
+- Signup / password reset / OAuth
 
 ---
 
@@ -246,7 +251,7 @@ npm run test:integration
 1. **SQL-first always** — schema changes in SQL files first; then `schema.prisma` mapping.
 2. **Formula First** — no alternate business roots; all flows from Formula.
 3. **Deferred = no code** until explicit approval.
-4. **Core domain changes** require integration suite green (295/295).
+4. **Core domain changes** require integration suite green (308/308).
 5. **CI green** on `main` before merge.
 6. **No scope creep** — touch only requested files; no drive-by refactors.
 7. **`formula_no`** — DB DEFAULT `generate_formula_no()` only; never manual assign.
@@ -315,7 +320,7 @@ Current state:
 - Core MVP ACCEPTED (DL-034); 48 HTTP routes; gap 0
 - Integration 224/224 PASS; GitHub Actions GREEN on main
 - Auth foundation docs v1.3.0–v1.3.6 ACCEPTED
-- Auth schema v1.3.7 … Authentication middleware v1.3.15 + RBAC middleware v1.3.16 IMPLEMENTED
+- Auth schema v1.3.7 … RBAC middleware v1.3.16 + Protected routes v1.3.17 IMPLEMENTED
 - Next: Auth middleware (Phase 5, DL-047)
 
 Non-negotiable:

@@ -9,6 +9,13 @@ import {
   type DashboardListRequest,
 } from '../../actions/dashboard.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import {
+  formulaIdFromParam,
+  requireFormulaScope,
+  requireRole,
+  ROLES_VIEWER_AND_ABOVE,
+  withProtection,
+} from '../plugins/rbac.js';
 
 function parseDashboardListQuery(query: Record<string, unknown>): DashboardListRequest {
   const result: DashboardListRequest = {};
@@ -43,6 +50,10 @@ function parseDashboardListQuery(query: Record<string, unknown>): DashboardListR
 export async function registerDashboardRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { formulaId: string } }>(
     '/api/v1/formulas/:formulaId/receivable-payable',
+    withProtection(
+      requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireFormulaScope(formulaIdFromParam('formulaId')),
+    ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
         getFormulaReceivablePayable(request.params.formulaId),
@@ -56,6 +67,10 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
 
   app.get<{ Params: { formulaId: string } }>(
     '/api/v1/formulas/:formulaId/kpi/confirmed',
+    withProtection(
+      requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireFormulaScope(formulaIdFromParam('formulaId')),
+    ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
         getFormulaConfirmedKpi(request.params.formulaId),
@@ -69,6 +84,10 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
 
   app.get<{ Params: { formulaId: string } }>(
     '/api/v1/formulas/:formulaId/kpi/expected',
+    withProtection(
+      requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireFormulaScope(formulaIdFromParam('formulaId')),
+    ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
         getFormulaProfitEngine(request.params.formulaId),
@@ -83,21 +102,29 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
   app.get<{
     Params: { formulaId: string };
     Querystring: Record<string, unknown>;
-  }>('/api/v1/formulas/:formulaId/kpi/participants', async (request, reply) => {
-    const result = await runAction(reply, () =>
-      listParticipantConfirmedKpi({
-        ...parseDashboardListQuery(request.query),
-        formula_id: request.params.formulaId,
-      }),
-    );
+  }>(
+    '/api/v1/formulas/:formulaId/kpi/participants',
+    withProtection(
+      requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireFormulaScope(formulaIdFromParam('formulaId')),
+    ),
+    async (request, reply) => {
+      const result = await runAction(reply, () =>
+        listParticipantConfirmedKpi({
+          ...parseDashboardListQuery(request.query),
+          formula_id: request.params.formulaId,
+        }),
+      );
 
-    if (result !== undefined) {
-      return reply.send(result);
-    }
-  });
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
 
   app.get<{ Querystring: Record<string, unknown> }>(
     '/api/v1/payments/unmatched',
+    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE)),
     async (request, reply) => {
       const result = await runAction(reply, () =>
         listUnmatchedPayments(parseDashboardListQuery(request.query)),

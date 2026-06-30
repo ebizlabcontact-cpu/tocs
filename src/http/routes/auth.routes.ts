@@ -10,6 +10,11 @@ import {
   type RefreshRequestBody,
 } from '../../actions/auth.actions.js';
 import { runAction, sendActionError } from '../lib/handle-action.js';
+import {
+  requireRole,
+  ROLES_VIEWER_AND_ABOVE,
+  withProtection,
+} from '../plugins/rbac.js';
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: LoginRequestBody }>('/api/v1/auth/login', async (request, reply) => {
@@ -38,11 +43,20 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     }
   });
 
-  app.get<{ Querystring: { user_id?: string } }>('/api/v1/auth/me', async (request, reply) => {
-    const result = await runAction(reply, () => me(request.query.user_id ?? ''));
+  app.get(
+    '/api/v1/auth/me',
+    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE)),
+    async (request, reply) => {
+      const auth = request.auth;
+      if (auth === null) {
+        return reply;
+      }
 
-    if (result !== undefined) {
-      return reply.send(result);
-    }
-  });
+      const result = await runAction(reply, () => me(auth.userId));
+
+      if (result !== undefined) {
+        return reply.send(result);
+      }
+    },
+  );
 }

@@ -52,6 +52,7 @@ Documentation-only batches (v1.3.0–v1.3.6) precede code implementation.
 | v1.3.14 | Auth Fastify HTTP routes — `/api/v1/auth/*` |
 | v1.3.15 | Authentication middleware — JWT Bearer, `request.auth` (Phase 5 partial) |
 | v1.3.16 | RBAC middleware — `requireRole`, `requireCompanyScope` (Phase 6 partial) |
+| v1.3.17 | Protected routes — 47 business routes + auth/me JWT (Phase 6 partial) |
 
 No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
@@ -90,6 +91,10 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - **Auth middleware integration test** — `src/tests/auth.middleware.integration.test.ts`.
 - **RBAC middleware** — `src/http/plugins/rbac.ts` (`requireRole`, `requireCompanyScope` preHandlers).
 - **RBAC middleware integration test** — `src/tests/rbac.middleware.integration.test.ts`.
+- **Route protection on 47 business HTTP routes** — `requireRole` + formula/company scope preHandlers per DL-046.
+- **Formula scope resolvers** — child resource → formula linkage in `src/http/plugins/rbac.ts`.
+- **Protected routes integration test** — `src/tests/protected-routes.integration.test.ts`.
+- **HTTP auth test helper** — `src/tests/helpers/http-auth.helper.ts`.
 
 ### Changed
 
@@ -104,7 +109,8 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - `docs/specs/AUTH_RBAC_SPEC.md` — §13 implementation plan summary (DL-047).
 - `docs/architecture/AUTH_ARCHITECTURE.md` — doc phases A–G complete; code Phases 1–7 per DL-047.
 
-- `src/http/server.ts` — registers authentication plugin after request logger (v1.3.15).
+- `src/http/routes/*.ts` — RBAC preHandlers on all business routes (v1.3.17).
+- `src/http/routes/auth.routes.ts` — `GET /api/v1/auth/me` requires JWT; query `user_id` removed (v1.3.17).
 - `docs/operations/ENVIRONMENT.md` — production checklist links CI green, backup-before-schema, rollback point.
 - `docs/operations/INCIDENT_RESPONSE.md` — deployment / rollback incident section.
 

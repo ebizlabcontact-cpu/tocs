@@ -213,15 +213,18 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 
 **Goal:** Protect all 47 business routes per [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md) (DL-046).
 
-**Status:** Partial — v1.3.16 implements `requireRole` and `requireCompanyScope` preHandlers only (no route registry, no business route guards).
+**Status:** Partial — v1.3.17 applies route guards to all 47 business routes; formula list/unmatched company filter remains Service-layer responsibility.
 
 ### Scope
 
 | Deliverable | Detail |
 |-------------|--------|
 | `rbac.ts` | `requireRole(roles)` + `requireCompanyScope(resolveCompanyId)` — **implemented (v1.3.16)** |
+| Route guards | All 47 business routes per DL-046 §7 — **implemented (v1.3.17)** |
+| Formula scope | `requireFormulaScope` + child-resource resolvers — **implemented (v1.3.17)** |
+| `GET /api/v1/auth/me` | JWT-authenticated; query `user_id` removed — **implemented (v1.3.17)** |
 | `RbacService` | Role → permission from [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) |
-| Route registry | All **48** routes from DL-046 §7 (health exempt) |
+| Route registry | Central metadata registry (optional V2; guards inline per route today) |
 | Production | `AUTH_ENFORCE=true` mandatory |
 
 ### Enforcement flow
