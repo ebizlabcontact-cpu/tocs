@@ -78,6 +78,20 @@ Documentation-only closure batch; no application or schema code changes.
 
 No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
+### Documentation — Productization Foundation v1.4.0 (specification only)
+
+Documentation-only batch; no application, schema, middleware, UI, or test changes.
+
+| Batch | Scope |
+|-------|--------|
+| v1.4.0 | Global Company Context Policy — `GLOBAL_COMPANY_CONTEXT_POLICY.md`, `PRODUCTIZATION_V1_PLAN.md`, `NAVIGATION_ARCHITECTURE.md`, `DASHBOARD_V1_SPEC.md`; `ROUTE_PROTECTION_POLICY.md` §6 extension; **DL-050** |
+
+**Integration gate:** **308 / 308 PASS** (unchanged).
+
+**Forbidden in v1.4.0:** Dashboard-only company filter; per-menu `company_id` query params; Frontend-only scope filtering; Core DB schema changes; Product UI; backend company-context middleware.
+
+**Next (proposed):** Company context middleware + Service-layer filters (v1.4.1+).
+
 ### Added
 
 - **Release & deployment runbook** — `docs/operations/RELEASE_AND_DEPLOYMENT.md` (release gates, deployment checklist, SQL-first deploy, rollback, hotfix flow, CI release gate).
@@ -117,6 +131,16 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - **Formula scope resolvers** — child resource → formula linkage in `src/http/plugins/rbac.ts`.
 - **Protected routes integration test** — `src/tests/protected-routes.integration.test.ts`.
 - **HTTP auth test helper** — `src/tests/helpers/http-auth.helper.ts`.
+
+### Productization Foundation (DL-050)
+
+- **DL-050** — Global Company Context Policy; Header Company Switcher applies to all menus.
+- **GLOBAL_COMPANY_CONTEXT_POLICY.md** — `request.companyContext`, headers, domain filtering, forbidden patterns.
+- **PRODUCTIZATION_V1_PLAN.md** — Productization phases P1–P6.
+- **NAVIGATION_ARCHITECTURE.md** — App shell, Header Company Switcher, client request pipeline.
+- **DASHBOARD_V1_SPEC.md** — Dashboard uses global context (not Dashboard-only filter).
+- **ROUTE_PROTECTION_POLICY.md** — §6.0 global company context; §6.6–§6.7 domain rules.
+- **PROJECT_CONTEXT.md** — v1.4.0 milestone; DL-050 in decisions summary.
 
 ### Auth Phase Closed (DL-049)
 

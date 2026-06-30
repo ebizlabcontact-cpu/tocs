@@ -235,6 +235,29 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 ## 11. Current Milestone
 
+### v1.4.0 Productization Foundation — Global Company Context (DL-050) ✅
+
+**Scope:** Documentation only — no backend middleware, Service filters, DB schema, or Product UI.
+
+| Deliverable | Status |
+|-------------|--------|
+| [`GLOBAL_COMPANY_CONTEXT_POLICY.md`](docs/specs/GLOBAL_COMPANY_CONTEXT_POLICY.md) | ✅ Spec complete |
+| [`PRODUCTIZATION_V1_PLAN.md`](docs/specs/PRODUCTIZATION_V1_PLAN.md) | ✅ Plan complete |
+| [`NAVIGATION_ARCHITECTURE.md`](docs/specs/NAVIGATION_ARCHITECTURE.md) | ✅ Spec complete |
+| [`DASHBOARD_V1_SPEC.md`](docs/specs/DASHBOARD_V1_SPEC.md) | ✅ Spec complete |
+| [`ROUTE_PROTECTION_POLICY.md`](docs/specs/ROUTE_PROTECTION_POLICY.md) §6.0–§6.7 | ✅ Extended |
+| **DL-050** Global Company Context Policy | ✅ ACCEPTED |
+
+**Core decisions:**
+
+1. Header Company Switcher = **Global Company Context** (all menus, not Dashboard-only).
+2. Non–`SUPER_ADMIN` requires `X-Company-Id`; `all` scope forbidden.
+3. All business APIs return data within selected company scope (backend enforced).
+
+**Integration gate:** **308 / 308 PASS** (unchanged — docs-only batch).
+
+**Next milestone (requires approval):** Company context middleware; `request.companyContext`; Service-layer list filters; integration tests.
+
 ### v1.3.x Auth Phase — CLOSED ✅ (DL-049)
 
 | Phase (DL-047) | Scope | Status |
@@ -319,6 +342,7 @@ Do not commit unless the user explicitly asks.
 | **DL-047** | Authentication Implementation Plan |
 | **DL-048** | Auth DB Schema Implementation |
 | **DL-049** | Authentication & Route Protection Completed |
+| **DL-050** | Global Company Context Policy |
 
 Full log: `docs/decisions/DECISION_LOG.md`.
 
@@ -339,7 +363,8 @@ Current state:
 - Auth foundation docs v1.3.0–v1.3.6 ACCEPTED (DL-041–DL-046)
 - Auth implementation v1.3.7–v1.3.17 COMPLETE — Phases 1–6 closed (DL-049)
 - Auth: Completed · Stable · Production Ready
-- Next: optional Phase 7 / V2 auth items only with explicit approval
+- v1.4.0 Productization Foundation — Global Company Context policy ACCEPTED (DL-050); docs only
+- Next: company context middleware + Service filters (explicit approval); optional Phase 7 / V2 auth items
 
 Non-negotiable:
 - Formula First Architecture — Formula is source of truth
@@ -366,6 +391,10 @@ When implementing, state: goal, files, scope, forbidden, verification, git (if a
 | `prisma/schema.prisma` | ORM mapping (read SQL first) |
 | `db/schema/tocs_base_schema.sql` | Base DDL |
 | `.cursor/rules/tocs-core.mdc` | Cursor agent rules |
+| `docs/specs/GLOBAL_COMPANY_CONTEXT_POLICY.md` | Global company context (DL-050) |
+| `docs/specs/PRODUCTIZATION_V1_PLAN.md` | Productization v1 phases |
+| `docs/specs/NAVIGATION_ARCHITECTURE.md` | Header switcher + shell |
+| `docs/specs/DASHBOARD_V1_SPEC.md` | Dashboard v1 (global context) |
 | `CHANGELOG.md` | Release batches |
 
 ---

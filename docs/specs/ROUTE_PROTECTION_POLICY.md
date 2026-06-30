@@ -4,13 +4,13 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | v1.3.5 (Policy — documentation only) |
-| **Status** | ACCEPTED (DL-046) |
-| **Implementation** | **Not started** — no middleware, route metadata, or route code changes |
+| **Version** | v1.4.0 supplement (Policy — documentation only) |
+| **Status** | ACCEPTED (DL-046; extended by DL-050) |
+| **Implementation** | v1.3 auth/RBAC/route guards **shipped** (DL-049); global company context middleware **not started** |
 
-**Related:** [`AUTH_RBAC_SPEC.md`](./AUTH_RBAC_SPEC.md), [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`../api/API_MVP_SCOPE.md`](../api/API_MVP_SCOPE.md)
+**Related:** [`AUTH_RBAC_SPEC.md`](./AUTH_RBAC_SPEC.md), [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md), [`GLOBAL_COMPANY_CONTEXT_POLICY.md`](./GLOBAL_COMPANY_CONTEXT_POLICY.md), [`AUTH_TOKEN_SESSION_STRATEGY.md`](./AUTH_TOKEN_SESSION_STRATEGY.md), [`../architecture/AUTH_ARCHITECTURE.md`](../architecture/AUTH_ARCHITECTURE.md), [`../api/API_MVP_SCOPE.md`](../api/API_MVP_SCOPE.md)
 
-**Decision:** DL-046 — Route Protection Policy (ACCEPTED)
+**Decisions:** DL-046 — Route Protection Policy (ACCEPTED); DL-050 — Global Company Context Policy (ACCEPTED)
 
 ---
 
@@ -18,17 +18,20 @@
 
 This document defines **authentication and authorization policy** for all **48** Core MVP HTTP routes registered today. It is the implementation checklist for future auth/RBAC middleware — **no route or middleware code changes** in v1.3.5.
 
-**Evaluation order (future middleware):**
+**Evaluation order (middleware — v1.3 shipped; global context v1.4+):**
 
 ```
 Request
   → PUBLIC? → allow
-  → AUTHENTICATED (valid JWT, ACTIVE user)
+  → AUTHENTICATED (valid JWT, ACTIVE user) → request.auth
   → RBAC (minimum role + permission key)
+  → GLOBAL COMPANY CONTEXT (DL-050) → request.companyContext
   → COMPANY_SCOPED (membership + formula/company linkage)
   → SUPER_ADMIN_ONLY? (if applicable)
   → Route handler
 ```
+
+Global company context is defined in [`GLOBAL_COMPANY_CONTEXT_POLICY.md`](./GLOBAL_COMPANY_CONTEXT_POLICY.md). It runs **after** RBAC and **narrows** list/read datasets to the active company (or `all` for `SUPER_ADMIN`).
 
 Permission keys and role floors align with [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) (DL-045).
 
@@ -171,13 +174,38 @@ Future (not in 48 routes): membership admin, company update, session revoke-all 
 
 ## 6. Company scope rules
 
+### 6.0 Global company context (DL-050)
+
+Header Company Switcher establishes **Global Company Context** for all business menus — not Dashboard-only.
+
+```typescript
+request.companyContext = {
+  mode: 'company' | 'all',
+  companyId: string | null,
+};
+```
+
+| Header | Who | Effect |
+|--------|-----|--------|
+| `X-Company-Id: <uuid>` | All users in company mode | Active company; required for non–`SUPER_ADMIN` business requests |
+| `X-Company-Scope: all` | **`SUPER_ADMIN` only** | Platform-wide scope; forbidden for other roles → **403** |
+
+**Rules:**
+
+1. Non–`SUPER_ADMIN` cannot query business data without `X-Company-Id` and active membership for that company.
+2. List/read filters use `active_company_id` (see §6.5–§6.7) — **not** per-menu `?company_id=` query params.
+3. Backend must enforce scope; Frontend-only filtering is forbidden.
+4. Exempt from company headers: health, login, refresh, logout, `GET /auth/me`.
+
+Full policy: [`GLOBAL_COMPANY_CONTEXT_POLICY.md`](./GLOBAL_COMPANY_CONTEXT_POLICY.md).
+
 ### 6.1 SUPER_ADMIN bypass
 
-`SUPER_ADMIN` skips membership and formula-participant checks. All 48 routes allowed if RBAC permission granted.
+`SUPER_ADMIN` skips membership and formula-participant checks when `mode = 'all'`. With `X-Company-Id`, behaves as company-scoped operator. All 48 routes allowed if RBAC permission granted.
 
 ### 6.2 Active membership required
 
-`COMPANY_ADMIN`, `MANAGER`, `VIEWER` must have `company_memberships.is_active = TRUE` for the **context company**.
+`COMPANY_ADMIN`, `MANAGER`, `VIEWER` must have `company_memberships.is_active = TRUE` for the **context company** (`X-Company-Id`).
 
 ### 6.3 Formula-scoped routes
 
@@ -186,8 +214,11 @@ For paths under `/api/v1/formulas/:formulaId/...` and indirect IDs (participant,
 ```
 Accessible iff ∃ formula_participants P
   WHERE P.formula_id = :formulaId
+    AND P.company_id = active_company_id   // when mode = 'company'
     AND P.company_id ∈ caller membership companies
 ```
+
+When `mode = 'all'` (`SUPER_ADMIN`), formula participant membership filter is not applied unless `X-Company-Id` is also set.
 
 Resolve child resources (e.g. `/payment-records/:recordId`) → formula → same rule.
 
@@ -197,25 +228,31 @@ Resolve child resources (e.g. `/payment-records/:recordId`) → formula → same
 
 | Pattern | Rule |
 |---------|------|
-| `GET /api/v1/companies/:companyId` | `companyId` ∈ membership companies |
-| `GET /api/v1/companies` | Result filtered to membership companies |
+| `GET /api/v1/companies/:companyId` | `companyId = active_company_id` (company mode) or membership check |
+| `GET /api/v1/companies` | Active membership company only when scoped; switcher options from `/auth/me` |
 | `POST /api/v1/companies` | Caller `COMPANY_ADMIN`+; new company linked via future membership grant or bootstrap policy |
 
 ### 6.5 Formula create / list
 
 | Route | Scope rule |
 |-------|------------|
-| `POST /api/v1/formulas` | Caller must have ≥1 active membership; no formula linkage yet |
-| `GET /api/v1/formulas` | Return only formulas with ≥1 participant in caller’s companies |
+| `POST /api/v1/formulas` | Caller must have ≥1 active membership; `X-Company-Id` required (non-admin) |
+| `GET /api/v1/formulas` | Formulas with ≥1 participant where `company_id = active_company_id` |
 | `GET /api/v1/formulas/by-formula-no/:formulaNo` | Same as formula get after lookup |
 
-### 6.6 Dashboard / KPI company filter
+### 6.6 Child domains (formula_id scope)
+
+Payment, Invoice, Logistics, Settlement, Share, Version, Participant — resolve `formula_id` and apply §6.3 Formula filter for `active_company_id`.
+
+### 6.7 Dashboard / KPI (global context — not Dashboard-only)
+
+Dashboard uses the **same** global company context as all other menus ([`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md)).
 
 | Route | Scope rule |
 |-------|------------|
-| `GET .../formulas/:formulaId/kpi/*` | Formula scope §6.3 |
-| `GET .../formulas/:formulaId/receivable-payable` | Formula scope §6.3 |
-| `GET /api/v1/payments/unmatched` | **Must** filter to payment records whose formula is accessible via §6.3; reject unscoped global leak for non–`SUPER_ADMIN` |
+| `GET .../formulas/:formulaId/kpi/*` | Formula scope §6.3 + `active_company_id` |
+| `GET .../formulas/:formulaId/receivable-payable` | Formula scope §6.3 + `active_company_id` |
+| `GET /api/v1/payments/unmatched` | Unmatched records whose formula passes §6.3 for `active_company_id`; no Dashboard-only filter |
 
 ---
 
@@ -245,7 +282,7 @@ Resolve child resources (e.g. `/payment-records/:recordId`) → formula → same
 | 18 | GET | `/api/v1/formulas/:formulaId/kpi/confirmed` | Dashboard | AUTH · RBAC · COMPANY | `VIEWER` | `dashboard:read` | §6.3 |
 | 19 | GET | `/api/v1/formulas/:formulaId/kpi/expected` | Dashboard | AUTH · RBAC · COMPANY | `VIEWER` | `dashboard:read` | §6.3 |
 | 20 | GET | `/api/v1/formulas/:formulaId/kpi/participants` | Dashboard | AUTH · RBAC · COMPANY | `VIEWER` | `dashboard:read` | §6.3 |
-| 21 | GET | `/api/v1/payments/unmatched` | Dashboard | AUTH · RBAC · COMPANY | `VIEWER` | `dashboard:read` | §6.6 company filter |
+| 21 | GET | `/api/v1/payments/unmatched` | Dashboard | AUTH · RBAC · COMPANY · **CTX** | `VIEWER` | `dashboard:read` | §6.7 global context |
 | 22 | POST | `/api/v1/formulas/:formulaId/invoices` | Invoice | AUTH · RBAC · COMPANY | `MANAGER` | `invoice:create` | §6.3 |
 | 23 | GET | `/api/v1/formulas/:formulaId/invoices/status` | Invoice | AUTH · RBAC · COMPANY | `VIEWER` | `invoice:read` | §6.3 |
 | 24 | GET | `/api/v1/formulas/:formulaId/invoices` | Invoice | AUTH · RBAC · COMPANY | `VIEWER` | `invoice:read` | §6.3 |
@@ -333,8 +370,13 @@ Resolve child resources (e.g. `/payment-records/:recordId`) → formula → same
 
 ## 11. Implementation gate
 
-- No middleware, route, Service, Action, schema, or test changes in v1.3.5.
+- v1.3.5 — documentation only (DL-046).
+- v1.3.15–v1.3.17 — auth/RBAC/route guards shipped (DL-049).
+- v1.4.0 — global company context policy documented (DL-050); **no** company-context middleware, Service filters, schema, or UI in this batch.
+- Future milestone: `request.companyContext` middleware; `X-Company-Id` / `X-Company-Scope` parsing; Service-layer list filters.
 - Canonical route count verified against [`API_MVP_SCOPE.md`](../api/API_MVP_SCOPE.md) and `src/http/routes/*.ts`.
+
+**CTX** = global company context header required (DL-050); extends AUTH · RBAC · COMPANY on list/aggregate routes when implemented.
 
 ---
 
@@ -343,3 +385,4 @@ Resolve child resources (e.g. `/payment-records/:recordId`) → formula → same
 | Date | Change |
 |------|--------|
 | 2026-06-23 | v1.3.5 — Route protection policy for 48 MVP routes (DL-046); documentation only |
+| 2026-06-30 | v1.4.0 — Global company context extension (DL-050); §6.0, §6.6–§6.7; documentation only |

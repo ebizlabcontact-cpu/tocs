@@ -926,3 +926,32 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`PROJECT_CONTEXT.md`](../../PROJECT_CONTEXT.md) §10–§11
 
 상태: ACCEPTED
+
+---
+
+### DL-050. Global Company Context Policy
+
+**Title:** Global Company Context Policy
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Header Company Switcher = Global Company Context** — 선택된 `active_company_id`는 Dashboard뿐 아니라 **모든 메뉴** 조회 범위에 적용된다.
+2. **Request model** — `request.companyContext = { mode: 'company' | 'all', companyId: string | null }`.
+3. **HTTP headers** — `X-Company-Id: <company_id>` (company mode); `X-Company-Scope: all` (**SUPER_ADMIN only**).
+4. **Non–SUPER_ADMIN** — `X-Company-Id` required; active `company_memberships` required; `all` scope **forbidden** (403).
+5. **SUPER_ADMIN** — `all` scope allowed; specific company scope via `X-Company-Id` allowed.
+6. **Domain filtering** — Formula: `formula_participants.company_id = active_company_id`; Payment, Invoice, Logistics, Settlement, Share, Version: `formula_id` → Formula scope; Dashboard/KPI: same global context (not Dashboard-only filter); Company: active membership company; Participant: active company related participants.
+7. **Forbidden** — Dashboard-only company filter; per-menu `?company_id=` query params; Frontend-only filtering without backend scope; Core DB schema changes; Product UI implementation in v1.4.0.
+8. **Implementation** — v1.4.0 is **documentation only**; backend middleware and Service filters in next milestone.
+
+**Operational reference**
+
+- [`docs/specs/GLOBAL_COMPANY_CONTEXT_POLICY.md`](../specs/GLOBAL_COMPANY_CONTEXT_POLICY.md)
+- [`docs/specs/PRODUCTIZATION_V1_PLAN.md`](../specs/PRODUCTIZATION_V1_PLAN.md)
+- [`docs/specs/NAVIGATION_ARCHITECTURE.md`](../specs/NAVIGATION_ARCHITECTURE.md)
+- [`docs/specs/DASHBOARD_V1_SPEC.md`](../specs/DASHBOARD_V1_SPEC.md)
+- [`docs/specs/ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md) §6.0–§6.7
+
+상태: ACCEPTED
