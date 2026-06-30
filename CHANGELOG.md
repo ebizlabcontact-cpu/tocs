@@ -47,6 +47,7 @@ Documentation-only batches (v1.3.0–v1.3.6) precede code implementation.
 | v1.3.9 | `CredentialService` — Argon2id, validation, lockout (Phase 2 remainder) |
 | v1.3.10 | Bootstrap admin CLI — one-time SUPER_ADMIN creation (DL-044 §6) |
 | v1.3.11 | `AuthService` — login/logout/refresh/getCurrentUser orchestration |
+| v1.3.12 | `TokenService` + `SessionService` — JWT access + refresh rotation (DL-043) |
 
 No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
@@ -73,6 +74,9 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - **Bootstrap admin integration test** — `src/tests/bootstrap-admin.integration.test.ts`.
 - **Auth service** — `src/services/auth.service.ts` (login, logout, refresh, getCurrentUser).
 - **Auth service integration test** — `src/tests/auth.service.integration.test.ts`.
+- **Token service** — `src/services/token.service.ts` (HS256 access JWT, 15m TTL).
+- **Session service** — `src/services/session.service.ts` (opaque refresh, HMAC hash, rotation, reuse detection).
+- **Token/session integration test** — `src/tests/token.service.integration.test.ts`.
 
 ### Changed
 

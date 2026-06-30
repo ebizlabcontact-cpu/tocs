@@ -155,11 +155,11 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 
 | Component | Responsibility |
 |-----------|----------------|
-| `TokenService` | HS256 access JWT; 15m TTL; claims `sub`, `email`, `roles`, `memberships`, `iat`, `exp` |
-| `SessionService` | Opaque refresh token; hash with `SESSION_SECRET`; 14d TTL; cookie attributes |
-| Rotation | Each refresh → new access + refresh; old session `revoked_at = NOW()` |
-| Reuse detection | Revoked refresh presented → revoke **all** user sessions + 401 |
-| Logout | Current session revoked + cookie cleared |
+| `TokenService` | HS256 access JWT; 15m TTL; claims `sub`, `email`, `roles`, `memberships`, `iat`, `exp` — **implemented (v1.3.12)** |
+| `SessionService` | Opaque refresh token; HMAC-SHA256 hash with `SESSION_SECRET`; 14d TTL — **implemented (v1.3.12)** |
+| Rotation | Each refresh → new session row; old session `revoked_at = NOW()` — **implemented (v1.3.12)** |
+| Reuse detection | Revoked refresh presented → revoke **all** user sessions + 401 — **implemented (v1.3.12)** |
+| Logout | Current session revoked + cookie cleared — HTTP deferred to Phase 3 routes |
 
 ### Policy sources
 
@@ -171,8 +171,8 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 
 ### Gate
 
-- Session rotation and reuse paths verified (manual or Phase 7 precursors).
-- **212/212** unchanged.
+- Session rotation and reuse paths verified in `token.service.integration.test.ts`.
+- **250/250** integration suite (includes token/session tests).
 - CI green.
 
 ---
