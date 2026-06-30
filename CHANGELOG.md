@@ -51,6 +51,7 @@ Documentation-only batches (v1.3.0–v1.3.6) precede code implementation.
 | v1.3.13 | `AuthActions` — login/logout/refresh/me HTTP action layer |
 | v1.3.14 | Auth Fastify HTTP routes — `/api/v1/auth/*` |
 | v1.3.15 | Authentication middleware — JWT Bearer, `request.auth` (Phase 5 partial) |
+| v1.3.16 | RBAC middleware — `requireRole`, `requireCompanyScope` (Phase 6 partial) |
 
 No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
@@ -87,6 +88,8 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - **Authentication middleware** — `src/http/plugins/authentication.ts` (Bearer JWT, `request.auth` context).
 - **Auth request types** — `src/http/types/auth-request.ts` (Fastify `request.auth` decoration).
 - **Auth middleware integration test** — `src/tests/auth.middleware.integration.test.ts`.
+- **RBAC middleware** — `src/http/plugins/rbac.ts` (`requireRole`, `requireCompanyScope` preHandlers).
+- **RBAC middleware integration test** — `src/tests/rbac.middleware.integration.test.ts`.
 
 ### Changed
 
