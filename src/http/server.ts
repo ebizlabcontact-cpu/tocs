@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 
 import { loadEnvironment } from '../config/env.js';
 import { registerRequestLogger } from './plugins/request-logger.js';
+import { registerAuthRoutes } from './routes/auth.routes.js';
 import { registerCloseRoutes } from './routes/close.routes.js';
 import { registerCompanyRoutes } from './routes/company.routes.js';
 import { registerDashboardRoutes } from './routes/dashboard.routes.js';
@@ -23,6 +24,7 @@ export async function createServer() {
   const app = Fastify();
   await registerRequestLogger(app);
   await registerHealthRoutes(app);
+  await registerAuthRoutes(app);
   await registerFormulaRoutes(app);
   await registerPaymentRoutes(app);
   await registerCloseRoutes(app);
