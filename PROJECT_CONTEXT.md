@@ -127,7 +127,7 @@ All domains below have Backend Action + HTTP Route unless noted.
 
 | Area | Notes |
 |------|-------|
-| **Auth/RBAC runtime** | Middleware, login API, JWT enforcement on 48 routes — spec complete, code partial |
+| **Auth/RBAC runtime** | ~~Deferred~~ — **Completed** (DL-049); see §10 Auth phase status |
 | **File evidence** | Upload / attachments |
 | **Notification** | Push, email alerts |
 | **Reopen** | `is_closed TRUE → FALSE` |
@@ -154,7 +154,7 @@ All domains below have Backend Action + HTTP Route unless noted.
 | CI/CD | `.github/workflows/ci.yml` |
 | Backup / release / readiness | `docs/operations/BACKUP_AND_RESTORE.md`, `RELEASE_AND_DEPLOYMENT.md`, `PRODUCTION_READINESS_REVIEW.md` |
 
-**Verdict (DL-040):** Production Hardened Candidate — **Production Ready: NO** (auth enforcement + ops automation deferred).
+**Verdict (DL-040):** Production Hardened Candidate — platform-wide **Production Ready: NO** for non-auth ops automation; **Auth subsystem Production Ready: YES** (DL-049).
 
 ---
 
@@ -202,13 +202,25 @@ npm run test:integration
 | v1.3.8 | `AuthRepository` — users, memberships, sessions CRUD |
 | v1.3.9 | `CredentialService` — Argon2id, validation, lockout (DL-044) |
 | v1.3.10 | Bootstrap admin CLI — env-driven SUPER_ADMIN bootstrap (DL-044 §6) |
-| v1.3.11 | `AuthService` — credential orchestration without JWT (Phase 3 partial) |
-| v1.3.12 | `TokenService` + `SessionService` — JWT + refresh rotation (Phase 4 partial) |
-| v1.3.13 | `AuthActions` — auth HTTP action layer (Phase 3 partial) |
-| v1.3.14 | Auth Fastify routes — `/api/v1/auth/*` (Phase 3 partial) |
-| v1.3.15 | Authentication middleware — JWT Bearer, `request.auth` (Phase 5 partial) |
-| v1.3.16 | RBAC middleware — `requireRole`, `requireCompanyScope` (Phase 6 partial) |
-| v1.3.17 | Protected routes — 47 business routes + auth/me JWT (Phase 6 partial) |
+| v1.3.11 | `AuthService` — login/logout/refresh/getCurrentUser |
+| v1.3.12 | `TokenService` + `SessionService` — JWT + refresh rotation |
+| v1.3.13 | `AuthActions` — login/logout/refresh/me HTTP action layer |
+| v1.3.14 | Auth Fastify HTTP routes — `/api/v1/auth/*` |
+| v1.3.15 | Authentication middleware — JWT Bearer, `request.auth` |
+| v1.3.16 | RBAC middleware — `requireRole`, `requireCompanyScope` |
+| v1.3.17 | Protected routes — 47 business routes + auth/me JWT |
+
+### Auth phase status (DL-049)
+
+| Field | Value |
+|-------|--------|
+| **Status** | **Completed** |
+| **Stable** | **Yes** |
+| **Production Ready** | **Yes** |
+| **Integration gate** | **308 / 308 PASS** |
+| **Decision** | DL-049 — Authentication & Route Protection Completed |
+
+Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase 7 (extended auth regression / `AUTH_ENFORCE` CI) remains optional V2 scope.
 
 ### Schema objects live
 
@@ -223,26 +235,30 @@ npm run test:integration
 
 ## 11. Current Milestone
 
-### v1.3.17 — Protected Routes ✅ COMPLETED
+### v1.3.x Auth Phase — CLOSED ✅ (DL-049)
 
-| Component | Location | Status |
-|-----------|----------|--------|
-| Route guards | `src/http/routes/*.ts` | Done |
-| Scope helpers | `src/http/plugins/rbac.ts` | Done |
-| Auth `/me` JWT | `src/http/routes/auth.routes.ts` | Done |
-| Integration test | `src/tests/protected-routes.integration.test.ts` | Done |
-| HTTP test helper | `src/tests/helpers/http-auth.helper.ts` | Done |
+| Phase (DL-047) | Scope | Status |
+|----------------|-------|--------|
+| Phase 1 | Auth DB schema | ✅ Completed (v1.3.7) |
+| Phase 2 | Repository + credentials + bootstrap | ✅ Completed (v1.3.8–v1.3.10) |
+| Phase 3 | Auth services + HTTP routes | ✅ Completed (v1.3.11–v1.3.14) |
+| Phase 4 | JWT + session rotation | ✅ Completed (v1.3.12) |
+| Phase 5 | Authentication middleware | ✅ Completed (v1.3.15) |
+| Phase 6 | RBAC + route protection | ✅ Completed (v1.3.16–v1.3.17) |
 
-**Public routes:** `GET /api/v1/health`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout` (session_id policy unchanged).
+**Auth:** Status = **Completed** · Stable = **Yes** · Production Ready = **Yes**
 
-**Next (Phase 7 — DL-047):** Auth regression with JWT fixtures on full business suite — **partial** (HTTP tests updated).
+**Integration gate:** **308 / 308 PASS**
 
-### Explicitly not allowed in v1.3.17 scope (still forbidden until approved)
+**Next (optional / V2):** Phase 7 extended regression; `AUTH_ENFORCE` env; cookie refresh transport; signup / password reset; OAuth.
 
-- `AUTH_ENFORCE` env rollout
-- Cookie-based refresh transport
-- Core domain / Service policy changes
-- Signup / password reset / OAuth
+### Explicitly not in Auth MVP (still forbidden until approved)
+
+- Signup / self-registration
+- Password reset email flow
+- OAuth / SSO / 2FA / API keys
+- Cookie-based refresh transport (body `refresh_token` today)
+- Central permission-key `RbacService` engine
 
 ---
 
@@ -302,6 +318,7 @@ Do not commit unless the user explicitly asks.
 | **DL-046** | Route Protection Policy |
 | **DL-047** | Authentication Implementation Plan |
 | **DL-048** | Auth DB Schema Implementation |
+| **DL-049** | Authentication & Route Protection Completed |
 
 Full log: `docs/decisions/DECISION_LOG.md`.
 
@@ -318,10 +335,11 @@ Read PROJECT_CONTEXT.md and .cursor/rules/tocs-core.mdc before answering.
 
 Current state:
 - Core MVP ACCEPTED (DL-034); 48 HTTP routes; gap 0
-- Integration 224/224 PASS; GitHub Actions GREEN on main
-- Auth foundation docs v1.3.0–v1.3.6 ACCEPTED
-- Auth schema v1.3.7 … RBAC middleware v1.3.16 + Protected routes v1.3.17 IMPLEMENTED
-- Next: Auth middleware (Phase 5, DL-047)
+- Integration 308/308 PASS; GitHub Actions GREEN on main
+- Auth foundation docs v1.3.0–v1.3.6 ACCEPTED (DL-041–DL-046)
+- Auth implementation v1.3.7–v1.3.17 COMPLETE — Phases 1–6 closed (DL-049)
+- Auth: Completed · Stable · Production Ready
+- Next: optional Phase 7 / V2 auth items only with explicit approval
 
 Non-negotiable:
 - Formula First Architecture — Formula is source of truth

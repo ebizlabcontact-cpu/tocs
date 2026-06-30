@@ -901,3 +901,28 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/specs/AUTH_DB_SCHEMA.md`](../specs/AUTH_DB_SCHEMA.md)
 
 상태: ACCEPTED
+
+---
+
+### DL-049. Authentication & Route Protection Completed
+
+**Title:** Authentication & Route Protection Completed
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — v1.3.7–v1.3.17 **Implementation Phases 1–6** (DL-047) are **complete**. Auth foundation docs v1.3.0–v1.3.6 remain the specification baseline (DL-041–DL-046).
+2. **Deliverables closed** — Auth DB schema; `AuthRepository`; `CredentialService`; bootstrap admin CLI; `AuthService`; `TokenService` + `SessionService`; auth HTTP actions and routes; authentication middleware (`request.auth`); RBAC middleware (`requireRole`, `requireCompanyScope`, formula scope resolvers); **47 business route guards** + JWT-authenticated `GET /api/v1/auth/me` per DL-046.
+3. **Public routes** — `GET /api/v1/health`; `POST /api/v1/auth/login`; `POST /api/v1/auth/refresh`; `POST /api/v1/auth/logout` (session_id body policy unchanged).
+4. **Integration gate** — **308/308** PASS; GitHub Actions CI green on `main`.
+5. **Explicitly deferred (Phase 7 / V2)** — `AUTH_ENFORCE` env toggle; central route metadata registry; `RbacService` permission-key engine; cookie-based refresh transport; signup; password reset email; OAuth / SSO / 2FA / API keys (DL-047 non-goals unchanged).
+6. **Release governance** — Auth milestone treated as **Stable** and **Production Ready** for deploy when `JWT_SECRET`, `SESSION_SECRET`, auth DDL apply, and bootstrap checklist in [`ENVIRONMENT.md`](../operations/ENVIRONMENT.md) are satisfied.
+
+**Operational reference**
+
+- [`docs/specs/AUTH_IMPLEMENTATION_PLAN.md`](../specs/AUTH_IMPLEMENTATION_PLAN.md)
+- [`docs/specs/ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md)
+- [`PROJECT_CONTEXT.md`](../../PROJECT_CONTEXT.md) §10–§11
+
+상태: ACCEPTED

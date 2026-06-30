@@ -54,6 +54,28 @@ Documentation-only batches (v1.3.0–v1.3.6) precede code implementation.
 | v1.3.16 | RBAC middleware — `requireRole`, `requireCompanyScope` (Phase 6 partial) |
 | v1.3.17 | Protected routes — 47 business routes + auth/me JWT (Phase 6 partial) |
 
+### Auth Phase Closed (v1.3.x — DL-049)
+
+Documentation-only closure batch; no application or schema code changes.
+
+**Status:** Authentication & Route Protection **Completed** · **Stable** · **Production Ready**
+
+| Deliverable | Batch |
+|-------------|-------|
+| Auth DB Schema | v1.3.7 |
+| Auth Repository | v1.3.8 |
+| CredentialService | v1.3.9 |
+| Bootstrap CLI | v1.3.10 |
+| AuthService | v1.3.11 |
+| TokenService + SessionService | v1.3.12 |
+| Auth HTTP Actions | v1.3.13 |
+| Auth HTTP Routes | v1.3.14 |
+| Authentication Middleware | v1.3.15 |
+| RBAC Middleware | v1.3.16 |
+| Protected Routes (47 business) | v1.3.17 |
+
+**Integration gate:** **308 / 308 PASS** · DL-047 Phases 1–6 closed.
+
 No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3.6 batches.
 
 ### Added
@@ -96,6 +118,12 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - **Protected routes integration test** — `src/tests/protected-routes.integration.test.ts`.
 - **HTTP auth test helper** — `src/tests/helpers/http-auth.helper.ts`.
 
+### Auth Phase Closed (DL-049)
+
+- **DL-049** — Authentication & Route Protection Completed; v1.3.x auth milestone closed.
+- **PROJECT_CONTEXT.md** — Auth Status = Completed, Stable = Yes, Production Ready = Yes.
+- **AUTH_IMPLEMENTATION_PLAN.md** — Implementation Phases 1–6 marked complete.
+
 ### Changed
 
 - `db/schema/tocs_base_schema.sql` — `user_status`, `membership_role` enums; `users`, `company_memberships`, `sessions` tables (v1.3.7).
@@ -113,6 +141,8 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - `src/http/routes/auth.routes.ts` — `GET /api/v1/auth/me` requires JWT; query `user_id` removed (v1.3.17).
 - `docs/operations/ENVIRONMENT.md` — production checklist links CI green, backup-before-schema, rollback point.
 - `docs/operations/INCIDENT_RESPONSE.md` — deployment / rollback incident section.
+- `docs/specs/AUTH_IMPLEMENTATION_PLAN.md` — Phases 1–6 complete; auth phase closure (DL-049).
+- `PROJECT_CONTEXT.md` — Auth phase status and milestone closure (DL-049).
 
 ### Decision
 
@@ -126,6 +156,7 @@ No application, schema SQL, middleware, or route implementation in v1.3.0–v1.3
 - `DECISION_LOG.md` DL-046 — Route Protection Policy.
 - `DECISION_LOG.md` DL-047 — Authentication Implementation Plan.
 - `DECISION_LOG.md` DL-048 — Auth DB Schema Implementation.
+- `DECISION_LOG.md` DL-049 — Authentication & Route Protection Completed.
 
 ---
 
