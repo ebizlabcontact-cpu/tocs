@@ -12,6 +12,7 @@ import {
   PaymentStatus,
   TradeStatus,
   TradeType,
+  MembershipRole,
 } from '@prisma/client';
 
 import { closeFormula } from '../actions/close.actions.js';
@@ -26,6 +27,12 @@ import {
   type LogisticsVersionRequest,
 } from '../actions/logistics.actions.js';
 import { prisma } from '../lib/prisma.js';
+import {
+  bearerHeaders,
+  createTestAuthFixture,
+  deleteTestAuthFixture,
+  withBearer,
+} from './helpers/http-auth.helper.js';
 import type { CreateFormulaInput } from '../types/formula.types.js';
 import type {
   CreateLogisticsInputPayload,
@@ -829,8 +836,14 @@ test('Logistics integration flow', { skip: !hasDatabase }, async (t) => {
   });
 
   const app = await createTestApp();
+  const authFixture = await createTestAuthFixture(
+    MembershipRole.SUPER_ADMIN,
+    'logistics-http',
+  );
+
   t.after(async () => {
     await app.close();
+    await deleteTestAuthFixture(authFixture);
   });
 
   let httpFormulaId: string | undefined;
@@ -855,7 +868,7 @@ test('Logistics integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${formula.id}/logistics`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: toCreateLogisticsRequest(validated),
     });
 
@@ -888,6 +901,7 @@ test('Logistics integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'GET',
       url: `/api/v1/formulas/${httpFormulaId}/logistics`,
+      headers: bearerHeaders(authFixture.accessToken),
     });
 
     assert.equal(response.statusCode, 200);
@@ -903,6 +917,7 @@ test('Logistics integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'GET',
       url: `/api/v1/logistics/${httpLogisticsId}`,
+      headers: bearerHeaders(authFixture.accessToken),
     });
 
     assert.equal(response.statusCode, 200);
@@ -920,7 +935,7 @@ test('Logistics integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/api/v1/formulas/${httpFormulaId}/logistics-status`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {
         status: TradeStatus.IN_PROGRESS,
         changed_by: 'logistics.integration.test',
@@ -948,7 +963,7 @@ test('Logistics integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${httpFormulaId}/logistics`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {},
     });
 

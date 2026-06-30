@@ -5,9 +5,15 @@ import test from 'node:test';
 
 import 'dotenv/config';
 
-import { PaymentDirection, RoleGroup, TradeType } from '@prisma/client';
+import { PaymentDirection, RoleGroup, TradeType, MembershipRole } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
+
+import {
+  createTestAuthFixture,
+  deleteTestAuthFixture,
+  withBearer,
+} from './helpers/http-auth.helper.js';
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
@@ -138,13 +144,17 @@ test('1. Health Route GET /api/v1/health', async () => {
 });
 
 test('2. Settlement Payment Schedule Validation returns 400 when participant_id is missing', async () => {
+  const authFixture = await createTestAuthFixture(
+    MembershipRole.SUPER_ADMIN,
+    'http-settlement-val',
+  );
   const app = await createTestApp();
 
   try {
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${sampleFormulaIdForValidation}/settlement/payment-schedules`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {
         direction: 'RECEIVE',
         scheduled_amount: 1000,
@@ -158,17 +168,22 @@ test('2. Settlement Payment Schedule Validation returns 400 when participant_id 
     assert.equal(typeof body.message, 'string');
   } finally {
     await app.close();
+    await deleteTestAuthFixture(authFixture);
   }
 });
 
 test('3. Settlement Note Validation returns 400 when note is empty', async () => {
+  const authFixture = await createTestAuthFixture(
+    MembershipRole.SUPER_ADMIN,
+    'http-settlement-note-val',
+  );
   const app = await createTestApp();
 
   try {
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${sampleFormulaIdForValidation}/settlement/notes`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {
         note: '',
       },
@@ -180,6 +195,7 @@ test('3. Settlement Note Validation returns 400 when note is empty', async () =>
     assert.equal(typeof body.message, 'string');
   } finally {
     await app.close();
+    await deleteTestAuthFixture(authFixture);
   }
 });
 
@@ -205,8 +221,14 @@ test('HTTP settlement DB integration flow', { skip: !hasDatabase }, async (t) =>
   });
 
   const app = await createTestApp();
+  const authFixture = await createTestAuthFixture(
+    MembershipRole.SUPER_ADMIN,
+    'http-settlement-db',
+  );
+
   t.after(async () => {
     await app.close();
+    await deleteTestAuthFixture(authFixture);
   });
 
   const { itemId, created: itemCreated } = await resolveTestItemId(prisma);
@@ -232,7 +254,7 @@ test('HTTP settlement DB integration flow', { skip: !hasDatabase }, async (t) =>
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${createdFormulaId}/settlement/payment-schedules`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: openSchedulePayload,
     });
 
@@ -246,7 +268,7 @@ test('HTTP settlement DB integration flow', { skip: !hasDatabase }, async (t) =>
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${createdFormulaId}/settlement/notes`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {
         note: 'should fail on open formula',
       },
@@ -269,7 +291,7 @@ test('HTTP settlement DB integration flow', { skip: !hasDatabase }, async (t) =>
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${missingFormulaId}/settlement/payment-schedules`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: missingSchedulePayload,
     });
 
@@ -283,7 +305,7 @@ test('HTTP settlement DB integration flow', { skip: !hasDatabase }, async (t) =>
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${missingFormulaId}/settlement/notes`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {
         note: 'missing formula note',
       },

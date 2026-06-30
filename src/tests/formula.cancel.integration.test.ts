@@ -15,6 +15,7 @@ import {
   StatusTarget,
   TradeStatus,
   TradeType,
+  MembershipRole,
 } from '@prisma/client';
 
 import { closeFormula } from '../actions/close.actions.js';
@@ -26,6 +27,11 @@ import {
   type CreateFormulaRequest,
 } from '../actions/formula.actions.js';
 import { prisma } from '../lib/prisma.js';
+import {
+  createTestAuthFixture,
+  deleteTestAuthFixture,
+  withBearer,
+} from './helpers/http-auth.helper.js';
 import type { CancelFormulaInputPayload, CreateFormulaInput } from '../types/formula.types.js';
 import { validateCancelFormula, validateCreateFormula, ValidationError } from '../utils/formula.validation.js';
 
@@ -656,8 +662,14 @@ test('Formula Cancel integration flow', { skip: !hasDatabase }, async (t) => {
   });
 
   const app = await createTestApp();
+  const authFixture = await createTestAuthFixture(
+    MembershipRole.SUPER_ADMIN,
+    'formula-cancel-http',
+  );
+
   t.after(async () => {
     await app.close();
+    await deleteTestAuthFixture(authFixture);
   });
 
   await t.test('10a. HTTP POST /api/v1/formulas/:formulaId/cancel returns 200', async () => {
@@ -667,7 +679,7 @@ test('Formula Cancel integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${formula.id}/cancel`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: defaultCancelBody,
     });
 
@@ -698,7 +710,7 @@ test('Formula Cancel integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${formula.id}/cancel`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {
         changed_by: 'formula.cancel.integration.test',
       },
@@ -711,7 +723,7 @@ test('Formula Cancel integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${missingFormulaId}/cancel`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: defaultCancelBody,
     });
 
@@ -725,7 +737,7 @@ test('Formula Cancel integration flow', { skip: !hasDatabase }, async (t) => {
     const firstResponse = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${formula.id}/cancel`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: defaultCancelBody,
     });
     assert.equal(firstResponse.statusCode, 200);
@@ -739,7 +751,7 @@ test('Formula Cancel integration flow', { skip: !hasDatabase }, async (t) => {
     const secondResponse = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${formula.id}/cancel`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: defaultCancelBody,
     });
 

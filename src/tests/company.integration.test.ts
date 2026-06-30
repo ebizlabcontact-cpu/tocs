@@ -7,6 +7,7 @@ import 'dotenv/config';
 
 import type { FastifyInstance } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
+import { MembershipRole } from '@prisma/client';
 
 import {
   createCompany,
@@ -20,6 +21,12 @@ import {
   validateListCompanies,
   ValidationError,
 } from '../utils/company.validation.js';
+import {
+  bearerHeaders,
+  createTestAuthFixture,
+  deleteTestAuthFixture,
+  withBearer,
+} from './helpers/http-auth.helper.js';
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
@@ -340,8 +347,14 @@ test('Company DB integration and HTTP smoke', { skip: !hasDatabase }, async (t) 
   });
 
   const app = await createTestApp();
+  const authFixture = await createTestAuthFixture(
+    MembershipRole.SUPER_ADMIN,
+    'company-http',
+  );
+
   t.after(async () => {
     await app.close();
+    await deleteTestAuthFixture(authFixture);
   });
 
   const httpRegNo = `H${Date.now()}`.slice(0, 20);
@@ -351,7 +364,7 @@ test('Company DB integration and HTTP smoke', { skip: !hasDatabase }, async (t) 
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/companies',
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {
         company_name: `HTTP Company ${Date.now()}`,
         business_reg_no: httpRegNo,
@@ -376,6 +389,7 @@ test('Company DB integration and HTTP smoke', { skip: !hasDatabase }, async (t) 
     const response = await app.inject({
       method: 'GET',
       url: `/api/v1/companies/${httpCreatedCompanyId}`,
+      headers: bearerHeaders(authFixture.accessToken),
     });
 
     assert.equal(response.statusCode, 200);
@@ -389,6 +403,7 @@ test('Company DB integration and HTTP smoke', { skip: !hasDatabase }, async (t) 
     const response = await app.inject({
       method: 'GET',
       url: '/api/v1/companies?page=1&page_size=20',
+      headers: bearerHeaders(authFixture.accessToken),
     });
 
     assert.equal(response.statusCode, 200);
@@ -410,7 +425,7 @@ test('Company DB integration and HTTP smoke', { skip: !hasDatabase }, async (t) 
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/companies',
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {
         company_name: 'HTTP Duplicate Co',
         business_reg_no: httpRegNo,

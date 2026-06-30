@@ -12,6 +12,7 @@ import {
   PaymentStatus,
   TradeStatus,
   TradeType,
+  MembershipRole,
 } from '@prisma/client';
 
 import { closeFormula } from '../actions/close.actions.js';
@@ -25,6 +26,12 @@ import {
   type ParticipantVersionRequest,
 } from '../actions/participant.actions.js';
 import { prisma } from '../lib/prisma.js';
+import {
+  bearerHeaders,
+  createTestAuthFixture,
+  deleteTestAuthFixture,
+  withBearer,
+} from './helpers/http-auth.helper.js';
 import type { CreateFormulaInput } from '../types/formula.types.js';
 import type {
   CreateParticipantInputPayload,
@@ -672,8 +679,14 @@ test('Participant integration flow', { skip: !hasDatabase }, async (t) => {
   });
 
   const app = await createTestApp();
+  const authFixture = await createTestAuthFixture(
+    MembershipRole.SUPER_ADMIN,
+    'participant-http',
+  );
+
   t.after(async () => {
     await app.close();
+    await deleteTestAuthFixture(authFixture);
   });
 
   let httpFormulaId: string | undefined;
@@ -695,7 +708,7 @@ test('Participant integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${formula.id}/participants`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: toCreateParticipantRequest(validated),
     });
 
@@ -728,6 +741,7 @@ test('Participant integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'GET',
       url: `/api/v1/formulas/${httpFormulaId}/participants`,
+      headers: bearerHeaders(authFixture.accessToken),
     });
 
     assert.equal(response.statusCode, 200);
@@ -743,6 +757,7 @@ test('Participant integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'GET',
       url: `/api/v1/participants/${httpParticipantId}`,
+      headers: bearerHeaders(authFixture.accessToken),
     });
 
     assert.equal(response.statusCode, 200);
@@ -760,7 +775,7 @@ test('Participant integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/formulas/${httpFormulaId}/participants`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {},
     });
 

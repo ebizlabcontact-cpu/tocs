@@ -10,13 +10,18 @@ import type { FastifyInstance } from 'fastify';
 
 import { GENERIC_LOGIN_ERROR } from '../services/credential.service.js';
 import { ACCESS_TOKEN_TTL_SECONDS } from '../services/token.service.js';
+import { RBAC_AUTHENTICATION_REQUIRED } from '../http/plugins/rbac.js';
+import {
+  bearerHeaders,
+  TEST_AUTH_PASSWORD,
+} from './helpers/http-auth.helper.js';
 import { prisma } from '../lib/prisma.js';
 import { authRepository } from '../repositories/auth.repository.js';
 import { CredentialService } from '../services/credential.service.js';
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
-const validPassword = 'SecurePass!2026';
+const validPassword = TEST_AUTH_PASSWORD;
 
 function readJsonBody(payload: string): Record<string, unknown> {
   return JSON.parse(payload) as Record<string, unknown>;
@@ -298,30 +303,40 @@ test('Auth HTTP routes integration', { skip: !hasDatabase }, async (t) => {
     assert.equal(invalid.statusCode, 401);
   });
 
-  await t.test('GET /api/v1/auth/me returns current user by user_id query', async () => {
+  await t.test('GET /api/v1/auth/me returns current user with access token', async () => {
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: { email, password: validPassword },
+    });
+    const loginBody = readJsonBody(loginResponse.payload);
+    const accessToken = String(loginBody.access_token);
+
     const response = await app.inject({
       method: 'GET',
-      url: `/api/v1/auth/me?user_id=${user.id}`,
+      url: '/api/v1/auth/me',
+      headers: bearerHeaders(accessToken),
     });
 
     assert.equal(response.statusCode, 200);
 
     const body = readJsonBody(response.payload);
     const meUser = body.user as Record<string, unknown>;
-    assert.equal(meUser.id, user.id);
+    assert.equal(meUser.id, userId);
     assert.equal(meUser.email, email);
     assert.equal('password_hash' in meUser, false);
     assert.deepEqual(body.roles, [MembershipRole.MANAGER]);
   });
 
-  await t.test('GET /api/v1/auth/me returns 404 for missing user', async () => {
+  await t.test('GET /api/v1/auth/me returns 401 without access token', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/api/v1/auth/me?user_id=00000000-0000-0000-0000-000000000099',
+      url: '/api/v1/auth/me',
     });
 
-    assert.equal(response.statusCode, 404);
-    assert.equal(typeof readJsonBody(response.payload).message, 'string');
+    assert.equal(response.statusCode, 401);
+    assert.equal(readJsonBody(response.payload).message, RBAC_AUTHENTICATION_REQUIRED);
   });
 
   await t.test('auth routes work with request logger enabled', async () => {

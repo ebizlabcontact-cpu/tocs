@@ -12,6 +12,7 @@ import {
   PaymentStatus,
   TradeStatus,
   TradeType,
+  MembershipRole,
 } from '@prisma/client';
 
 import { closeFormula } from '../actions/close.actions.js';
@@ -23,6 +24,11 @@ import {
   type PatchFormulaRequest,
 } from '../actions/formula.actions.js';
 import { prisma } from '../lib/prisma.js';
+import {
+  createTestAuthFixture,
+  deleteTestAuthFixture,
+  withBearer,
+} from './helpers/http-auth.helper.js';
 import type { CreateFormulaInput, PatchFormulaInputPayload } from '../types/formula.types.js';
 import { validateCreateFormula, validatePatchFormula, ValidationError } from '../utils/formula.validation.js';
 
@@ -429,8 +435,14 @@ test('Formula PATCH integration flow', { skip: !hasDatabase }, async (t) => {
   });
 
   const app = await createTestApp();
+  const authFixture = await createTestAuthFixture(
+    MembershipRole.SUPER_ADMIN,
+    'formula-patch-http',
+  );
+
   t.after(async () => {
     await app.close();
+    await deleteTestAuthFixture(authFixture);
   });
 
   let httpFormulaId: string | undefined;
@@ -443,7 +455,7 @@ test('Formula PATCH integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/api/v1/formulas/${formula.id}`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: {
         content: 'http patched content',
         note: 'http patched note',
@@ -472,7 +484,7 @@ test('Formula PATCH integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/api/v1/formulas/${httpFormulaId}`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: { quantity: 10 },
     });
 
@@ -492,7 +504,7 @@ test('Formula PATCH integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/api/v1/formulas/${formula.id}`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: { content: 'closed patch attempt' },
     });
 
@@ -503,7 +515,7 @@ test('Formula PATCH integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/api/v1/formulas/${missingFormulaId}`,
-      headers: { 'content-type': 'application/json' },
+      headers: withBearer(authFixture.accessToken, { 'content-type': 'application/json' }),
       payload: { note: 'missing formula http patch' },
     });
 
