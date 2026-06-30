@@ -180,15 +180,17 @@ Phases 3 and 4 may ship in one PR if bounded, but **JWT/rotation logic must not 
 
 **Goal:** Attach authenticated principal to requests; resolve company scope foundation.
 
+**Status:** Partial — v1.3.15 implements JWT Bearer parsing and `request.auth` decoration only (no RBAC, no route protection).
+
 ### Scope
 
 | Deliverable | Detail |
 |-------------|--------|
-| `auth.middleware` | Verify Bearer JWT; reject expired/invalid → 401 |
-| `AuthContext` on request | `userId`, `memberships[]`, `sessionId` / `jti` |
+| `authentication.ts` | Verify Bearer JWT; reject expired/invalid → 401; locked → 423; suspended → 403 — **implemented (v1.3.15)** |
+| `request.auth` | `{ userId, email, roles, memberships[] } \| null` — **implemented (v1.3.15)** |
 | Scope resolver | `RbacService` or `ScopeService`: membership companies; formula ↔ participant linkage |
 | `AUTH_ENFORCE` env | `false` in dev optional; dual-mode logging |
-| Server registration | After `request-logger`, before business routes |
+| Server registration | After `request-logger`, before business routes — **implemented (v1.3.15)** |
 
 ### Rules
 

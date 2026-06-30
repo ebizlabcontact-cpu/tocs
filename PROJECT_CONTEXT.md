@@ -206,6 +206,7 @@ npm run test:integration
 | v1.3.12 | `TokenService` + `SessionService` — JWT + refresh rotation (Phase 4 partial) |
 | v1.3.13 | `AuthActions` — auth HTTP action layer (Phase 3 partial) |
 | v1.3.14 | Auth Fastify routes — `/api/v1/auth/*` (Phase 3 partial) |
+| v1.3.15 | Authentication middleware — JWT Bearer, `request.auth` (Phase 5 partial) |
 
 ### Schema objects live
 
@@ -214,26 +215,27 @@ npm run test:integration
 
 ### Integration gate
 
-**275 / 275 PASS** (includes auth HTTP route tests).
+**285 / 285 PASS** (includes auth middleware tests).
 
 ---
 
 ## 11. Current Milestone
 
-### v1.3.14 — Auth HTTP Routes ✅ COMPLETED
+### v1.3.15 — Authentication Middleware ✅ COMPLETED
 
 | Component | Location | Status |
 |-----------|----------|--------|
-| Auth routes | `src/http/routes/auth.routes.ts` | Done |
+| Auth middleware | `src/http/plugins/authentication.ts` | Done |
+| Request auth types | `src/http/types/auth-request.ts` | Done |
 | Server registration | `src/http/server.ts` | Done |
-| Integration test | `src/tests/auth.http.integration.test.ts` | Done |
+| Integration test | `src/tests/auth.middleware.integration.test.ts` | Done |
 
-**Next (Phase 5 — DL-047):** Auth middleware — **not started**.
+**Next (Phase 6 — DL-047):** RBAC middleware + route protection — **not started**.
 
-### Explicitly not allowed in v1.3.14 scope (still forbidden until approved)
+### Explicitly not allowed in v1.3.15 scope (still forbidden until approved)
 
-- Auth middleware
-- RBAC / route protection
+- RBAC / `requireRole` / `requireCompanyScope`
+- Route protection / `AUTH_ENFORCE`
 - Cookie-based refresh transport
 - Core domain modification
 
@@ -244,7 +246,7 @@ npm run test:integration
 1. **SQL-first always** — schema changes in SQL files first; then `schema.prisma` mapping.
 2. **Formula First** — no alternate business roots; all flows from Formula.
 3. **Deferred = no code** until explicit approval.
-4. **Core domain changes** require integration suite green (275/275).
+4. **Core domain changes** require integration suite green (285/285).
 5. **CI green** on `main` before merge.
 6. **No scope creep** — touch only requested files; no drive-by refactors.
 7. **`formula_no`** — DB DEFAULT `generate_formula_no()` only; never manual assign.
@@ -313,7 +315,7 @@ Current state:
 - Core MVP ACCEPTED (DL-034); 48 HTTP routes; gap 0
 - Integration 224/224 PASS; GitHub Actions GREEN on main
 - Auth foundation docs v1.3.0–v1.3.6 ACCEPTED
-- Auth schema v1.3.7 … AuthActions v1.3.13 + Auth HTTP routes v1.3.14 IMPLEMENTED
+- Auth schema v1.3.7 … Auth HTTP routes v1.3.14 + Authentication middleware v1.3.15 IMPLEMENTED
 - Next: Auth middleware (Phase 5, DL-047)
 
 Non-negotiable:
