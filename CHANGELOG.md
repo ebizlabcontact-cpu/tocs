@@ -104,6 +104,8 @@ Documentation-only batch; no application, schema, middleware, UI, or test change
 
 **Forbidden:** Backend/API/DB/UI changes; new KPI engine; Formula Wizard; aggregate dashboard API.
 
+**Pending (docs):** Profit/Loss KPI — 실현 순이익 / 계산상 이익 / 확정 이익 중 최종 선택 및 손실 표시 방식(음수 vs 별도 카드) 미확정 (`DASHBOARD_V1_SPEC.md` §4.4). UI/API 구현 전 재검토 필수.
+
 ### Company Context Scope Filters v1.4.2
 
 | Batch | Scope |

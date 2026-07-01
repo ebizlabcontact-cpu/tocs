@@ -33,6 +33,7 @@ Dashboard v1 is the **first screen after login** (`/app/dashboard`). It summariz
 | **Reuse existing APIs** | No new KPI engine; no `GET /dashboard/summary` in v1.5.0 |
 | **Formula First** | All metrics derive from **scoped formula set** only |
 | **Client aggregation allowed** | Summary cards may roll up existing per-formula/list endpoints |
+| **Profit/Loss pending** | Candidate KPI area documented in §4.4 — **not finalized** for v1 layout |
 
 ---
 
@@ -117,6 +118,42 @@ Six summary cards. Each card shows **one aggregated number** (currency or count)
 | 예정 입금 / 예정 출금 | Payment menu — schedules view |
 | 종결 대기 | Formula list filtered to close-eligible (client filter on scoped list) |
 | 계산서 미매칭 | Invoice menu or Formula list with invoice status column |
+
+### 4.4 Pending Decision — Profit/Loss KPI
+
+> **Status: PENDING DECISION** — Not included in the six confirmed summary cards (§4.1). **Must be re-reviewed and explicitly approved before any Dashboard UI or API wiring.**
+
+Dashboard V1 treats **Profit/Loss** as a **required candidate KPI area**, but the **final metric, label, and display rule are not yet fixed**.
+
+#### Candidate metrics (choose one primary for v1 UI)
+
+| Option (KO) | Option (EN) | Typical source (reference only) | Notes |
+|-------------|-------------|----------------------------------|-------|
+| **실현 순이익** | Confirmed net profit | `GET /api/v1/formulas/{id}/kpi/confirmed` → confirmed net profit (profit engine view) | Cash-bank confirmed basis; aligns with DL confirmed KPI policy |
+| **계산상 이익** | Expected net profit | `GET /api/v1/formulas/{id}/kpi/expected` → `expected_net_profit` | Snapshot / latest version engine; not confirmed cash |
+| **확정 이익** | Confirmed profit (aggregate label TBD) | Overlap with confirmed net profit naming — **product term must be disambiguated** | May duplicate "실현 순이익"; avoid two cards without DL approval |
+
+**Decision required:** Which single primary profit KPI appears on Dashboard v1 (if any), and whether secondary profit metrics stay in Formula detail only.
+
+#### Loss display (choose one)
+
+| Option | Description |
+|--------|-------------|
+| **A. Negative net profit** | Single Profit/Loss card; loss shown as negative value on same card |
+| **B. Separate loss card** | Dedicated "손실" card when aggregate net profit is negative (or always show absolute loss) |
+
+**Decision required:** Loss presentation style before UI implementation.
+
+#### Implementation gate
+
+| Gate | Rule |
+|------|------|
+| **Before P6 Dashboard UI** | Product owner sign-off on metric choice + loss display |
+| **Before new API work** | Forbidden without separate DL — reuse existing per-formula KPI routes only |
+| **Scope** | Same as other cards: scoped formula set via `request.companyContext` (DL-050) |
+| **Forbidden until approved** | Adding profit/loss to layout wireframe as finalized; new aggregate profit engine |
+
+See also [`FEATURE_DECISION_AUDIT.md`](./FEATURE_DECISION_AUDIT.md) — Dashboard widget set requires explicit approval.
 
 ---
 
@@ -206,6 +243,7 @@ Dashboard v1 **must not** introduce new HTTP routes in v1.5.0.
 | Scoped formula set | `GET /api/v1/formulas` |
 | Receivable / payable | `GET /api/v1/formulas/{id}/receivable-payable` |
 | Confirmed KPI | `GET /api/v1/formulas/{id}/kpi/confirmed` |
+| Expected KPI (profit engine) | `GET /api/v1/formulas/{id}/kpi/expected` — **Pending Decision §4.4 only; not wired in v1 layout** |
 | Participant KPI | `GET /api/v1/formulas/{id}/kpi/participants` |
 | Unmatched payments | `GET /api/v1/payments/unmatched` |
 | Invoice status | `GET /api/v1/formulas/{id}/invoices/status` |
@@ -225,6 +263,7 @@ All routes require auth + company context per v1.4.2.
 | `?company_id=` query params | Headers only |
 | Client-side filter after unscoped API | Backend must enforce scope |
 | New KPI engine / aggregate API | v1.5.0 docs-only; defer to V2 proposal |
+| Profit/Loss card without §4.4 approval | Pending product decision |
 | Formula Wizard on Quick Action | Separate product decision (FEATURE_DECISION_AUDIT) |
 | Dashboard-only API variants | Reuse standard business routes |
 
@@ -248,3 +287,4 @@ Optional **V2:** dedicated `GET /api/v1/dashboard/summary` — must accept same 
 |------|--------|
 | 2026-06-30 | v1.4.0 — Initial Dashboard v1 outline; global company context (DL-050) |
 | 2026-07-01 | v1.5.0 — Full Dashboard V1 spec: 6 summary cards, Recent Activity, Quick Actions (DL-051) |
+| 2026-07-01 | v1.5.0 — Pending Decision note: Profit/Loss KPI (§4.4) |
