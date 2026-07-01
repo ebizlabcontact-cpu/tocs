@@ -1,7 +1,7 @@
 # TOCS Project Context
 
 > **Purpose:** Bootstrap new ChatGPT / Cursor conversations with ≥95% project context retention.  
-> **Last updated:** 2026-06-23 (Engineering Hardening — Project Context Bootstrap)  
+> **Last updated:** 2026-07-01 (v1.5.x — Productization specs + backend stable)  
 > **Canonical deep specs:** `docs/master/TOCS_MASTER_SPEC.md`, `docs/decisions/DECISION_LOG.md`, `.cursor/rules/tocs-core.mdc`
 
 ---
@@ -92,15 +92,84 @@ See `docs/DB_APPLY_ORDER.md`.
 | **Core MVP Backend + HTTP Slice** | **ACCEPTED** (DL-034) |
 | **HTTP routes** | **48** (health + 47 business) |
 | **Remaining Core gap** | **0** |
-| **Integration tests** | **214 / 214 PASS** (212 Core + 2 auth schema/repo) |
-| **CI** | **GREEN** on `main` |
+| **Integration tests** | **343 / 343 PASS** |
+| **CI** | **GREEN** on `main` (GitHub Actions) |
 | **Release tag** | `v1.0.0-core-mvp-accepted` |
 
 Public endpoint: `GET /api/v1/health` only.
 
 ---
 
-## 6. Completed Domains
+## 6. Current State
+
+### Backend Engine Status
+
+| Area | Status |
+|------|--------|
+| **Core Domain** | Completed |
+| **Database** | Completed |
+| **HTTP API** | Completed |
+| **Auth/RBAC** | Completed |
+| **Protected Routes** | Completed |
+| **Global Company Context** | Completed |
+| **Service-layer Company Scope Filters** | Completed |
+| **Backend Engine** | **Stable** |
+
+**Integration gate:** **343 / 343 PASS** · GitHub Actions **GREEN** on `main`.
+
+### Productization Status
+
+| Area | Status |
+|------|--------|
+| **Dashboard V1 Specification** | Completed (docs only) |
+| **Formula Wizard** | Spec Draft (Pending Decisions) |
+| **Product UI Shell** | Not Started |
+| **Dashboard Module UI** | Not Started |
+| **Formula Wizard UI** | Not Started |
+
+---
+
+## 7. Pending Decisions
+
+Items below are **Pending Decision** — not approved for implementation. Do not treat as fixed UX policy.
+
+### Dashboard
+
+| Item | Status |
+|------|--------|
+| 실현 순이익 표시 여부 | **Pending Decision** |
+| 계산상 이익 표시 여부 | **Pending Decision** |
+| 확정 이익 표시 여부 | **Pending Decision** |
+| 손실 표시 방식 | **Pending Decision** |
+
+See `docs/specs/DASHBOARD_V1_SPEC.md` §4.4.
+
+### Formula Wizard
+
+| Item | Status |
+|------|--------|
+| Share 입력 포함 여부 | **Pending Decision** |
+| Invoice 예정 정보 포함 여부 | **Pending Decision** |
+| Draft 저장 기능 포함 여부 | **Pending Decision** |
+
+See `docs/specs/FORMULA_WIZARD_SPEC.md` §12.
+
+---
+
+## 8. Product Principles
+
+| Principle | Rule |
+|-----------|------|
+| **문서 최소화** | Create or expand docs only when the task requires it; avoid duplicate spec churn. |
+| **Formula First 유지** | All product flows anchor on Formula; no alternate business roots. |
+| **승인되지 않은 UX 정책 확정 금지** | §7 Pending Decisions remain open until explicit product approval. |
+| **Scope Creep 금지** | No backend/API/DB/UI expansion beyond approved milestone scope. |
+| **Backend Filter 우선** | Company scope and business rules enforced in Service/Repository — not UI-only filters. |
+| **Productization 가치 우선** | In productization phase, pursue designs with clear implementation value; defer speculative UX. |
+
+---
+
+## 9. Completed Domains
 
 All domains below have Backend Action + HTTP Route unless noted.
 
@@ -123,11 +192,11 @@ All domains below have Backend Action + HTTP Route unless noted.
 
 ---
 
-## 7. Deferred (do not implement without approval)
+## 10. Deferred (do not implement without approval)
 
 | Area | Notes |
 |------|-------|
-| **Auth/RBAC runtime** | ~~Deferred~~ — **Completed** (DL-049); see §10 Auth phase status |
+| **Auth/RBAC runtime** | ~~Deferred~~ — **Completed** (DL-049); see §13 Auth phase status |
 | **File evidence** | Upload / attachments |
 | **Notification** | Push, email alerts |
 | **Reopen** | `is_closed TRUE → FALSE` |
@@ -142,7 +211,7 @@ All domains below have Backend Action + HTTP Route unless noted.
 
 ---
 
-## 8. Production Hardening (completed)
+## 11. Production Hardening (completed)
 
 | Area | Reference |
 |------|-----------|
@@ -158,7 +227,7 @@ All domains below have Backend Action + HTTP Route unless noted.
 
 ---
 
-## 9. Local Development
+## 12. Local Development
 
 | Item | Value |
 |------|--------|
@@ -180,7 +249,7 @@ npm run test:integration
 
 ---
 
-## 10. Auth Progress
+## 13. Auth Progress
 
 ### Documentation milestones (ACCEPTED)
 
@@ -217,7 +286,7 @@ npm run test:integration
 | **Status** | **Completed** |
 | **Stable** | **Yes** |
 | **Production Ready** | **Yes** |
-| **Integration gate** | **337+ / 337+ PASS** |
+| **Integration gate** | **343 / 343 PASS** |
 | **Decision** | DL-049 — Authentication & Route Protection Completed |
 
 Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase 7 (extended auth regression / `AUTH_ENFORCE` CI) remains optional V2 scope.
@@ -229,11 +298,11 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 ### Integration gate
 
-**337+ / 337+ PASS** (includes protected route, company context middleware, and company scope filter tests).
+**343 / 343 PASS** (includes protected route, company context middleware, and company scope filter tests).
 
 ---
 
-## 11. Current Milestone
+## 14. Current Milestone
 
 ### v1.5.1 Formula Wizard Core Design (spec)
 
@@ -276,7 +345,7 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 **Behavior:** `request.companyContext` flows Route → Action → Service → Repository. `mode=company` filters by `formula_participants.company_id`; `mode=all` (SUPER_ADMIN only) skips filter. Missing context on business list routes → **400** `Company context required`.
 
-**Integration gate:** **337+ / 337+ PASS**.
+**Integration gate:** **343 / 343 PASS**.
 
 **Next milestone (requires approval):** Product UI shell P5–P6 (Header Company Switcher).
 
@@ -343,20 +412,21 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 ---
 
-## 12. Development Rules
+## 15. Development Rules
 
 1. **SQL-first always** — schema changes in SQL files first; then `schema.prisma` mapping.
 2. **Formula First** — no alternate business roots; all flows from Formula.
 3. **Deferred = no code** until explicit approval.
-4. **Core domain changes** require integration suite green (337+).
-5. **CI green** on `main` before merge.
+4. **Core domain changes** require integration suite green (**343 / 343 PASS**).
+5. **CI green** on `main` before merge (GitHub Actions).
 6. **No scope creep** — touch only requested files; no drive-by refactors.
 7. **`formula_no`** — DB DEFAULT `generate_formula_no()` only; never manual assign.
 8. **Closed formula** — fully immutable via normal update paths (DL-033, DL-041 rules).
+9. **Pending Decisions (§7)** — do not implement or document as fixed until approved.
 
 ---
 
-## 13. AI Working Rules
+## 16. AI Working Rules
 
 Every implementation response should include:
 
@@ -386,7 +456,7 @@ Do not commit unless the user explicitly asks.
 
 ---
 
-## 14. Important Decisions Summary
+## 17. Important Decisions Summary
 
 | ID | Title |
 |----|-------|
@@ -407,7 +477,7 @@ Full log: `docs/decisions/DECISION_LOG.md`.
 
 ---
 
-## 15. Conversation Bootstrap Prompt
+## 18. Conversation Bootstrap Prompt
 
 Copy-paste to start a new AI session:
 
@@ -417,25 +487,19 @@ You are working on TOCS (Transaction Operating Control System).
 Read PROJECT_CONTEXT.md and .cursor/rules/tocs-core.mdc before answering.
 
 Current state:
-- Core MVP ACCEPTED (DL-034); 48 HTTP routes; gap 0
-- Integration 337+ PASS; GitHub Actions GREEN on main
-- Auth foundation docs v1.3.0–v1.3.6 ACCEPTED (DL-041–DL-046)
-- Auth implementation v1.3.7–v1.3.17 COMPLETE — Phases 1–6 closed (DL-049)
-- Auth: Completed · Stable · Production Ready
-- v1.4.0 Productization Foundation — Global Company Context policy ACCEPTED (DL-050); docs only
-- v1.4.1 Company context middleware — `request.companyContext` from headers (shipped)
-- v1.4.2 Service-layer company scope filters — list/KPI query scoping (shipped)
-- v1.5.0 Dashboard V1 Specification — DL-051 ACCEPTED; docs only
-- v1.5.1 Formula Wizard core design — spec draft (`FORMULA_WIZARD_SPEC.md` §12 pending)
-- Next: Product UI P5; P6 Dashboard + Wizard (explicit approval on §12 items); optional Phase 7 / V2 auth items
+- Integration 343 / 343 PASS
+- Auth Completed · Stable · Production Ready
+- Company Context + Service-layer Filters Completed
+- Dashboard V1 docs completed
+- Formula Wizard spec draft
+- Next: Product UI Shell, Dashboard Module UI, Formula Wizard UI
 
 Non-negotiable:
-- Formula First Architecture — Formula is source of truth
-- SQL-first — no prisma migrate / db push
-- Action → Service → Repository → Prisma
-- Deferred features require explicit approval
-- No scope creep; impact analysis before changes
-- Do not modify Core domain unless explicitly requested
+- 문서 최소화
+- 사용자 승인 없는 UX 확정 금지
+- Formula First
+- SQL-first
+- No scope creep
 
 When implementing, state: goal, files, scope, forbidden, verification, git (if asked).
 ```
@@ -468,3 +532,4 @@ When implementing, state: goal, files, scope, forbidden, verification, git (if a
 | Date | Change |
 |------|--------|
 | 2026-06-23 | Initial PROJECT_CONTEXT.md — Engineering Hardening bootstrap |
+| 2026-07-01 | v1.5.x — Current State, Productization, Pending Decisions, Product Principles; integration gate 343/343 |
