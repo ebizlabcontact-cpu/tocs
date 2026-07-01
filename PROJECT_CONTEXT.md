@@ -235,6 +235,21 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 ## 11. Current Milestone
 
+### v1.5.0 Dashboard V1 Specification ✅
+
+| Deliverable | Status |
+|-------------|--------|
+| [`DASHBOARD_V1_SPEC.md`](docs/specs/DASHBOARD_V1_SPEC.md) — 6 cards, activity, quick actions | ✅ Spec complete |
+| [`NAVIGATION_ARCHITECTURE.md`](docs/specs/NAVIGATION_ARCHITECTURE.md) — landing + dashboard nav | ✅ Updated |
+| [`PRODUCTIZATION_V1_PLAN.md`](docs/specs/PRODUCTIZATION_V1_PLAN.md) — P3 refresh, P4 shipped | ✅ Updated |
+| **DL-051** Dashboard v1 Specification | ✅ ACCEPTED |
+
+**Scope:** Documentation only — no backend, API, DB, or UI.
+
+**Integration gate:** **343 / 343 PASS** (unchanged).
+
+**Next milestone (requires approval):** P5 Product UI shell + P6 Dashboard module implementation.
+
 ### v1.4.2 Company Context Scope Filters ✅
 
 | Deliverable | Status |
@@ -373,6 +388,7 @@ Do not commit unless the user explicitly asks.
 | **DL-048** | Auth DB Schema Implementation |
 | **DL-049** | Authentication & Route Protection Completed |
 | **DL-050** | Global Company Context Policy |
+| **DL-051** | Dashboard v1 Specification |
 
 Full log: `docs/decisions/DECISION_LOG.md`.
 
@@ -396,7 +412,8 @@ Current state:
 - v1.4.0 Productization Foundation — Global Company Context policy ACCEPTED (DL-050); docs only
 - v1.4.1 Company context middleware — `request.companyContext` from headers (shipped)
 - v1.4.2 Service-layer company scope filters — list/KPI query scoping (shipped)
-- Next: Product UI shell P5–P6 (explicit approval); optional Phase 7 / V2 auth items
+- v1.5.0 Dashboard V1 Specification — DL-051 ACCEPTED; docs only
+- Next: Product UI shell P5 + Dashboard module P6 (explicit approval); optional Phase 7 / V2 auth items
 
 Non-negotiable:
 - Formula First Architecture — Formula is source of truth

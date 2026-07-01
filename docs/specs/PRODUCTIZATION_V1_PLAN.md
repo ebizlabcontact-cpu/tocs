@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | v1.4.0 (Plan — documentation only) |
-| **Status** | ACCEPTED (DL-050 foundation) |
-| **Implementation** | **Not started** — Phase P1 is specification only in v1.4.0 |
+| **Version** | v1.5.0 (Plan — P3 Dashboard spec refreshed) |
+| **Status** | ACCEPTED (DL-050 foundation; DL-051 Dashboard v1) |
+| **Implementation** | P4 **shipped** (v1.4.1–v1.4.2); P5–P6 **not started** |
 
 **Related:** [`GLOBAL_COMPANY_CONTEXT_POLICY.md`](./GLOBAL_COMPANY_CONTEXT_POLICY.md), [`NAVIGATION_ARCHITECTURE.md`](./NAVIGATION_ARCHITECTURE.md), [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md), [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md)
 
@@ -22,22 +22,23 @@
 
 - Core MVP backend + 48 HTTP routes (DL-034)
 - Auth + RBAC + route protection (DL-049, v1.3.7–v1.3.17)
-- Integration gate **308/308** PASS
+- Global company context middleware + service filters (v1.4.1–v1.4.2, DL-050)
+- Integration gate **343 / 343 PASS**
 
-**v1.4.0 scope:** Documentation and policy only. **No UI code. No backend company-context middleware.**
+**v1.5.0 scope:** Dashboard V1 specification refresh (DL-051). **No UI code. No new API.**
 
 ---
 
 ## 2. Productization phases
 
-| Phase | Name | v1.4.0 status | Deliverable |
-|-------|------|---------------|-------------|
-| **P1** | Global Company Context policy | ✅ **Spec complete** | [`GLOBAL_COMPANY_CONTEXT_POLICY.md`](./GLOBAL_COMPANY_CONTEXT_POLICY.md), DL-050 |
+| Phase | Name | Status | Deliverable |
+|-------|------|--------|-------------|
+| **P1** | Global Company Context policy | ✅ **Complete** | [`GLOBAL_COMPANY_CONTEXT_POLICY.md`](./GLOBAL_COMPANY_CONTEXT_POLICY.md), DL-050 |
 | **P2** | Navigation + shell architecture | ✅ **Spec complete** | [`NAVIGATION_ARCHITECTURE.md`](./NAVIGATION_ARCHITECTURE.md) |
-| **P3** | Dashboard v1 specification | ✅ **Spec complete** | [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md) |
-| **P4** | Company context middleware (backend) | **Not started** | `request.companyContext`, header parsing, Service filters |
+| **P3** | Dashboard v1 specification | ✅ **v1.5.0 refresh** | [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md), DL-051 |
+| **P4** | Company context (backend) | ✅ **Shipped** | v1.4.1 middleware + v1.4.2 service filters |
 | **P5** | Product UI shell + Header Switcher | **Not started** | React/Electron shell; global header |
-| **P6** | Menu modules (Formula, Payment, …) | **Not started** | Per-domain screens wired to scoped APIs |
+| **P6** | Menu modules (Formula, Payment, …) | **Not started** | Per-domain screens; Dashboard v1 UI first |
 
 ```
 P1 Policy ──▶ P2 Navigation ──▶ P3 Dashboard spec
@@ -76,11 +77,22 @@ See [`NAVIGATION_ARCHITECTURE.md`](./NAVIGATION_ARCHITECTURE.md).
 
 ---
 
-## 5. Phase P3 — Dashboard v1
+## 5. Phase P3 — Dashboard v1 (v1.5.0)
 
-**Goal:** Dashboard KPIs and summaries consume **global company context** — same headers as Formula/Payment menus.
+**Goal:** Define post-login Dashboard layout — summary cards, recent activity, quick actions — consuming **global company context** and **existing scoped APIs only**.
 
-See [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md).
+| Area | v1.5.0 content |
+|------|----------------|
+| Summary cards | 미수금, 미지급금, 예정 입금, 예정 출금, 종결 대기, 계산서 미매칭 |
+| Recent Activity | 최근 Formula, 최근 입출금, 최근 계산서 상태 |
+| Quick Actions | Formula 생성, 입금/출금 등록, 계산서 확인 |
+| Context | Header Company Switcher; SUPER_ADMIN `all` = platform aggregate |
+
+See [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md). Decision: **DL-051**.
+
+**Gate (documentation):** DL-051 ACCEPTED; no backend/UI changes in v1.5.0 batch.
+
+**Gate (implementation — future):** P5 shell + P6 Dashboard module; 343+ PASS unchanged.
 
 ---
 
@@ -101,9 +113,10 @@ See [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md).
 
 | Milestone | Tag style | Content |
 |-----------|-----------|---------|
-| v1.4.0 | Documentation | P1–P3 specs, DL-050 |
-| v1.4.1+ | Code batches | P4 backend (proposed) |
-| v1.5.x | Code batches | P5–P6 UI (proposed) |
+| v1.4.0 | Documentation | P1–P3 initial specs, DL-050 |
+| v1.4.1–v1.4.2 | Code | P4 backend context + service filters |
+| v1.5.0 | Documentation | P3 Dashboard v1 full spec, DL-051 |
+| v1.5.x+ | Code (proposed) | P5–P6 UI |
 
 See [`docs/releases/RELEASE_GOVERNANCE.md`](../releases/RELEASE_GOVERNANCE.md).
 
@@ -114,3 +127,4 @@ See [`docs/releases/RELEASE_GOVERNANCE.md`](../releases/RELEASE_GOVERNANCE.md).
 | Date | Change |
 |------|--------|
 | 2026-06-30 | v1.4.0 — Productization v1 plan; P1–P3 specification foundation (DL-050) |
+| 2026-07-01 | v1.5.0 — P3 Dashboard v1 spec refresh; P4 marked shipped (DL-051) |

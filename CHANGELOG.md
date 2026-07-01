@@ -92,6 +92,18 @@ Documentation-only batch; no application, schema, middleware, UI, or test change
 
 **Next (proposed):** Service-layer list filters by `request.companyContext` (v1.4.2+).
 
+### Dashboard V1 Specification v1.5.0
+
+| Batch | Scope |
+|-------|--------|
+| v1.5.0 | Dashboard V1 full spec — 6 summary cards, Recent Activity, Quick Actions; DL-051 |
+
+**Integration gate:** **343 / 343 PASS** (unchanged — documentation-only batch).
+
+**In scope:** `DASHBOARD_V1_SPEC.md`, `NAVIGATION_ARCHITECTURE.md`, `PRODUCTIZATION_V1_PLAN.md` P3 refresh, DL-051.
+
+**Forbidden:** Backend/API/DB/UI changes; new KPI engine; Formula Wizard; aggregate dashboard API.
+
 ### Company Context Scope Filters v1.4.2
 
 | Batch | Scope |

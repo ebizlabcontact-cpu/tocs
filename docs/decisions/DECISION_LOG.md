@@ -955,3 +955,32 @@ Prevent accidental connection to the Windows PostgreSQL service and integration 
 - [`docs/specs/ROUTE_PROTECTION_POLICY.md`](../specs/ROUTE_PROTECTION_POLICY.md) §6.0–§6.7
 
 상태: ACCEPTED
+
+---
+
+### DL-051. Dashboard v1 Specification
+
+**Title:** Dashboard v1 Specification
+
+**Status:** ACCEPTED
+
+**결정**
+
+1. **Scope** — v1.5.0 is **documentation only**; no backend, DB, API, or UI implementation.
+2. **Landing menu** — Dashboard (`/app/dashboard`) is the **default first screen after login**.
+3. **Summary cards (6)** — 미수금, 미지급금, 예정 입금, 예정 출금, 종결 대기, 계산서 미매칭; aggregated over **scoped formula set** only.
+4. **Recent Activity (3)** — 최근 Formula, 최근 입출금, 최근 계산서 상태; reuse existing scoped list/per-formula APIs (client composite where no cross-formula list exists).
+5. **Quick Actions (4)** — Formula 생성, 입금 등록, 출금 등록, 계산서 확인; RBAC-gated navigation to existing modules — **not** Formula Wizard.
+6. **Context** — All Dashboard data uses Header Company Switcher / `request.companyContext` (DL-050); SUPER_ADMIN `all` mode = platform-wide aggregation with scope banner.
+7. **API policy** — **No new KPI engine** and **no** `GET /dashboard/summary` in v1.5.0; client roll-up from existing MVP routes only.
+8. **Forbidden** — Dashboard-only company filter; unscoped fetch + frontend filter; new aggregate API without separate DL.
+
+**Operational reference**
+
+- [`docs/specs/DASHBOARD_V1_SPEC.md`](../specs/DASHBOARD_V1_SPEC.md)
+- [`docs/specs/NAVIGATION_ARCHITECTURE.md`](../specs/NAVIGATION_ARCHITECTURE.md)
+- [`docs/specs/PRODUCTIZATION_V1_PLAN.md`](../specs/PRODUCTIZATION_V1_PLAN.md)
+
+**Integration gate:** **343 / 343 PASS** (unchanged — docs-only batch).
+
+상태: ACCEPTED
