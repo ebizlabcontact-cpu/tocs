@@ -222,6 +222,7 @@ All domains below have Backend Action + HTTP Route unless noted.
 | **Logistics §5.3 audit_logs** | `audit_logs` on logistics-status (status log only today) |
 | **OAuth / SSO / 2FA / API keys** | Auth non-goals (DL-047) |
 | **Password reset email** | V2 (DL-044) |
+| **TOCS AI Assistant** | **Deferred V2+** — chat Q&A over scoped reads; V1 forbidden — `FORMULA_DETAIL_SPEC.md` §5.1 |
 
 ---
 

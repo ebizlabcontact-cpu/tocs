@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | v1.0.0 (Screen wireframe — documentation only) |
+| **Version** | v1.1.1 (Deferred / V2 — TOCS AI Assistant idea recorded) |
 | **Status** | **DRAFT** — wireframe / IA only; **no** UI implementation |
 | **Implementation** | **Not started** — P6+; **no backend/API/DB changes** |
 
@@ -85,9 +85,13 @@ Estimated Net Profit (예상 순이익)  ≠  Realized Net Profit (실현 순이
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ GLOBAL APP HEADER (Company Switcher — unchanged)                              │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ FORMULA DETAIL HEADER — formula_no · item · status · actions (§3.1)           │
+│ FORMULA DETAIL HEADER — formula_no · item · status · Quick Actions (§3.1)     │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ TOP SUMMARY CARDS — sticky row (§3.2)                                         │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ATTENTION BANNER — rule-triggered alerts (§3.2.1)                             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ NEXT ACTIONS — rule-based checklist (§3.2.2)                                  │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ TAB NAV — Overview │ Timeline │ Participants │ … (§3.3)                      │
 ├──────────────────────────────────────────────────────────────────────────────┤
@@ -104,18 +108,21 @@ Estimated Net Profit (예상 순이익)  ≠  Realized Net Profit (실현 순이
 | **Minimum navigation** | Domain work happens **in its tab** (Payments, Invoices, …) — header actions are shortcuts only |
 | **Closed vs Settlement** | Locked trade UI on domain tabs; **Settlement** tab visually separated for post-close work |
 | **RBAC-visible actions** | Cancel / Close / Settlement write controls **hidden** (not disabled-with-tooltip) when role denied |
+| **Rule-based UX only** | Attention Banner and Next Actions use **deterministic rules** on existing reads — **no** AI inference (§3.2.1, §3.2.2) |
 | **Existing APIs only** | All panels compose Core MVP reads — **no** new aggregate Detail API in v1 wireframe |
 
 ---
 
-### 3.1 Formula Detail Header
+### 3.1 Formula Detail Header — Quick Actions
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ [← Formulas]   FM-2606-00042   ·   대두 (톤)                    [Company: My Co] │
 │                trade ● payment ○ invoice ○ logistics ○  (status chips)        │
 │                                                                               │
-│  [ + 입금 ] [ + 출금 ] [ + Invoice ]     [ 종결 ] [ 취소 Formula ]  (RBAC §3.5.3)  │
+│  QUICK ACTIONS:                                                               │
+│  [ + 입금 ] [ + 출금 ] [ + Invoice ] [ + 물류 ]    [ 종결 ] [ 취소 Formula ]     │
+│                                              (lifecycle · RBAC §3.5.3)        │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -125,18 +132,34 @@ Estimated Net Profit (예상 순이익)  ≠  Realized Net Profit (실현 순이
 | **품목명** | Resolved `item` name + optional `unit` / `quantity` hint |
 | **현재 상태** | Six domain status fields + `is_closed` / canceled badge — **manual completion** model; not auto-completed |
 | **Company Context** | Active global company badge — **not** editable on Detail |
-| **주요 액션** | Shortcuts to common flows; **authoritative CRUD** remains on domain tabs (§3.5.4) |
+| **Quick Actions** | Four operational shortcuts (left group); lifecycle actions separated (right group) |
 
-**Header action visibility (wireframe defaults):**
+#### 3.1.1 Quick Actions (normative)
 
 | Button | Target | Minimum role | When shown |
 |--------|--------|--------------|------------|
-| `+ 입금` / `+ 출금` | Payments tab → record create | `MANAGER`+ | Open Formula; not canceled |
-| `+ Invoice` | Invoices tab → create | `MANAGER`+ | Open Formula |
+| **`+ 입금`** | Payments tab → record create (direction IN) | `MANAGER`+ | Open Formula; not canceled |
+| **`+ 출금`** | Payments tab → record create (direction OUT) | `MANAGER`+ | Open Formula; not canceled |
+| **`+ Invoice`** | Invoices tab → create | `MANAGER`+ | Open Formula; not canceled |
+| **`+ 물류`** | Logistics tab → create / first row | `MANAGER`+ | Open Formula; not canceled; no logistics row **or** edit existing per tab rules |
+
+**Quick Action behavior:**
+
+| Rule | Detail |
+|------|--------|
+| **Shortcut only** | Opens domain tab **prefilled context** (`formula_id` known) — authoritative save on domain tab |
+| **Closed Formula** | `+ 입금` / `+ 출금` on open Formula only; when closed → payment append via **Settlement** tab (header Quick Actions hidden) |
+| **VIEWER** | All Quick Actions **hidden** |
+| **Grouping** | Quick Actions (operational) **left**; `종결` / `취소 Formula` (lifecycle) **right** — visual separation |
+
+**Lifecycle header actions (not Quick Actions):**
+
+| Button | Target | Minimum role | When shown |
+|--------|--------|--------------|------------|
 | `종결` | Close confirm flow | `COMPANY_ADMIN`+ | `v_formula_closeable` true; not closed |
 | `취소 Formula` | Cancel confirm | `COMPANY_ADMIN`+ | Not closed; not already canceled |
 
-**Hidden when closed:** `종결`, `취소 Formula`, participant/price/version-trigger edits (domain tabs show read-only chrome).
+**Hidden when closed:** all four Quick Actions, `종결`, `취소 Formula`; participant/price/version-trigger edits (domain tabs read-only).
 
 ---
 
@@ -163,6 +186,88 @@ Estimated Net Profit (예상 순이익)  ≠  Realized Net Profit (실현 순이
 | **종결 가능 여부** | `v_formula_closeable` | `가능` / `불가` + reason hint; link → **Overview** close checklist |
 
 **Interaction:** Card click → relevant **tab** (not a new route). Profit cards do **not** navigate to Dashboard.
+
+#### 3.2.1 Attention Banner
+
+**Placement:** Below Summary Cards; **above** Next Actions and Tab Nav. Visible on **all tabs** when any rule fires (desktop). Collapsible per session after acknowledge — **reappears** when underlying signal changes.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ⚠ ATTENTION                                                                   │
+│ • 미수금 ₩1,200,000 잔존 — [ Payments ]                                      │
+│ • 계산서 미매칭 — invoice amount ≠ expected — [ Invoices ]                    │
+│ • 종결 가능 — close checklist satisfied — [ Overview · 종결 검토 ]            │
+│ • payment status 미완료 — 수동 완료 필요 — [ Overview ]                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Signal | Trigger (rule-based) | Banner copy (example) | Link target |
+|--------|----------------------|------------------------|-------------|
+| **미수금** | Receivable > 0 (scoped KPI / existing read) | `미수금 ₩… 잔존` | **Payments** |
+| **계산서 미매칭** | `invoice_status` / derived ≠ matched | `계산서 미매칭` | **Invoices** |
+| **종결 가능** | `v_formula_closeable = true` | `종결 가능` | **Overview** close checklist |
+| **기타 중요 상태** | See §3.2.1.1 | Domain-specific label | Matching tab |
+
+**§3.2.1.1 기타 중요 상태 (fixed rule set):**
+
+| Condition | Banner |
+|-----------|--------|
+| Payable > 0 | `미지급금 ₩… 잔존` → **Payments** |
+| Any of 6 statuses ≠ COMPLETED / AMOUNT_MATCHED (and not CANCELED) | `{domain} status 미완료` → **Overview** |
+| Unmatched payment record signal (formula-scoped) | `미매칭 입출금` → **Payments** |
+| Closed + open settlement issue flag | `정산 이슈` → **Settlement** |
+| Canceled Formula | `취소된 Formula` (informational) — mutations hidden |
+
+| Rule | Detail |
+|------|--------|
+| **No ranking** | All firing rules listed — **fixed evaluation order** (table top → bottom); **no** “most important” AI pick |
+| **Zero / clear** | Banner row **removed** when signal clears after refetch |
+| **RBAC** | Banner links respect read-only (VIEWER sees banner, links are view-only tabs) |
+| **Closed Formula** | `종결 가능` hidden; Settlement/issue banners may remain |
+
+#### 3.2.2 Next Actions (rule-based only)
+
+**Placement:** Below Attention Banner (or below Summary Cards if no attention); **above** Tab Nav. Primary surface: **Overview** tab echo; **compact strip** visible on all tabs (optional collapse on non-Overview).
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ NEXT ACTIONS (eligible items only — no AI)                                    │
+│ ○ 입금 등록 가능          [ + 입금 ]                                          │
+│ ○ Invoice 등록 가능       [ + Invoice ]                                       │
+│ ○ 물류 등록 가능          [ + 물류 ]                                          │
+│ ○ 참여자 단가 수정 가능    [ Participants ]   (version-trigger)                │
+│ ○ 종결 검토 가능          [ Overview · checklist ]  (COMPANY_ADMIN+ only)       │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Allowed action types (only these three labels):**
+
+| Type | Meaning | Example rule |
+|------|---------|--------------|
+| **등록 가능** | Entity/tab allows **create** per RBAC + lifecycle | No logistics row → `물류 등록 가능`; no invoice → `Invoice 등록 가능`; schedule optional → `입금 등록 가능` |
+| **수정 가능** | Existing row editable via domain tab (incl. version-trigger path) | Participant prices present + open Formula → `참여자 단가 수정 가능`; logistics exists → `물류 수정 가능` |
+| **종결 검토 가능** | `v_formula_closeable` + not closed + `COMPANY_ADMIN`+ | Single item linking Overview checklist + header `종결` |
+
+**Evaluation rules:**
+
+| Rule | Detail |
+|------|--------|
+| **Deterministic** | Each line = boolean predicate on **existing API fields** — same inputs → same list |
+| **Fixed order** | Evaluate in table order: 등록 (Payments → Invoice → Logistics → Share*) → 수정 (Participants → …) → 종결 검토 |
+| **RBAC filter** | Omit lines user cannot execute (`MANAGER` never sees `종결 검토 가능`) |
+| **Closed / Canceled** | 등록/수정 for locked domains omitted; Settlement allowlist items may appear as `등록 가능` on **Settlement** tab only — not duplicated in strip when closed |
+| **Link = same as Quick Action** | `[ + 입금 ]` in Next Actions mirrors header Quick Action — no second flow |
+
+**Forbidden (Next Actions):**
+
+| Forbidden | Reason |
+|-----------|--------|
+| **AI 추천** | No ML / LLM suggested tasks |
+| **우선순위 자동 결정** | No “do this first” scoring or sorted urgency |
+| **업무 추론** | No inferred business intent (e.g. “거래처에 연락하세요”) |
+| **Estimated profit advice** | Profit Engine display only — not an action recommendation |
+
+*Share `등록 가능` when no share rows — only if product approves Share in Detail v1; otherwise omit (Wizard §12 A Pending).
 
 ---
 
@@ -194,6 +299,8 @@ Overview │ Timeline ★ │ Participants │ Payments │ Invoices │ Logisti
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
+│ Attention echo     (§3.2.1 — if any)                                          │
+│ Next Actions       (§3.2.2 — full list)                                       │
 │ 기본 정보          quantity │ unit │ memo │ created_at                        │
 │ Status grid        trade │ payment │ invoice │ logistics │ share │ settlement │
 │ Close checklist    invoice complete? · statuses manual-complete? · closeable   │
@@ -223,20 +330,33 @@ Each tab: **list or form primary area** + `[ + 추가 ]` / row actions when RBAC
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Timeline — newest first (toggle: oldest first)                    [ Filter ▼ ]│
+│ Timeline — newest first (toggle: oldest first)                                 │
+│ FILTER:  [ 전체 ] [ 입출금 ] [ 인보이스 ] [ 물류 ] [ 정산 ]   ← single-select chips │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ ● 2026-06-20 14:32  Formula 생성          formula_no issued    → Overview     │
 │ ● 2026-06-20 14:35  참여자 추가           Supplier · 매입처    → Participants │
-│ ● 2026-06-21 09:00  참여자 수정 (Version) v2 snapshot          → Versions     │
-│ ● 2026-06-22 11:00  예정 입출금           OUT ₩500,000 선입금   → Payments    │
-│ ● 2026-06-23 10:15  실제 입출금           IN  ₩1,200,000       → Payments    │
-│ ● 2026-06-23 15:00  Invoice              issued · AMOUNT_…    → Invoices    │
-│ ● 2026-06-24 08:00  물류                   carrier assigned    → Logistics    │
-│ ● 2026-06-25 16:00  상태 변경              payment → COMPLETED  → Overview    │
-│ ● 2026-06-26 17:30  종결                   is_closed = TRUE     → Overview    │
-│ ● 2026-06-27 09:00  정산 이슈             schedule append     → Settlement  │
+│ … (rows filtered by active chip — §3.4.2)                                    │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+#### 3.4.2 Timeline filter (normative)
+
+**Control:** Horizontal **single-select** chips — default **`전체`**. Client-side filter on composed feed; **no** new API.
+
+| Chip | Includes event categories | Excludes |
+|------|---------------------------|----------|
+| **전체** | All §3.4.1 categories | — |
+| **입출금** | 예정 입출금, 실제 입출금, payment-related **상태 변경** | Invoice-only, logistics-only, pure participant/version, 정산-only |
+| **인보이스** | Invoice create/update/sync, invoice **상태 변경** | Payment rows, logistics, settlement |
+| **물류** | 물류 create/update, logistics **상태 변경** | Payment, invoice, settlement |
+| **정산** | 종결, 정산 이슈, settlement schedule append, settlement notes | Pre-close operational rows unless also tagged 정산 |
+
+| Rule | Detail |
+|------|--------|
+| **Formula 생성 / 참여자 / Version** | Visible under **`전체`** only |
+| **Empty state** | Chip with zero rows → “해당 이벤트 없음” |
+| **Row click** | Unchanged — navigate to domain tab regardless of active filter |
+| **Persistence** | Filter resets on leave Detail **or** optional session remember — implementation choice |
 
 ### 3.4.1 Event categories (normative)
 
@@ -256,7 +376,7 @@ Each tab: **list or form primary area** + `[ + 추가 ]` / row actions when RBAC
 | **Row click** | Navigate to **domain tab** + scroll/highlight relevant row |
 | **Profit in Timeline** | Show amounts on payment/share events; **do not** label row “순이익” without Estimated/Realized qualifier |
 | **Canceled Formula** | Timeline **still shows** historical events including cash — exclusion is Dashboard/report UI responsibility |
-| **Filter** | Optional domain filter chips — client-side on composed feed |
+| **Filter** | Five chips §3.4.2 — client-side on composed feed |
 
 ---
 
@@ -304,12 +424,12 @@ Per [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md) §5–§7:
 
 #### 3.5.4 Domain ownership — where to manage
 
-| Domain | Authoritative tab | Header shortcut |
-|--------|-------------------|-----------------|
+| Domain | Authoritative tab | Header Quick Action |
+|--------|-------------------|---------------------|
 | **Share** | **Shares** | None in v1 wireframe |
 | **Invoice** | **Invoices** | `+ Invoice` |
 | **Payment** (schedule + record) | **Payments** | `+ 입금` / `+ 출금` |
-| **Logistics** | **Logistics** | None — use tab |
+| **Logistics** | **Logistics** | `+ 물류` |
 | **Version-trigger changes** | Respective tab → Version flow | None |
 | **Close / Cancel** | Overview checklist + header | `종결` / `취소 Formula` |
 | **Post-close settlement** | **Settlement** | Visible when `is_closed` |
@@ -327,16 +447,16 @@ Wizard-skipped optional data (Share, Invoice, schedules, logistics) is **complet
 │ [←] FM-2606-00042│
 │ 대두 · status chip│
 │ [Company: My Co] │
+│ [+입금][+출금]…  │  ← Quick Actions or ⋯ overflow
 ├──────────────────┤
-│ SUMMARY CARDS    │  ← vertical stack (§3.2), swipe or 2-col grid
-│ 예상 │ 실현      │
-│ 미수 │ 미지급    │
-│ …                │
+│ SUMMARY CARDS    │  ← vertical stack (§3.2)
+│ ATTENTION (if any)│  ← §3.2.1 compact
+│ NEXT ACTIONS (n) │  ← §3.2.2 max 3 visible + “더보기”
 ├──────────────────┤
-│ [ Timeline ▼ ]   │  ← prominent: sticky CTA or default 2nd pane
+│ [ Timeline ▼ ]   │  ← filter chips inside Timeline tab
 │ or mini feed     │
 ├──────────────────┤
-│ [ Tab ▼ ]        │  ← dropdown: Overview, Timeline, Participants, …
+│ [ Tab ▼ ]        │
 │  current: Timeline│
 ├──────────────────┤
 │ (tab content)    │
@@ -346,9 +466,10 @@ Wizard-skipped optional data (Share, Invoice, schedules, logistics) is **complet
 | Rule | Detail |
 |------|--------|
 | **Summary cards 우선** | First scroll region after compact header |
-| **Timeline 우선** | Sticky `[ Timeline ]` jump or **dropdown default** to Timeline for “what happened?” |
+| **Attention / Next Actions** | After summary; Next Actions capped at **3 lines** + expand — same rules as desktop, **no** priority sort |
+| **Timeline 우선** | Sticky `[ Timeline ]` jump; filter chips **입출금 · 인보이스 · …** inside Timeline view |
 | **탭 navigation** | **Dropdown** (`Tab ▼`) on narrow viewports; optional **horizontal sticky subnav** for top 4 tabs (Overview, Timeline, Payments, Invoices) |
-| **Header actions** | Overflow menu `⋯` for `+ 입금`, `종결`, etc. |
+| **Header Quick Actions** | `[ + 입금 ]` `[ + 출금 ]` `[ + Invoice ]` `[ + 물류 ]` in row or **`⋯` overflow** |
 | **Settlement tab** | Same distinct banner as desktop when closed |
 
 ---
@@ -368,6 +489,9 @@ Wizard-skipped optional data (Share, Invoice, schedules, logistics) is **complet
 | Per-tab company filter | DL-050 global context only |
 | Auto-complete status UI | Manual completion policy |
 | Reopen / undo close in v1 wireframe | MVP excluded (DL-033) |
+| AI / ML Next Action suggestions | §3.2.2 — rule-based only; **TOCS AI Assistant** is **Deferred V2+** (§5) — not V1 substitute |
+| Auto-priority / “do first” ordering | §3.2.1, §3.2.2 — fixed rule order only |
+| Business inference copy in Attention | Signal must map 1:1 to existing field/read |
 
 ---
 
@@ -382,8 +506,70 @@ Wizard-skipped optional data (Share, Invoice, schedules, logistics) is **complet
 
 ---
 
+## 5. Deferred / V2 Ideas
+
+**Scope:** Product ideas **documented only** — **no** V1 wireframe, **no** implementation, **no** API/DB work until explicit approval.
+
+### 5.1 TOCS AI Assistant
+
+| Field | Value |
+|-------|--------|
+| **Feature** | TOCS AI Assistant |
+| **Status** | **Deferred / V2+** |
+| **V1** | **Forbidden** — not in Productization V1 UI, Detail wireframe, or Next Actions |
+
+#### Purpose
+
+User asks questions in **chat**; the assistant returns answers from **TOCS data** the caller is allowed to see — Formula, KPI, Payment, Invoice, Logistics, Settlement — within **Company Context** and **RBAC**.
+
+#### Example prompts (non-exhaustive)
+
+| Example | Data domain |
+|---------|-------------|
+| 이번 달 손실 난 Formula 보여줘 | Formula list + `kpi/confirmed` (scoped) |
+| 지오웍스 미수금 얼마야? | Company-scoped receivable / participant KPI |
+| 종결 가능한 Formula 뭐야? | `v_formula_closeable` + scoped formula list |
+| 실현 순이익이 예상 순이익보다 낮은 Formula 찾아줘 | `kpi/expected` vs `kpi/confirmed` per formula |
+| 계산서 미매칭 거래 요약해줘 | Invoice status / mismatch signals (scoped) |
+
+#### Policy (normative)
+
+| Rule | Detail |
+|------|--------|
+| **V1 구현 금지** | No chat UI, no LLM routes, no agent in MVP shell |
+| **AI 직접 DB 수정 금지** | Read-only — mutations stay human + existing Action → Service → Repository |
+| **AI 임의 계산 금지** | No model-invented KPI; **Estimated** vs **Realized** labels mandatory (§2.2) |
+| **Existing API / KPI / View only** | Responses grounded in Core MVP reads and DB Views — same as Dashboard roll-ups |
+| **Company Context 필수** | Every tool call carries `X-Company-Id` / scope rules (DL-050) |
+| **RBAC 필수** | Tool whitelist per `RBAC_PERMISSION_MATRIX` — deny by default |
+| **Audit / query log** | `audit_logs` and/or dedicated **query log** — **review required** before ship |
+| **No training on production data** | Customer/source data **must not** feed model training directly |
+| **Architecture options (V2 review)** | **RAG**, **Tool Calling**, **Query Agent** — compare at design phase |
+
+#### Relationship to V1 Detail UX
+
+| V1 surface | Rule |
+|------------|------|
+| **Next Actions (§3.2.2)** | Deterministic rules only — **not** AI Assistant |
+| **Attention Banner (§3.2.1)** | Fixed signals — **not** chat interpretation |
+| **Future placement (idea)** | Global shell panel or `/app/assistant` — **not** decided; Detail wireframe unchanged in V1 |
+
+#### Implementation later (checklist — not started)
+
+| Item | Notes |
+|------|-------|
+| Open-source vs hosted LLM | Cost, latency, data residency — compare before build |
+| **Tool whitelist** | Explicit allowed HTTP/read tools; no arbitrary SQL |
+| **Read-only query layer** | Agent calls existing APIs or approved View queries only |
+| **Sensitive data redaction** | PII / bank refs in prompts and logs |
+| **Hallucination prevention** | Cite tool result IDs; refuse when data missing |
+
+---
+
 ## Document history
 
 | Date | Change |
 |------|--------|
 | 2026-06-23 | v1.0.0 — Initial Formula Detail screen wireframe (Header, Summary, Tabs, Timeline, Actions, Mobile) |
+| 2026-06-23 | v1.1.0 — Quick Actions (+ 물류), Timeline filter chips, Attention Banner, Next Actions (rule-based) |
+| 2026-06-23 | v1.1.1 — **§5 Deferred / V2** — TOCS AI Assistant (idea only; V1 forbidden) |
