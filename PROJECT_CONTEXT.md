@@ -319,6 +319,19 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 ## 14. Current Milestone
 
+### v1.5.2 Product UI implementation scope ✅
+
+| Deliverable | Status |
+|-------------|--------|
+| [`PRODUCT_UI_IMPLEMENTATION_SCOPE.md`](docs/specs/PRODUCT_UI_IMPLEMENTATION_SCOPE.md) — UI-P1–P5, forbidden, v0/Cursor notes | ✅ Scope locked |
+| Wireframe sources | Navigation, Dashboard §11, Detail, Wizard §15 |
+
+**Scope:** Documentation only — no backend/API/DB until UI implementation starts.
+
+**Integration gate:** **343 / 343 PASS** (unchanged).
+
+**Next milestone (requires approval):** **UI-P1** App Shell implementation.
+
 ### v1.5.1 Formula Wizard Core Design (spec)
 
 | Deliverable | Status |
@@ -330,7 +343,7 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 **Integration gate:** **343 / 343 PASS** (unchanged).
 
-**Next milestone (requires approval):** P5 Product UI shell; P6 Dashboard + Formula Wizard UI (§12 sign-off first).
+**Next milestone (requires approval):** **UI-P1** App Shell — [`PRODUCT_UI_IMPLEMENTATION_SCOPE.md`](docs/specs/PRODUCT_UI_IMPLEMENTATION_SCOPE.md).
 
 ### v1.5.0 Dashboard V1 Specification ✅
 

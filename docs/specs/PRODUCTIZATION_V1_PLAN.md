@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | v1.5.0 (Plan — P3 Dashboard spec refreshed) |
+| **Version** | v1.5.1 (Plan — **Product UI implementation scope** locked) |
 | **Status** | ACCEPTED (DL-050 foundation; DL-051 Dashboard v1) |
-| **Implementation** | P4 **shipped** (v1.4.1–v1.4.2); P5–P6 **not started** |
+| **Implementation** | P4 **shipped** (v1.4.1–v1.4.2); **UI-P1–P5 not started** — see [`PRODUCT_UI_IMPLEMENTATION_SCOPE.md`](./PRODUCT_UI_IMPLEMENTATION_SCOPE.md) |
 
 **Related:** [`GLOBAL_COMPANY_CONTEXT_POLICY.md`](./GLOBAL_COMPANY_CONTEXT_POLICY.md), [`NAVIGATION_ARCHITECTURE.md`](./NAVIGATION_ARCHITECTURE.md), [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md), [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md)
 
@@ -37,8 +37,8 @@
 | **P2** | Navigation + shell architecture | ✅ **Spec complete** | [`NAVIGATION_ARCHITECTURE.md`](./NAVIGATION_ARCHITECTURE.md) |
 | **P3** | Dashboard v1 specification | ✅ **v1.5.0 refresh** | [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md), DL-051 |
 | **P4** | Company context (backend) | ✅ **Shipped** | v1.4.1 middleware + v1.4.2 service filters |
-| **P5** | Product UI shell + Header Switcher | **Not started** | React/Electron shell; global header |
-| **P6** | Menu modules (Formula, Payment, …) | **Not started** | Per-domain screens; Dashboard v1 UI first |
+| **P5** | Product UI shell + Header Switcher | **Not started** | **UI-P1** in [`PRODUCT_UI_IMPLEMENTATION_SCOPE.md`](./PRODUCT_UI_IMPLEMENTATION_SCOPE.md) |
+| **P6** | Menu modules (Formula, Payment, …) | **Not started** | **UI-P2–P5** (Dashboard → List → Detail → Wizard) |
 
 ```
 P1 Policy ──▶ P2 Navigation ──▶ P3 Dashboard spec
@@ -48,6 +48,8 @@ P1 Policy ──▶ P2 Navigation ──▶ P3 Dashboard spec
                     │
                     ▼
               P5 UI shell ──▶ P6 Menu modules
+                    │
+                    └── UI-P1…P5 detail: PRODUCT_UI_IMPLEMENTATION_SCOPE.md
 ```
 
 ---
@@ -116,7 +118,7 @@ See [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md). Decision: **DL-051**.
 | v1.4.0 | Documentation | P1–P3 initial specs, DL-050 |
 | v1.4.1–v1.4.2 | Code | P4 backend context + service filters |
 | v1.5.0 | Documentation | P3 Dashboard v1 full spec, DL-051 |
-| v1.5.x+ | Code (proposed) | P5–P6 UI |
+| v1.5.x+ | Code (proposed) | P5–P6 UI — scope: [`PRODUCT_UI_IMPLEMENTATION_SCOPE.md`](./PRODUCT_UI_IMPLEMENTATION_SCOPE.md) |
 
 See [`docs/releases/RELEASE_GOVERNANCE.md`](../releases/RELEASE_GOVERNANCE.md).
 
@@ -128,3 +130,4 @@ See [`docs/releases/RELEASE_GOVERNANCE.md`](../releases/RELEASE_GOVERNANCE.md).
 |------|--------|
 | 2026-06-30 | v1.4.0 — Productization v1 plan; P1–P3 specification foundation (DL-050) |
 | 2026-07-01 | v1.5.0 — P3 Dashboard v1 spec refresh; P4 marked shipped (DL-051) |
+| 2026-06-23 | v1.5.1 — Link **PRODUCT_UI_IMPLEMENTATION_SCOPE** (UI-P1–P5 gate for v0/Cursor) |
