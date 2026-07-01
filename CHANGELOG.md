@@ -106,6 +106,18 @@ Documentation-only batch; no application, schema, middleware, UI, or test change
 
 **Pending (docs):** Profit/Loss KPI — 실현 순이익 / 계산상 이익 / 확정 이익 중 최종 선택 및 손실 표시 방식(음수 vs 별도 카드) 미확정 (`DASHBOARD_V1_SPEC.md` §4.4). UI/API 구현 전 재검토 필수.
 
+### Formula Wizard Core Design v1.5.1
+
+| Batch | Scope |
+|-------|--------|
+| v1.5.1 | Minimal Formula Wizard spec — 6 steps, Core API commit sequence, Version/Snapshot rules; `FORMULA_WIZARD_SPEC.md` |
+
+**Integration gate:** **343 / 343 PASS** (unchanged — documentation-only batch).
+
+**In scope:** Wizard UX design mapped to existing MVP routes; pending approval items §12.
+
+**Forbidden:** New API/DB; Dashboard/Timeline/Settlement expansion; DL entry (unless §12 resolved separately).
+
 ### Company Context Scope Filters v1.4.2
 
 | Batch | Scope |

@@ -235,6 +235,19 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 ## 11. Current Milestone
 
+### v1.5.1 Formula Wizard Core Design (spec)
+
+| Deliverable | Status |
+|-------------|--------|
+| [`FORMULA_WIZARD_SPEC.md`](docs/specs/FORMULA_WIZARD_SPEC.md) — 6-step minimal wizard | ✅ Spec draft |
+| Pending approval | Share / Invoice / realized profit / Draft save (§12) |
+
+**Scope:** Documentation only — no backend, API, DB, or UI.
+
+**Integration gate:** **343 / 343 PASS** (unchanged).
+
+**Next milestone (requires approval):** P5 Product UI shell; P6 Dashboard + Formula Wizard UI (§12 sign-off first).
+
 ### v1.5.0 Dashboard V1 Specification ✅
 
 | Deliverable | Status |
@@ -413,7 +426,8 @@ Current state:
 - v1.4.1 Company context middleware — `request.companyContext` from headers (shipped)
 - v1.4.2 Service-layer company scope filters — list/KPI query scoping (shipped)
 - v1.5.0 Dashboard V1 Specification — DL-051 ACCEPTED; docs only
-- Next: Product UI shell P5 + Dashboard module P6 (explicit approval); optional Phase 7 / V2 auth items
+- v1.5.1 Formula Wizard core design — spec draft (`FORMULA_WIZARD_SPEC.md` §12 pending)
+- Next: Product UI P5; P6 Dashboard + Wizard (explicit approval on §12 items); optional Phase 7 / V2 auth items
 
 Non-negotiable:
 - Formula First Architecture — Formula is source of truth
@@ -444,6 +458,7 @@ When implementing, state: goal, files, scope, forbidden, verification, git (if a
 | `docs/specs/PRODUCTIZATION_V1_PLAN.md` | Productization v1 phases |
 | `docs/specs/NAVIGATION_ARCHITECTURE.md` | Header switcher + shell |
 | `docs/specs/DASHBOARD_V1_SPEC.md` | Dashboard v1 (global context) |
+| `docs/specs/FORMULA_WIZARD_SPEC.md` | Formula Wizard v1.5.1 (minimal design) |
 | `CHANGELOG.md` | Release batches |
 
 ---
