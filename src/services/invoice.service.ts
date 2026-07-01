@@ -14,6 +14,8 @@ import type {
   FormulaInvoiceStatusRow,
   InvoiceCreateData,
 } from '../repositories/invoice.repository.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
+import { assertFormulaCompanyScope } from './formula.service.js';
 import { getFormulaClosedState } from './guards/closed-formula.guard.js';
 
 export class InvoiceNotFoundError extends Error {
@@ -90,7 +92,11 @@ export class InvoiceService {
     return invoice;
   }
 
-  async listInvoicesByFormulaId(formulaId: string): Promise<Invoice[]> {
+  async listInvoicesByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<Invoice[]> {
+    await assertFormulaCompanyScope(formulaId, companyScope);
     return this.repository.listInvoicesByFormulaId(formulaId);
   }
 

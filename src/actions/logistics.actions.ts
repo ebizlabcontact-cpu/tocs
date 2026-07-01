@@ -28,6 +28,7 @@ import type {
   CreateLogisticsResult,
   UpdateLogisticsStatusResult,
 } from '../services/logistics.service.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 import { VersionConflictError } from '../services/version.service.js';
 import type {
   CreateLogisticsInputPayload,
@@ -423,9 +424,12 @@ export class LogisticsActions {
     }
   }
 
-  async listLogisticsByFormulaId(formulaId: string): Promise<LogisticsListResponse> {
+  async listLogisticsByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<LogisticsListResponse> {
     try {
-      const items = await this.service.listLogisticsByFormulaId(formulaId);
+      const items = await this.service.listLogisticsByFormulaId(formulaId, companyScope);
       return {
         items: items.map(toLogisticsResponse),
       };
@@ -467,8 +471,9 @@ export async function getLogisticsById(logisticsId: string): Promise<LogisticsRe
 
 export async function listLogisticsByFormulaId(
   formulaId: string,
+  companyScope?: CompanyScopeFilter,
 ): Promise<LogisticsListResponse> {
-  return logisticsActions.listLogisticsByFormulaId(formulaId);
+  return logisticsActions.listLogisticsByFormulaId(formulaId, companyScope);
 }
 
 export async function updateLogisticsStatus(

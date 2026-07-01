@@ -92,6 +92,18 @@ Documentation-only batch; no application, schema, middleware, UI, or test change
 
 **Next (proposed):** Service-layer list filters by `request.companyContext` (v1.4.2+).
 
+### Company Context Scope Filters v1.4.2
+
+| Batch | Scope |
+|-------|--------|
+| v1.4.2 | Service-layer company scope filters — Route → Action → Service → Repository; `requireCompanyContext()` on business list/KPI routes; `assertFormulaCompanyScope`; DL-050 filtering rules |
+
+**Integration gate:** **337+ / 337+ PASS** (320 baseline + company scope test suite).
+
+**In scope:** Formula/Company/Payment unmatched/Dashboard KPI list filters; formula child lists (participants, payments, invoices, logistics, shares, versions); `company-context.scope.integration.test.ts`.
+
+**Out of scope:** DB schema, UI, Auth/RBAC policy changes, frontend-only filtering.
+
 ### Company Context Middleware v1.4.1
 
 | Batch | Scope |

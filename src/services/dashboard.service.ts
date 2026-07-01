@@ -13,6 +13,7 @@ import type {
 } from '../repositories/dashboard.repository.js';
 import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 import { resolveScopeCompanyId } from '../utils/company-scope.js';
+import { assertFormulaCompanyScope } from './formula.service.js';
 
 export class DashboardDataNotFoundError extends Error {
   readonly status = 404 as const;
@@ -200,7 +201,11 @@ function toPaymentUnmatched(row: PaymentUnmatchedRow): PaymentUnmatched {
 export class DashboardService {
   constructor(private readonly repository: DashboardRepository = dashboardRepository) {}
 
-  async getFormulaConfirmedKpi(formulaId: string): Promise<FormulaConfirmedKpi> {
+  async getFormulaConfirmedKpi(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<FormulaConfirmedKpi> {
+    await assertFormulaCompanyScope(formulaId, companyScope);
     const row = await this.repository.getFormulaConfirmedKpi(formulaId);
 
     if (!row) {
@@ -215,7 +220,11 @@ export class DashboardService {
     return rows.map(toFormulaConfirmedKpi);
   }
 
-  async getFormulaProfitEngine(formulaId: string): Promise<FormulaProfitEngine> {
+  async getFormulaProfitEngine(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<FormulaProfitEngine> {
+    await assertFormulaCompanyScope(formulaId, companyScope);
     const row = await this.repository.getFormulaProfitEngine(formulaId);
 
     if (!row) {

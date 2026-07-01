@@ -5,6 +5,8 @@ import {
   shareRepository,
 } from '../repositories/share.repository.js';
 import type { ShareCreateData, ShareUpdateData } from '../repositories/share.repository.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
+import { assertFormulaCompanyScope } from './formula.service.js';
 import { assertNotClosedForTradeMutation } from './guards/closed-formula.guard.js';
 import {
   VersionService,
@@ -98,7 +100,8 @@ export class ShareService {
     return share;
   }
 
-  async listSharesByFormulaId(formulaId: string): Promise<Share[]> {
+  async listSharesByFormulaId(formulaId: string, companyScope?: CompanyScopeFilter): Promise<Share[]> {
+    await assertFormulaCompanyScope(formulaId, companyScope);
     return this.repository.listSharesByFormulaId(formulaId);
   }
 

@@ -21,6 +21,8 @@ import {
   ClosedFormulaTradeMutationError,
   getFormulaClosedState,
 } from './guards/closed-formula.guard.js';
+import { assertFormulaCompanyScope } from './formula.service.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 
 export class PaymentScheduleNotFoundError extends Error {
   constructor(id: string) {
@@ -128,7 +130,8 @@ export class PaymentScheduleService {
     return schedule;
   }
 
-  async listSchedulesByFormulaId(formulaId: string) {
+  async listSchedulesByFormulaId(formulaId: string, companyScope?: CompanyScopeFilter) {
+    await assertFormulaCompanyScope(formulaId, companyScope);
     return this.repository.listSchedulesByFormulaId(formulaId);
   }
 }
@@ -181,7 +184,8 @@ export class PaymentRecordService {
     return record;
   }
 
-  async listRecordsByFormulaId(formulaId: string) {
+  async listRecordsByFormulaId(formulaId: string, companyScope?: CompanyScopeFilter) {
+    await assertFormulaCompanyScope(formulaId, companyScope);
     return this.repository.listRecordsByFormulaId(formulaId);
   }
 

@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import type { AuditLog, CalculationSnapshot, FormulaVersion } from '@prisma/client';
 
 import { ActionError } from './formula.actions.js';
+import { FormulaNotFoundError } from '../services/formula.service.js';
 import {
   ClosedFormulaTradeMutationError,
   FormulaNotFoundForGuardError,
@@ -13,6 +14,7 @@ import {
   versionService,
 } from '../services/version.service.js';
 import type { CreateVersionInput } from '../services/version.service.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 
 export interface CreateVersionCalculationRequest {
   quantity: number | string;
@@ -211,6 +213,10 @@ function assertCreateVersionRequiredFields(body: CreateVersionRequest): void {
 }
 
 function mapVersionServiceError(error: unknown): never {
+  if (error instanceof FormulaNotFoundError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof FormulaNotFoundForGuardError) {
     throw new ActionError(404, error.message);
   }
@@ -265,12 +271,19 @@ export class VersionActions {
     }
   }
 
-  async listVersionsByFormulaId(formulaId: string): Promise<VersionListResponse> {
-    const versions = await this.service.listVersionsByFormulaId(formulaId);
+  async listVersionsByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<VersionListResponse> {
+    try {
+      const versions = await this.service.listVersionsByFormulaId(formulaId, companyScope);
 
-    return {
-      items: versions.map(toVersionResponse),
-    };
+      return {
+        items: versions.map(toVersionResponse),
+      };
+    } catch (error) {
+      mapVersionServiceError(error);
+    }
   }
 
   async getLatestVersionByFormulaId(formulaId: string): Promise<VersionResponse> {
@@ -300,8 +313,11 @@ export async function getVersionByFormulaIdAndVersionNo(
   return versionActions.getVersionByFormulaIdAndVersionNo(formulaId, versionNo);
 }
 
-export async function listVersionsByFormulaId(formulaId: string): Promise<VersionListResponse> {
-  return versionActions.listVersionsByFormulaId(formulaId);
+export async function listVersionsByFormulaId(
+  formulaId: string,
+  companyScope?: CompanyScopeFilter,
+): Promise<VersionListResponse> {
+  return versionActions.listVersionsByFormulaId(formulaId, companyScope);
 }
 
 export async function getLatestVersionByFormulaId(formulaId: string): Promise<VersionResponse> {

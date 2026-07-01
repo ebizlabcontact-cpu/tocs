@@ -4,6 +4,7 @@ import {
   DashboardService,
   dashboardService,
 } from '../services/dashboard.service.js';
+import { FormulaNotFoundError } from '../services/formula.service.js';
 import type {
   DashboardListInput,
   FormulaConfirmedKpi,
@@ -248,6 +249,10 @@ function toPaymentUnmatchedResponse(payment: PaymentUnmatched): PaymentUnmatched
 }
 
 function mapDashboardServiceError(error: unknown): never {
+  if (error instanceof FormulaNotFoundError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof DashboardDataNotFoundError) {
     throw new ActionError(404, error.message);
   }
@@ -258,11 +263,14 @@ function mapDashboardServiceError(error: unknown): never {
 export class DashboardActions {
   constructor(private readonly service: DashboardService = dashboardService) {}
 
-  async getFormulaConfirmedKpi(formulaId: string): Promise<FormulaConfirmedKpiResponse> {
+  async getFormulaConfirmedKpi(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<FormulaConfirmedKpiResponse> {
     const validatedFormulaId = parseFormulaIdInput(formulaId);
 
     try {
-      const kpi = await this.service.getFormulaConfirmedKpi(validatedFormulaId);
+      const kpi = await this.service.getFormulaConfirmedKpi(validatedFormulaId, companyScope);
       return toFormulaConfirmedKpiResponse(kpi);
     } catch (error) {
       mapDashboardServiceError(error);
@@ -271,8 +279,9 @@ export class DashboardActions {
 
   async getFormulaReceivablePayable(
     formulaId: string,
+    companyScope?: CompanyScopeFilter,
   ): Promise<FormulaReceivablePayableResponse> {
-    const kpi = await this.getFormulaConfirmedKpi(formulaId);
+    const kpi = await this.getFormulaConfirmedKpi(formulaId, companyScope);
     return toFormulaReceivablePayableResponse(kpi);
   }
 
@@ -286,11 +295,14 @@ export class DashboardActions {
     };
   }
 
-  async getFormulaProfitEngine(formulaId: string): Promise<FormulaProfitEngineResponse> {
+  async getFormulaProfitEngine(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<FormulaProfitEngineResponse> {
     const validatedFormulaId = parseFormulaIdInput(formulaId);
 
     try {
-      const profit = await this.service.getFormulaProfitEngine(validatedFormulaId);
+      const profit = await this.service.getFormulaProfitEngine(validatedFormulaId, companyScope);
       return toFormulaProfitEngineResponse(profit);
     } catch (error) {
       mapDashboardServiceError(error);
@@ -340,14 +352,16 @@ export const dashboardActions = new DashboardActions();
 
 export async function getFormulaConfirmedKpi(
   formulaId: string,
+  companyScope?: CompanyScopeFilter,
 ): Promise<FormulaConfirmedKpiResponse> {
-  return dashboardActions.getFormulaConfirmedKpi(formulaId);
+  return dashboardActions.getFormulaConfirmedKpi(formulaId, companyScope);
 }
 
 export async function getFormulaReceivablePayable(
   formulaId: string,
+  companyScope?: CompanyScopeFilter,
 ): Promise<FormulaReceivablePayableResponse> {
-  return dashboardActions.getFormulaReceivablePayable(formulaId);
+  return dashboardActions.getFormulaReceivablePayable(formulaId, companyScope);
 }
 
 export async function listFormulaConfirmedKpi(
@@ -358,8 +372,9 @@ export async function listFormulaConfirmedKpi(
 
 export async function getFormulaProfitEngine(
   formulaId: string,
+  companyScope?: CompanyScopeFilter,
 ): Promise<FormulaProfitEngineResponse> {
-  return dashboardActions.getFormulaProfitEngine(formulaId);
+  return dashboardActions.getFormulaProfitEngine(formulaId, companyScope);
 }
 
 export async function listFormulaProfitEngine(

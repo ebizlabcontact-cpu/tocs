@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import type { AuditLog, CalculationSnapshot, FormulaVersion, Share } from '@prisma/client';
 
 import { ActionError } from './formula.actions.js';
+import { FormulaNotFoundError } from '../services/formula.service.js';
 import {
   ClosedFormulaTradeMutationError,
   FormulaNotFoundForGuardError,
@@ -22,6 +23,7 @@ import type {
   ShareVersionPayload,
   UpdateShareInput,
 } from '../services/share.service.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 import { VersionConflictError } from '../services/version.service.js';
 
 export interface ShareVersionRequest {
@@ -239,6 +241,10 @@ function assertShareVersionRequest(version: ShareVersionRequest | undefined): vo
 }
 
 function mapShareServiceError(error: unknown): never {
+  if (error instanceof FormulaNotFoundError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof FormulaNotFoundForGuardError) {
     throw new ActionError(404, error.message);
   }
@@ -285,12 +291,19 @@ export class ShareActions {
     }
   }
 
-  async listSharesByFormulaId(formulaId: string): Promise<ShareListResponse> {
-    const shares = await this.service.listSharesByFormulaId(formulaId);
+  async listSharesByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<ShareListResponse> {
+    try {
+      const shares = await this.service.listSharesByFormulaId(formulaId, companyScope);
 
-    return {
-      items: shares.map(toShareResponse),
-    };
+      return {
+        items: shares.map(toShareResponse),
+      };
+    } catch (error) {
+      mapShareServiceError(error);
+    }
   }
 
   async listSharesByParticipantId(participantId: string): Promise<ShareListResponse> {
@@ -337,8 +350,11 @@ export async function getShareById(id: string): Promise<ShareResponse> {
   return shareActions.getShareById(id);
 }
 
-export async function listSharesByFormulaId(formulaId: string): Promise<ShareListResponse> {
-  return shareActions.listSharesByFormulaId(formulaId);
+export async function listSharesByFormulaId(
+  formulaId: string,
+  companyScope?: CompanyScopeFilter,
+): Promise<ShareListResponse> {
+  return shareActions.listSharesByFormulaId(formulaId, companyScope);
 }
 
 export async function listSharesByParticipantId(participantId: string): Promise<ShareListResponse> {

@@ -4,9 +4,9 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | v1.4.1 (Middleware — implemented) |
+| **Version** | v1.4.2 (Service filters — implemented) |
 | **Status** | ACCEPTED (DL-050) |
-| **Implementation** | **Middleware shipped** (v1.4.1) — `request.companyContext` from headers; Service-layer list filtering **not started** |
+| **Implementation** | **Middleware shipped** (v1.4.1) + **Service-layer list/KPI filters shipped** (v1.4.2) |
 
 **Related:** [`PRODUCTIZATION_V1_PLAN.md`](./PRODUCTIZATION_V1_PLAN.md), [`NAVIGATION_ARCHITECTURE.md`](./NAVIGATION_ARCHITECTURE.md), [`DASHBOARD_V1_SPEC.md`](./DASHBOARD_V1_SPEC.md), [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md), [`RBAC_PERMISSION_MATRIX.md`](./RBAC_PERMISSION_MATRIX.md), [`AUTH_RBAC_SPEC.md`](./AUTH_RBAC_SPEC.md)
 
@@ -74,7 +74,7 @@ request.companyContext = {
 - **`X-Company-Id` required** on all company-scoped business API requests.
 - Caller must have **active** `company_memberships` row for `X-Company-Id`.
 - **`X-Company-Scope: all` forbidden** → **403** `FORBIDDEN`.
-- Missing `X-Company-Id` on business routes → **400** `COMPANY_CONTEXT_REQUIRED` (preferred) or **403** per implementation milestone.
+- Missing `X-Company-Id` on business routes → **400** `COMPANY_CONTEXT_REQUIRED` (v1.4.2).
 
 ### 4.2 SUPER_ADMIN
 
@@ -187,8 +187,8 @@ v1.3 route guards remain. Global company context adds **mandatory active company
 | Non-goal | Notes |
 |----------|-------|
 | Backend middleware implementation | ✅ v1.4.1 — `registerCompanyContext`, header parsing |
-| Service-layer list filtering | Next milestone |
-| Product UI / Header Switcher component | Next milestone |
+| Service-layer list filtering | ✅ v1.4.2 — `CompanyScopeFilter` through Action → Service → Repository |
+| Product UI / Header Switcher component | Next milestone (P5) |
 | DB schema changes | Forbidden |
 | Per-menu `company_id` query params | Forbidden |
 | Frontend-only filtering | Forbidden |
@@ -199,9 +199,8 @@ v1.3 route guards remain. Global company context adds **mandatory active company
 ## 11. Implementation gate
 
 - ✅ v1.4.1 — `companyContext` middleware registered after authentication (`src/http/plugins/company-context.ts`).
-- Service-layer list filters accept `CompanyContext` parameter — **next milestone**.
-- Integration tests: company context middleware suite; existing **308+** baseline preserved.
-- Future: missing header on business route → 400 `COMPANY_CONTEXT_REQUIRED` when Service filters land.
+- ✅ v1.4.2 — Service list filters accept `CompanyScopeFilter`; `requireCompanyContext()` on business list/KPI routes; integration tests in `company-context.scope.integration.test.ts`.
+- Integration gate: **337+** PASS with company scope suite; existing baseline preserved.
 
 ---
 
@@ -210,4 +209,5 @@ v1.3 route guards remain. Global company context adds **mandatory active company
 | Date | Change |
 |------|--------|
 | 2026-06-30 | v1.4.0 — Global Company Context Policy (DL-050); documentation only |
-| 2026-06-30 | v1.4.1 — Company context middleware implemented; Service filtering deferred |
+| 2026-06-30 | v1.4.1 — Company context middleware implemented |
+| 2026-06-23 | v1.4.2 — Service-layer company scope filters implemented |

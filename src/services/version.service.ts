@@ -10,6 +10,8 @@ import {
   FormulaVersionRepository,
   formulaVersionRepository,
 } from '../repositories/version.repository.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
+import { assertFormulaCompanyScope } from './formula.service.js';
 import { assertNotClosedForTradeMutation } from './guards/closed-formula.guard.js';
 
 export class VersionConflictError extends Error {
@@ -153,7 +155,8 @@ export class VersionService {
     return version;
   }
 
-  async listVersionsByFormulaId(formulaId: string) {
+  async listVersionsByFormulaId(formulaId: string, companyScope?: CompanyScopeFilter) {
+    await assertFormulaCompanyScope(formulaId, companyScope);
     return this.versionRepository.listVersionsByFormulaId(formulaId);
   }
 

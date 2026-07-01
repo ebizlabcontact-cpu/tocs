@@ -217,7 +217,7 @@ npm run test:integration
 | **Status** | **Completed** |
 | **Stable** | **Yes** |
 | **Production Ready** | **Yes** |
-| **Integration gate** | **320 / 320 PASS** |
+| **Integration gate** | **337+ / 337+ PASS** |
 | **Decision** | DL-049 — Authentication & Route Protection Completed |
 
 Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase 7 (extended auth regression / `AUTH_ENFORCE` CI) remains optional V2 scope.
@@ -229,11 +229,28 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 ### Integration gate
 
-**320 / 320 PASS** (includes protected route + company context tests).
+**337+ / 337+ PASS** (includes protected route, company context middleware, and company scope filter tests).
 
 ---
 
 ## 11. Current Milestone
+
+### v1.4.2 Company Context Scope Filters ✅
+
+| Deliverable | Status |
+|-------------|--------|
+| `CompanyScopeFilter` + `assertFormulaCompanyScope` | ✅ Shipped |
+| Formula / Company list filters (Repository) | ✅ Shipped |
+| Dashboard/KPI scoped aggregation | ✅ Shipped |
+| Formula child list scope (Payment, Invoice, Logistics, Share, Version, Participant) | ✅ Shipped |
+| `requireCompanyContext()` on business list/KPI routes | ✅ Shipped |
+| `company-context.scope.integration.test.ts` | ✅ Shipped |
+
+**Behavior:** `request.companyContext` flows Route → Action → Service → Repository. `mode=company` filters by `formula_participants.company_id`; `mode=all` (SUPER_ADMIN only) skips filter. Missing context on business list routes → **400** `Company context required`.
+
+**Integration gate:** **337+ / 337+ PASS**.
+
+**Next milestone (requires approval):** Product UI shell P5–P6 (Header Company Switcher).
 
 ### v1.4.1 Company Context Middleware ✅
 
@@ -244,11 +261,9 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 | `src/http/server.ts` — plugin order | ✅ Shipped |
 | Company context integration tests | ✅ Shipped |
 
-**Behavior:** Parses `X-Company-Id` / `X-Company-Scope: all`; sets `request.companyContext`; public routes exempt. Service-layer filtering **not in scope**.
+**Behavior:** Parses `X-Company-Id` / `X-Company-Scope: all`; sets `request.companyContext`; public routes exempt.
 
-**Integration gate:** **320 / 320 PASS** (baseline + company context tests).
-
-**Next milestone (requires approval):** Service-layer list filters by `request.companyContext`.
+**Integration gate:** **320 / 320 PASS** (baseline + company context middleware tests).
 
 ### v1.4.0 Productization Foundation — Global Company Context (DL-050) ✅
 
@@ -305,7 +320,7 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 1. **SQL-first always** — schema changes in SQL files first; then `schema.prisma` mapping.
 2. **Formula First** — no alternate business roots; all flows from Formula.
 3. **Deferred = no code** until explicit approval.
-4. **Core domain changes** require integration suite green (320/320).
+4. **Core domain changes** require integration suite green (337+).
 5. **CI green** on `main` before merge.
 6. **No scope creep** — touch only requested files; no drive-by refactors.
 7. **`formula_no`** — DB DEFAULT `generate_formula_no()` only; never manual assign.
@@ -374,12 +389,14 @@ Read PROJECT_CONTEXT.md and .cursor/rules/tocs-core.mdc before answering.
 
 Current state:
 - Core MVP ACCEPTED (DL-034); 48 HTTP routes; gap 0
-- Integration 320/320 PASS; GitHub Actions GREEN on main
+- Integration 337+ PASS; GitHub Actions GREEN on main
 - Auth foundation docs v1.3.0–v1.3.6 ACCEPTED (DL-041–DL-046)
 - Auth implementation v1.3.7–v1.3.17 COMPLETE — Phases 1–6 closed (DL-049)
 - Auth: Completed · Stable · Production Ready
 - v1.4.0 Productization Foundation — Global Company Context policy ACCEPTED (DL-050); docs only
-- Next: company context middleware + Service filters (explicit approval); optional Phase 7 / V2 auth items
+- v1.4.1 Company context middleware — `request.companyContext` from headers (shipped)
+- v1.4.2 Service-layer company scope filters — list/KPI query scoping (shipped)
+- Next: Product UI shell P5–P6 (explicit approval); optional Phase 7 / V2 auth items
 
 Non-negotiable:
 - Formula First Architecture — Formula is source of truth

@@ -214,4 +214,64 @@ test('Company context scope integration', { skip: !hasDatabase }, async (t) => {
       assert.notEqual(item.formula_id, formulaBId);
     }
   });
+
+  const formulaChildListCases = [
+    { name: 'participants', path: (id: string) => `/api/v1/formulas/${id}/participants` },
+    { name: 'payment-schedules', path: (id: string) => `/api/v1/formulas/${id}/payment-schedules` },
+    { name: 'payment-records', path: (id: string) => `/api/v1/formulas/${id}/payment-records` },
+    { name: 'invoices', path: (id: string) => `/api/v1/formulas/${id}/invoices` },
+    { name: 'logistics', path: (id: string) => `/api/v1/formulas/${id}/logistics` },
+    { name: 'shares', path: (id: string) => `/api/v1/formulas/${id}/shares` },
+    { name: 'versions', path: (id: string) => `/api/v1/formulas/${id}/versions` },
+  ] as const;
+
+  for (const childCase of formulaChildListCases) {
+    await t.test(`GET ${childCase.name} allows company A formula in company A scope`, async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: childCase.path(formulaAId),
+        headers: withCompanyId(viewerFixture.accessToken, companyA.id),
+      });
+
+      assert.equal(response.statusCode, 200);
+
+      const body = readJsonBody(response.payload) as { items: unknown[] };
+      assert.ok(Array.isArray(body.items));
+    });
+
+    await t.test(`GET ${childCase.name} hides company B formula in company A scope`, async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: childCase.path(formulaBId),
+        headers: withCompanyId(viewerFixture.accessToken, companyA.id),
+      });
+
+      assert.equal(response.statusCode, 404);
+    });
+  }
+
+  await t.test('GET dashboard kpi/participants scoped to company A formula', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/formulas/${formulaAId}/kpi/participants?limit=100`,
+      headers: withCompanyId(viewerFixture.accessToken, companyA.id),
+    });
+
+    assert.equal(response.statusCode, 200);
+
+    const body = readJsonBody(response.payload) as { items: Array<{ formula_id: string }> };
+    for (const item of body.items) {
+      assert.equal(item.formula_id, formulaAId);
+    }
+  });
+
+  await t.test('GET dashboard kpi/participants hides company B formula', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/formulas/${formulaBId}/kpi/participants?limit=100`,
+      headers: withCompanyId(viewerFixture.accessToken, companyA.id),
+    });
+
+    assert.equal(response.statusCode, 404);
+  });
 });

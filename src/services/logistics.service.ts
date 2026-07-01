@@ -18,8 +18,9 @@ import {
   logisticsRepository,
 } from '../repositories/logistics.repository.js';
 import type { LogisticsCreateData } from '../repositories/logistics.repository.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 import { CompanyService, companyService } from './company.service.js';
-import { FormulaNotFoundError } from './formula.service.js';
+import { assertFormulaCompanyScope, FormulaNotFoundError } from './formula.service.js';
 import { assertNotClosedForTradeMutation } from './guards/closed-formula.guard.js';
 import {
   VersionService,
@@ -171,7 +172,11 @@ export class LogisticsService {
     return logistics;
   }
 
-  async listLogisticsByFormulaId(formulaId: string): Promise<Logistics[]> {
+  async listLogisticsByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<Logistics[]> {
+    await assertFormulaCompanyScope(formulaId, companyScope);
     return this.repository.listLogisticsByFormulaId(formulaId);
   }
 

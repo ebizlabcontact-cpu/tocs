@@ -1,6 +1,7 @@
 import type { Invoice, InvoiceStatus } from '@prisma/client';
 
 import { ActionError } from './formula.actions.js';
+import { FormulaNotFoundError } from '../services/formula.service.js';
 import {
   InvoiceNotFoundError,
   InvoiceService,
@@ -9,6 +10,7 @@ import {
   invoiceService,
 } from '../services/invoice.service.js';
 import type { CreateInvoiceInput, FormulaInvoiceStatus } from '../services/invoice.service.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 
 export interface CreateInvoiceRequest {
   issuer_company_id: string;
@@ -163,6 +165,10 @@ function assertUpdateInvoiceStatusRequiredFields(body: UpdateInvoiceStatusReques
 }
 
 function mapInvoiceServiceError(error: unknown): never {
+  if (error instanceof FormulaNotFoundError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof InvoiceNotFoundError) {
     throw new ActionError(404, error.message);
   }
@@ -204,12 +210,19 @@ export class InvoiceActions {
     }
   }
 
-  async listInvoicesByFormulaId(formulaId: string): Promise<InvoiceListResponse> {
-    const invoices = await this.service.listInvoicesByFormulaId(formulaId);
+  async listInvoicesByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<InvoiceListResponse> {
+    try {
+      const invoices = await this.service.listInvoicesByFormulaId(formulaId, companyScope);
 
-    return {
-      items: invoices.map(toInvoiceResponse),
-    };
+      return {
+        items: invoices.map(toInvoiceResponse),
+      };
+    } catch (error) {
+      mapInvoiceServiceError(error);
+    }
   }
 
   async getFormulaInvoiceStatus(formulaId: string): Promise<FormulaInvoiceStatusResponse> {
@@ -271,8 +284,11 @@ export async function getInvoiceById(id: string): Promise<InvoiceResponse> {
   return invoiceActions.getInvoiceById(id);
 }
 
-export async function listInvoicesByFormulaId(formulaId: string): Promise<InvoiceListResponse> {
-  return invoiceActions.listInvoicesByFormulaId(formulaId);
+export async function listInvoicesByFormulaId(
+  formulaId: string,
+  companyScope?: CompanyScopeFilter,
+): Promise<InvoiceListResponse> {
+  return invoiceActions.listInvoicesByFormulaId(formulaId, companyScope);
 }
 
 export async function getFormulaInvoiceStatus(

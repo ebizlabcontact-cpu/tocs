@@ -1,6 +1,7 @@
 import type { PaymentDirection, PaymentGroup, PaymentRecord, PaymentSchedule, PaymentStatus } from '@prisma/client';
 
 import { ActionError } from './formula.actions.js';
+import { FormulaNotFoundError } from '../services/formula.service.js';
 import {
   ClosedFormulaTradeMutationError,
   FormulaNotFoundForGuardError,
@@ -20,6 +21,7 @@ import type {
   CreatePaymentRecordInput,
   CreatePaymentScheduleInput,
 } from '../services/payment.service.js';
+import type { CompanyScopeFilter } from '../types/company-scope.types.js';
 
 export interface CreatePaymentScheduleRequest {
   direction: PaymentDirection;
@@ -218,6 +220,10 @@ function mapCancelPaymentRecordRequest(
 }
 
 function mapPaymentServiceError(error: unknown): never {
+  if (error instanceof FormulaNotFoundError) {
+    throw new ActionError(404, error.message);
+  }
+
   if (error instanceof FormulaNotFoundForGuardError) {
     throw new ActionError(404, error.message);
   }
@@ -271,12 +277,22 @@ export class PaymentScheduleActions {
     }
   }
 
-  async listPaymentSchedulesByFormulaId(formulaId: string): Promise<PaymentScheduleListResponse> {
-    const schedules = await this.service.listSchedulesByFormulaId(formulaId);
+  async listPaymentSchedulesByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<PaymentScheduleListResponse> {
+    try {
+      const schedules = await this.service.listSchedulesByFormulaId(
+        formulaId,
+        companyScope,
+      );
 
-    return {
-      items: schedules.map(toPaymentScheduleResponse),
-    };
+      return {
+        items: schedules.map(toPaymentScheduleResponse),
+      };
+    } catch (error) {
+      mapPaymentServiceError(error);
+    }
   }
 }
 
@@ -306,12 +322,19 @@ export class PaymentRecordActions {
     }
   }
 
-  async listPaymentRecordsByFormulaId(formulaId: string): Promise<PaymentRecordListResponse> {
-    const records = await this.service.listRecordsByFormulaId(formulaId);
+  async listPaymentRecordsByFormulaId(
+    formulaId: string,
+    companyScope?: CompanyScopeFilter,
+  ): Promise<PaymentRecordListResponse> {
+    try {
+      const records = await this.service.listRecordsByFormulaId(formulaId, companyScope);
 
-    return {
-      items: records.map(toPaymentRecordResponse),
-    };
+      return {
+        items: records.map(toPaymentRecordResponse),
+      };
+    } catch (error) {
+      mapPaymentServiceError(error);
+    }
   }
 
   async cancelPaymentRecord(
@@ -343,8 +366,9 @@ export async function getPaymentScheduleById(id: string): Promise<PaymentSchedul
 
 export async function listPaymentSchedulesByFormulaId(
   formulaId: string,
+  companyScope?: CompanyScopeFilter,
 ): Promise<PaymentScheduleListResponse> {
-  return paymentScheduleActions.listPaymentSchedulesByFormulaId(formulaId);
+  return paymentScheduleActions.listPaymentSchedulesByFormulaId(formulaId, companyScope);
 }
 
 export async function createPaymentRecord(
@@ -360,8 +384,9 @@ export async function getPaymentRecordById(id: string): Promise<PaymentRecordRes
 
 export async function listPaymentRecordsByFormulaId(
   formulaId: string,
+  companyScope?: CompanyScopeFilter,
 ): Promise<PaymentRecordListResponse> {
-  return paymentRecordActions.listPaymentRecordsByFormulaId(formulaId);
+  return paymentRecordActions.listPaymentRecordsByFormulaId(formulaId, companyScope);
 }
 
 export async function cancelPaymentRecord(

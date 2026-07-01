@@ -12,6 +12,7 @@
 
 import { prisma } from '../lib/prisma.js';
 import { FormulaRepository, formulaRepository } from '../repositories/formula.repository.js';
+import { participantRepository } from '../repositories/participant.repository.js';
 import type {
   FormulaCreateData,
   FormulaListParams,
@@ -26,6 +27,23 @@ export class FormulaNotFoundError extends Error {
   constructor(message = 'Formula not found') {
     super(message);
     this.name = 'FormulaNotFoundError';
+  }
+}
+
+export async function assertFormulaCompanyScope(
+  formulaId: string,
+  companyScope?: CompanyScopeFilter,
+): Promise<void> {
+  const scopeCompanyId = resolveScopeCompanyId(companyScope);
+  if (scopeCompanyId === undefined) {
+    return;
+  }
+
+  const participants = await participantRepository.listParticipantsByFormulaId(formulaId);
+  const inScope = participants.some((participant) => participant.companyId === scopeCompanyId);
+
+  if (!inScope) {
+    throw new FormulaNotFoundError(`Formula not found: ${formulaId}`);
   }
 }
 
