@@ -134,7 +134,23 @@ Documentation-only batch; no application, schema, middleware, UI, or test change
 
 | Batch | Scope |
 |-------|--------|
-| v1.5.5 | Productization V1 IA — global nav (Dashboard, Formulas, Companies, Calendar, Reports, Settings); Formula Detail 9 tabs; `NAVIGATION_ARCHITECTURE.md` |
+| v1.5.5 | Productization V1 IA — global nav + Formula Detail tabs; `NAVIGATION_ARCHITECTURE.md` |
+
+**Integration gate:** **343 / 343 PASS** (unchanged — documentation-only).
+
+### Dashboard KPI drill-down v1.5.7 (docs)
+
+| Batch | Scope |
+|-------|--------|
+| v1.5.7 | KPI card drill-down **Accepted** — List + pre-filter mapping; Company Context + Date Range preserved; `DASHBOARD_V1_SPEC.md` §4.3 |
+
+**Integration gate:** **343 / 343 PASS** (unchanged — documentation-only).
+
+### Dashboard wireframe v1.5.6 (docs)
+
+| Batch | Scope |
+|-------|--------|
+| v1.5.6 | Dashboard screen wireframe §11 — Header, 4 sections, mobile stack; `DASHBOARD_V1_SPEC.md` |
 
 **Integration gate:** **343 / 343 PASS** (unchanged — documentation-only).
 

@@ -129,6 +129,8 @@ Public endpoint: `GET /api/v1/health` only.
 
 **IA baseline (v1.5.5):** Global nav — Dashboard, Formulas, Companies, Calendar, Reports, Settings. Formula Detail — Overview, Timeline, Participants, Payments, Invoices, Logistics, Shares, Versions, Settlement. See `NAVIGATION_ARCHITECTURE.md`.
 
+**Dashboard wireframe (v1.5.6):** Header + KPI 8 cards + Profit + Cash Flow + Formula sections — `DASHBOARD_V1_SPEC.md` §11.
+
 ---
 
 ## 7. Pending Decisions
@@ -151,8 +153,9 @@ Items below are **Pending Decision** — not approved for implementation. Do not
 | **Loss policy** — 음수 실현순이익, 별도 손실 카드, 손실 Formula 수, 총 손실액 | **Confirmed** |
 | **Profit on Dashboard** — **Realized only**; Estimated excluded | **Confirmed** |
 | **P1 KPI** — 월 매출/매입, 회사별·품목별 순이익 등 | **Deferred** (V2+, §4.6) |
+| **KPI card drill-down** | **Accepted** — List + pre-filter (§4.3); Company Context + Date Range preserved |
 
-See `docs/specs/DASHBOARD_V1_SPEC.md` §4.0–§4.6.
+See `docs/specs/DASHBOARD_V1_SPEC.md` §4.0–§4.6, §4.3, §11.
 
 ### Formula Wizard
 

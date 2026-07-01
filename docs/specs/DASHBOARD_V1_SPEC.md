@@ -4,7 +4,7 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | v1.5.4 (KPI policy confirmed — documentation only) |
+| **Version** | v1.5.7 (KPI drill-down policy **Accepted**) |
 | **Status** | ACCEPTED (DL-051) — **§4 KPI policy amended** v1.5.4 |
 | **Implementation** | **Not started** — UI in P5–P6; backend scope filters shipped (v1.4.2) |
 
@@ -34,7 +34,7 @@ Dashboard v1 is the **first screen after login** (`/app/dashboard`). It summariz
 | **Formula First** | All metrics derive from **scoped formula set** only |
 | **Client aggregation allowed** | Summary cards may roll up existing per-formula/list endpoints |
 | **Profit on Dashboard** | **Realized Net Profit (실현 순이익) only** — **Estimated excluded** (§4.4) |
-| **P1 KPIs** | **Out of Dashboard v1 layout** — documented for V2+ (§4.6) |
+| **5-second executive scan** | Layout prioritizes P0 numbers above the fold (§11) |
 
 ---
 
@@ -61,31 +61,19 @@ UI must show active scope banner for SUPER_ADMIN `all` mode (NAVIGATION_ARCHITEC
 
 ---
 
-## 3. Layout (design)
+## 3. Layout (summary)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  [ Scope banner — SUPER_ADMIN all only ]                          │
-├─────────────────────────────────────────────────────────────────┤
-│  Summary Cards (7 P0 + Loss §4.5)                                 │
-│  ┌──────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌──────┐ │
-│  │실현순이익│ │ 미수금 │ │미지급금│ │예정입금│ │예정출금│ │종결  │ │
-│  └──────────┘ └────────┘ └────────┘ └────────┘ └────────┘ │대기  │ │
-│  ┌──────┐ ┌──────────────── 손실 §4.5 ────────────────┐ │      │ │
-│  │계산서│ │ 손실 Formula 수 │ 총 손실액 │ 음수 실현순이익 │ └──────┘ │
-│  └──────┘ └────────────────────────────────────────────┘           │
-├──────────────────────────────┬──────────────────────────────────┤
-│  Recent Activity (3 panels)  │  Quick Actions (4)                │
-│  · 최근 Formula              │  · Formula 생성                   │
-│  · 최근 입출금               │  · 입금 등록                      │
-│  · 최근 계산서 상태          │  · 출금 등록                      │
-│                              │  · 계산서 확인                    │
-└──────────────────────────────┴──────────────────────────────────┘
-```
+Normative **screen wireframe** is **§11** (desktop + mobile). Below is the **logical zone map** only — not a build spec.
 
-**P1 KPIs (§4.6)** are **not** on this layout in Dashboard v1.
+| Zone | §11 | Policy |
+|------|-----|--------|
+| Header | Header | Global Company Context (DL-050) |
+| KPI cards | Section 1 | §4.1, §4.5 |
+| Profit / loss detail | Section 2 | §4.4 Realized only |
+| Cash timelines | Section 3 | Timeline-centric UX |
+| Formula lists | Section 4 | Formula First |
 
-Exact visual styling is implementation detail (P5–P6). **Information architecture above is normative.**
+**P1 KPI cards (§4.6)** remain excluded. §11 Section 2 **monthly Realized graph** is wireframe visualization — not P1 “월 매출/매입” cards.
 
 ---
 
@@ -95,24 +83,25 @@ Exact visual styling is implementation detail (P5–P6). **Information architect
 
 | Tier | Scope | Dashboard v1 |
 |------|-------|--------------|
-| **P0** | Required on Dashboard layout | **Included** (§4.1, §4.5) |
+| **P0** | Required on Dashboard layout | **Included** — 8 KPI cards (§4.1, §11 Section 1) |
 | **P1** | Secondary analytics | **Excluded** — V2+ (§4.6) |
 
 **Aggregation rule:** Client-side roll-up from existing scoped APIs. **No new backend aggregate endpoint.**
 
-### 4.1 P0 card definitions
+### 4.1 P0 card definitions (Section 1 wireframe)
 
-Seven P0 summary cards (+ loss block §4.5). Each P0 card shows **one aggregated number** for the **scoped formula set**.
+Eight KPI cards in **§11 Section 1**. Each shows **one aggregated number** for the **scoped formula set**.
 
 | Priority | Card (KO) | Card (EN) | Metric | Existing API(s) |
 |:--------:|-----------|-----------|--------|-----------------|
-| P0 | **실현 순이익** | Realized Net Profit | `SUM(confirmed_net_profit)` | List + `GET .../kpi/confirmed` |
+| P0 | **실현 순이익** | Realized Net Profit | `SUM(confirmed_net_profit)` — **negative allowed** (§4.5) | List + `GET .../kpi/confirmed` |
 | P0 | **미수금** | Receivable | `SUM(receivable)` | List + `GET .../receivable-payable` or `GET .../kpi/participants` |
 | P0 | **미지급금** | Payable | `SUM(payable)` | Same |
 | P0 | **예정 입금** | Scheduled IN | `SUM(scheduled_in)` | `GET .../kpi/confirmed` or participant KPI |
 | P0 | **예정 출금** | Scheduled OUT | `SUM(scheduled_out)` | Same |
 | P0 | **종결 대기** | Close pending | Count close-eligible, not closed | List + `v_formula_closeable` (bounded) |
 | P0 | **계산서 미매칭** | Invoice mismatch | Count not amount-matched | List + `GET .../invoices/status` |
+| P0 | **총 손실액** | Total loss amount | `SUM(ABS(confirmed_net_profit))` where per-formula profit &lt; 0 | `GET .../kpi/confirmed` per formula |
 
 **Label rule:** **실현 순이익** = **Realized Net Profit** only (§4.4).
 
@@ -126,16 +115,69 @@ Seven P0 summary cards (+ loss block §4.5). Each P0 card shows **one aggregated
 
 **Forbidden:** Fetching unscoped formula list and filtering in Frontend. Backend scope (v1.4.2) is mandatory.
 
-### 4.3 Card drill-down
+### 4.3 KPI card drill-down — **Accepted**
 
-| Card | Default drill-down target |
-|------|---------------------------|
-| **실현 순이익** | Formula list sorted by confirmed net profit / KPI detail |
-| **손실** (§4.5) | Formula list filtered to loss formulas (`kpi/confirmed` &lt; 0) |
-| 미수금 / 미지급금 | Formula list sorted by receivable/payable (Formula menu) |
-| 예정 입금 / 예정 출금 | Payment menu — schedules view |
-| 종결 대기 | Formula list filtered to close-eligible (client filter on scoped list) |
-| 계산서 미매칭 | Invoice menu or Formula list with invoice status column |
+**Status:** **Accepted**
+
+**Core rule:**
+
+```
+Card click  =  existing List screen  +  pre-applied filter
+```
+
+| Rule | Detail |
+|------|--------|
+| **No new API** | Drill-down uses **existing** list routes and Core MVP reads (§8) — **forbidden** to add Dashboard-specific list endpoints |
+| **Company Context** | **`X-Company-Id` / `X-Company-Scope: all` unchanged** — same global context as Dashboard; list screens **must not** drop or override header scope |
+| **Date Range** | Dashboard **Date Range** (§11.2) **carried forward** as list filter state when navigating from a card (where metric is date-sensitive) |
+| **Mobile** | **Identical** targets and filters as desktop — only layout differs |
+| **Formula First** | Formula List drill-downs land on **`/app/formulas`**; schedule drill-downs on **Payment Schedule List** (§4.3.2) |
+
+#### 4.3.1 Card → screen mapping
+
+| KPI card | Target list screen | Pre-applied filter / sort |
+|----------|-------------------|---------------------------|
+| **실현 순이익** | **Formula List** | **Profit sort** — Realized Net Profit descending (`kpi/confirmed`) |
+| **미수금** | **Formula List** | `receivable > 0` |
+| **미지급금** | **Formula List** | `payable > 0` |
+| **예정 입금** | **Payment Schedule List** | `direction = incoming` (IN) **+ incomplete** |
+| **예정 출금** | **Payment Schedule List** | `direction = outgoing` (OUT) **+ incomplete** |
+| **종결 대기** | **Formula List** | `closeable = true` |
+| **계산서 미매칭** | **Formula List** | `invoice unmatched` |
+| **총 손실액** | **Formula List** | `realized_profit < 0` |
+
+#### 4.3.2 List screen definitions
+
+| List screen | Route (design) | Data source (existing APIs) |
+|-------------|----------------|----------------------------|
+| **Formula List** | `/app/formulas` | `GET /api/v1/formulas` (scoped) + per-row KPI/status for sort/filter |
+| **Payment Schedule List** | `/app/payment-schedules` | Scoped formulas → `GET .../payment-schedules`; client merge (§11.5) |
+
+**Filter application:** Pre-filter/sort on **scoped** data or navigation state preset. **Forbidden:** unscoped fetch then filter.
+
+#### 4.3.3 Filter semantics
+
+| Filter token | Meaning |
+|--------------|---------|
+| **Profit sort** | Sort by Realized Net Profit descending |
+| **receivable > 0** | Aggregate receivable &gt; 0 |
+| **payable > 0** | Aggregate payable &gt; 0 |
+| **incoming + incomplete** | Schedule IN; incomplete = not fully covered by payment records |
+| **outgoing + incomplete** | Schedule OUT; same incomplete rule |
+| **closeable = true** | Close-eligible (`v_formula_closeable`), not closed |
+| **invoice unmatched** | Invoice not fully amount-matched |
+| **realized_profit < 0** | Confirmed net profit &lt; 0 |
+
+#### 4.3.4 Forbidden
+
+| Forbidden | Reason |
+|-----------|--------|
+| New drill-down or Dashboard list API | §8 |
+| Dashboard-only list routes | Reuse Formula / Payment Schedule lists |
+| Drop Company Context on navigation | DL-050 |
+| Drop Date Range when range-bound | §11.2 |
+| Estimated metric on drill-down | §4.4 |
+| Card → Formula Detail directly (default) | List first; row → Detail |
 
 ### 4.4 Profit policy — **confirmed**
 
@@ -178,9 +220,8 @@ Applies to **Realized Net Profit** only (§4.4). **Estimated** loss preview is *
 | Rule | Detail |
 |------|--------|
 | **음수 실현 순이익 표시** | P0 **실현 순이익** card shows **negative values** when aggregate confirmed net profit &lt; 0 |
-| **별도 손실 카드** | Dedicated **손실** block/cards on Dashboard (§3 layout) — distinct from other P0 cash cards |
-| **손실 Formula 수** | Count of scoped formulas where **per-formula** Realized Net Profit &lt; 0 |
-| **총 손실액** | `SUM(ABS(confirmed_net_profit))` for formulas with confirmed net profit &lt; 0 only (display as positive loss amount with clear label) |
+| **총 손실액 카드** | P0 **총 손실액** in §11 Section 1 — positive loss amount label (§4.1) |
+| **손실 Formula TOP** | §11 Section 2 ranked list — count + detail per loss formula |
 
 | Metric | Source |
 |--------|--------|
@@ -207,7 +248,9 @@ Documented for **V2+** or later Dashboard iteration. **Not** on v1 layout (§3).
 
 ---
 
-## 5. Recent Activity
+## 5. Recent Activity (legacy drill-down reference)
+
+> **Layout:** Superseded by **§11 Section 4** for Dashboard screen wireframe. Retained for **API / navigation** rules.
 
 Three read-only panels. All data **scoped** by `request.companyContext`.
 
@@ -317,7 +360,8 @@ All routes require auth + company context per v1.4.2.
 | Mixing Estimated / Realized labels or roll-ups | §4.4 — **forbidden** |
 | P1 KPI cards without re-scope | §4.6 — out of v1 layout |
 | Formula Wizard on Quick Action | Separate product decision (FEATURE_DECISION_AUDIT) |
-| Dashboard-only API variants | Reuse standard business routes |
+| Dashboard KPI card opens Detail directly (bypass List) | §4.3 — List + filter first |
+| Drill-down-specific API routes | §4.3 — use existing list APIs |
 
 ---
 
@@ -327,9 +371,174 @@ All routes require auth + company context per v1.4.2.
 |-------|-----------|---------------------|
 | P4 | v1.4.1–v1.4.2 ✅ | Scoped backend queries |
 | P5 | v1.5.x+ (UI) | App shell + Dashboard layout |
-| P6 | v1.5.x+ (UI) | Wire cards / activity / quick actions to scoped APIs |
+| P6 | v1.5.x+ (UI) | Implement **§11 wireframe** against scoped APIs |
 
 Optional **V2:** dedicated `GET /api/v1/dashboard/summary` — must accept same company context headers; requires separate DL approval.
+
+---
+
+## 11. Screen wireframe (Productization V1)
+
+**Scope:** Information architecture and **ASCII wireframe only**. **No** visual design system, **no** React/components, **no** v0 code.
+
+**Goal:** Representative (**대표**) can grasp **company state in ~5 seconds** from Section 1 KPI row + header context.
+
+### 11.0 Wireframe principles
+
+| Principle | Wireframe rule |
+|-----------|----------------|
+| **5-second scan** | Section 1 KPI cards **first row below header** — largest numeric emphasis |
+| **Formula First** | KPI card → **List + filter** (§4.3); row → Formula Detail / Timeline |
+| **Global Company Context** | **Company Switcher** in header only — Date Range filters **display**, not company scope |
+| **Profit Engine** | Dashboard shows **Realized Net Profit** only — graph and cards use `kpi/confirmed`; **no Estimated** |
+| **Timeline-centric** | Section 3 cash timelines; Section 4 row click → Formula Detail **Timeline** default optional |
+| **Existing APIs** | All widgets compose scoped list + per-formula reads (§4.2, §8) — **no new routes** |
+
+---
+
+### 11.1 Desktop wireframe
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ HEADER                                                                        │
+│ [TOCS]  [Company Switcher ▼]  [Date Range ▼]  [Search…]  [🔔]  [Profile ▼]  │
+│ [ Scope banner — SUPER_ADMIN all only ]                                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ SECTION 1 — KPI CARDS (horizontal scroll or 2-row grid if narrow)             │
+│ ┌──────────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────────┐   │
+│ │실현 순이익││ 미수금││미지급││예정  ││예정  ││종결  ││계산서││ 총 손실액 │   │
+│ │  ±₩…    ││  ₩… ││  ₩… ││입금  ││출금  ││ 대기 ││미매칭││   ₩…    │   │
+│ └──────────┘└──────┘└──────┘└──────┘└──────┘└──────┘└──────┘└──────────┘   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ SECTION 2 — PROFIT                                                            │
+│ ┌───────────────────────────────┐  ┌─────────────────────────────────────┐ │
+│ │ 월별 실현 순이익 (bar/line)    │  │ 손실 Formula TOP (N≤5)              │ │
+│ │ [Date Range applies]           │  │ formula_no │ loss amt │ link →      │ │
+│ │ Realized only — no Estimated   │  │ …                                  │ │
+│ └───────────────────────────────┘  └─────────────────────────────────────┘ │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ SECTION 3 — CASH FLOW (Timeline)                                              │
+│ ┌─────────────────────────────┐  ┌─────────────────────────────┐           │
+│ │ 입금 예정 Timeline           │  │ 출금 예정 Timeline           │           │
+│ │ date │ formula │ amount     │  │ date │ formula │ amount     │           │
+│ │ … (scoped schedules)        │  │ …                           │           │
+│ └─────────────────────────────┘  └─────────────────────────────┘           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ SECTION 4 — FORMULA                                                           │
+│ ┌─────────────────────────────┐  ┌─────────────────────────────┐           │
+│ │ 최근 Formula (N≤10)         │  │ 주의 Formula (N≤10)          │           │
+│ │ formula_no │ status │ date  │  │ formula_no │ reason │ date  │           │
+│ └─────────────────────────────┘  └─────────────────────────────┘           │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 11.2 Header (wireframe)
+
+| Control | Purpose | Scope / notes |
+|---------|---------|---------------|
+| **Company Switcher** | Global context (DL-050) | Sets `X-Company-Id` / `all` — **required** before data load |
+| **Date Range** | Filter **display** window for §11 Sections 2–3 | Client-side filter on fetched schedule/record dates; **does not** replace company header |
+| **Search** | Jump to Formula / Company | Query scoped formula list or navigate to search results — **no** global unscoped search |
+| **Notification** | Alert badge (unmatched payments, close pending count) | Read from existing KPI/list signals; **no** notification engine in v1 |
+| **Profile** | User menu, logout, settings link | Auth/me; **not** company switcher |
+
+---
+
+### 11.3 Section 1 — KPI Cards
+
+| Card | Wireframe metric | §4 ref |
+|------|------------------|--------|
+| 실현 순이익 | Aggregate Realized Net Profit | §4.1, §4.4 |
+| 미수금 | Sum receivable | §4.1 |
+| 미지급금 | Sum payable | §4.1 |
+| 예정 입금 | Sum scheduled IN | §4.1 |
+| 예정 출금 | Sum scheduled OUT | §4.1 |
+| 종결 대기 | Count close-eligible | §4.1 |
+| 계산서 미매칭 | Count invoice mismatch | §4.1 |
+| 총 손실액 | Sum of loss amounts (formulas with profit &lt; 0) | §4.1, §4.5 |
+
+**Interaction:** Card click → **§4.3** (List screen + pre-filter). **Same on mobile.**
+
+---
+
+### 11.4 Section 2 — Profit
+
+| Widget | Content | Data intent (existing APIs) |
+|--------|---------|----------------------------|
+| **월별 실현 순이익 그래프** | Monthly buckets of **Realized Net Profit** | Client buckets `payment-records` + confirmed KPI by month within Date Range; **Realized only** |
+| **손실 Formula TOP** | Ranked list of worst loss formulas | Per-formula `kpi/confirmed` &lt; 0; sort ascending; top N |
+
+**Forbidden:** Estimated Net Profit series on this chart.
+
+---
+
+### 11.5 Section 3 — Cash Flow
+
+| Widget | Content | Data intent |
+|--------|---------|-------------|
+| **입금 예정 Timeline** | Chronological **scheduled IN** rows | Scoped formulas → `payment-schedules` where `direction=IN`; sort by `scheduled_date` |
+| **출금 예정 Timeline** | Chronological **scheduled OUT** rows | Same for OUT |
+
+**UX:** Timeline layout (not calendar grid). Row click → Formula Detail **Payments** or **Timeline** tab.
+
+---
+
+### 11.6 Section 4 — Formula
+
+| Widget | Content | Data intent |
+|--------|---------|-------------|
+| **최근 Formula** | Last created scoped formulas | `GET /formulas` `created_at DESC`, N≤10 |
+| **주의 Formula** | Formulas needing attention | Client rule: union of **loss**, **종결 대기**, **계산서 미매칭**, optional **unmatched payment** — dedupe by `formula_id` |
+
+| 주의 reason (examples) | Source |
+|------------------------|--------|
+| Loss | `kpi/confirmed` &lt; 0 |
+| Close pending | Close-eligible + not closed |
+| Invoice mismatch | Invoice status not matched |
+| Unmatched payment | `GET /payments/unmatched` (if in scope) |
+
+Row click → `/app/formulas/{id}` (Overview or Timeline).
+
+---
+
+### 11.7 Mobile wireframe
+
+**Rule:** **All sections vertical stack** — same order as desktop: Header → Section 1 → 2 → 3 → 4.
+
+```
+┌─────────────────────┐
+│ HEADER (collapsed)  │
+│ [Co ▼] [Date] [🔔] │
+├─────────────────────┤
+│ S1 KPI (1 col scroll│
+│  or 2-col mini grid)│
+├─────────────────────┤
+│ S2 Profit graph     │
+│ S2 Loss TOP         │
+├─────────────────────┤
+│ S3 입금 Timeline    │
+│ S3 출금 Timeline    │
+├─────────────────────┤
+│ S4 최근 Formula     │
+│ S4 주의 Formula     │
+└─────────────────────┘
+```
+
+Search / Profile may move to header overflow menu on narrow viewports — **implementation detail**; controls remain available.
+
+---
+
+### 11.8 Wireframe forbidden
+
+| Forbidden | Reason |
+|-----------|--------|
+| React / component library spec | Out of scope |
+| Color, typography, spacing tokens | Visual design phase |
+| Estimated profit on Dashboard widgets | §4.4 |
+| Dashboard-local company filter | DL-050 |
+| New aggregate HTTP routes | §8 |
 
 ---
 
@@ -341,4 +550,6 @@ Optional **V2:** dedicated `GET /api/v1/dashboard/summary` — must accept same 
 | 2026-07-01 | v1.5.0 — Full Dashboard V1 spec: 6 summary cards, Recent Activity, Quick Actions (DL-051) |
 | 2026-07-01 | v1.5.0 — Pending Decision note: Profit/Loss KPI (§4.4) |
 | 2026-07-01 | v1.5.2 — §4.4: Estimated vs Realized Net Profit terminology confirmed; layout L1–L4 Pending |
-| 2026-07-01 | v1.5.4 — **KPI policy confirmed:** P0 (7 cards + loss §4.5), P1 deferred §4.6; Dashboard Realized only |
+| 2026-07-01 | v1.5.4 — **KPI policy confirmed:** P0 + loss; Dashboard Realized only |
+| 2026-07-01 | v1.5.6 — **§11 Screen wireframe** (Header + 4 sections; mobile stack) |
+| 2026-07-01 | v1.5.7 — **§4.3 KPI card drill-down Accepted** (List + pre-filter; no new API) |
