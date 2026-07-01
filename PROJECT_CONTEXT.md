@@ -133,16 +133,24 @@ Public endpoint: `GET /api/v1/health` only.
 
 Items below are **Pending Decision** — not approved for implementation. Do not treat as fixed UX policy.
 
-### Dashboard
+### Confirmed terminology (profit metrics)
+
+| Term | Status | Reference |
+|------|--------|-----------|
+| **Estimated Net Profit (예상 순이익)** | **Confirmed** | `FORMULA_WIZARD_SPEC.md` §2.5 |
+| **Realized Net Profit (실현 순이익)** | **Confirmed** | `FORMULA_WIZARD_SPEC.md` §2.5 · `DASHBOARD_V1_SPEC.md` §4.4 |
+| **Estimated ≠ Realized** (no mixing) | **Confirmed** | Same |
+
+### Dashboard KPI (confirmed v1.5.4)
 
 | Item | Status |
 |------|--------|
-| 실현 순이익 표시 여부 | **Pending Decision** |
-| 계산상 이익 표시 여부 | **Pending Decision** |
-| 확정 이익 표시 여부 | **Pending Decision** |
-| 손실 표시 방식 | **Pending Decision** |
+| **P0 KPI** — 실현 순이익, 미수금, 미지급금, 예정 입·출금, 종결 대기, 계산서 미매칭 | **Confirmed** |
+| **Loss policy** — 음수 실현순이익, 별도 손실 카드, 손실 Formula 수, 총 손실액 | **Confirmed** |
+| **Profit on Dashboard** — **Realized only**; Estimated excluded | **Confirmed** |
+| **P1 KPI** — 월 매출/매입, 회사별·품목별 순이익 등 | **Deferred** (V2+, §4.6) |
 
-See `docs/specs/DASHBOARD_V1_SPEC.md` §4.4.
+See `docs/specs/DASHBOARD_V1_SPEC.md` §4.0–§4.6.
 
 ### Formula Wizard
 
@@ -150,9 +158,10 @@ See `docs/specs/DASHBOARD_V1_SPEC.md` §4.4.
 |------|--------|
 | Share 입력 포함 여부 | **Pending Decision** |
 | Invoice 예정 정보 포함 여부 | **Pending Decision** |
-| Draft 저장 기능 포함 여부 | **Pending Decision** |
+| **Realized Net Profit** in Wizard (§12 C) | **Pending Decision** — preview = **Estimated Net Profit** (confirmed) |
+| Wizard **Draft** (save / resume / list) | **Deferred** (V1 excluded) — `FORMULA_WIZARD_SPEC.md` §2.6 |
 
-See `docs/specs/FORMULA_WIZARD_SPEC.md` §12.
+See `docs/specs/FORMULA_WIZARD_SPEC.md` §12 · §14.
 
 ---
 
@@ -309,7 +318,7 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 | Deliverable | Status |
 |-------------|--------|
 | [`FORMULA_WIZARD_SPEC.md`](docs/specs/FORMULA_WIZARD_SPEC.md) — 6-step minimal wizard | ✅ Spec draft |
-| Pending approval | Share / Invoice / realized profit / Draft save (§12) |
+| Pending approval | Share / Invoice / Realized in Wizard / post-create navigation (§12 A–C, §14 #5) — **Draft Deferred** §2.6 |
 
 **Scope:** Documentation only — no backend, API, DB, or UI.
 

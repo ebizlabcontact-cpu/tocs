@@ -4,8 +4,8 @@
 
 | Field | Value |
 |-------|--------|
-| **Version** | v1.5.0 (Specification — documentation only) |
-| **Status** | ACCEPTED (DL-051) |
+| **Version** | v1.5.4 (KPI policy confirmed — documentation only) |
+| **Status** | ACCEPTED (DL-051) — **§4 KPI policy amended** v1.5.4 |
 | **Implementation** | **Not started** — UI in P5–P6; backend scope filters shipped (v1.4.2) |
 
 **Related:** [`GLOBAL_COMPANY_CONTEXT_POLICY.md`](./GLOBAL_COMPANY_CONTEXT_POLICY.md), [`NAVIGATION_ARCHITECTURE.md`](./NAVIGATION_ARCHITECTURE.md), [`PRODUCTIZATION_V1_PLAN.md`](./PRODUCTIZATION_V1_PLAN.md), [`ROUTE_PROTECTION_POLICY.md`](./ROUTE_PROTECTION_POLICY.md), [`FEATURE_DECISION_AUDIT.md`](./FEATURE_DECISION_AUDIT.md)
@@ -33,7 +33,8 @@ Dashboard v1 is the **first screen after login** (`/app/dashboard`). It summariz
 | **Reuse existing APIs** | No new KPI engine; no `GET /dashboard/summary` in v1.5.0 |
 | **Formula First** | All metrics derive from **scoped formula set** only |
 | **Client aggregation allowed** | Summary cards may roll up existing per-formula/list endpoints |
-| **Profit/Loss pending** | Candidate KPI area documented in §4.4 — **not finalized** for v1 layout |
+| **Profit on Dashboard** | **Realized Net Profit (실현 순이익) only** — **Estimated excluded** (§4.4) |
+| **P1 KPIs** | **Out of Dashboard v1 layout** — documented for V2+ (§4.6) |
 
 ---
 
@@ -66,10 +67,13 @@ UI must show active scope banner for SUPER_ADMIN `all` mode (NAVIGATION_ARCHITEC
 ┌─────────────────────────────────────────────────────────────────┐
 │  [ Scope banner — SUPER_ADMIN all only ]                          │
 ├─────────────────────────────────────────────────────────────────┤
-│  Summary Cards (6)                                                │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌──────┐ │
-│  │ 미수금 │ │미지급금│ │예정입금│ │예정출금│ │종결대기│ │계산서│ │
-│  └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ └──────┘ │
+│  Summary Cards (7 P0 + Loss §4.5)                                 │
+│  ┌──────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌──────┐ │
+│  │실현순이익│ │ 미수금 │ │미지급금│ │예정입금│ │예정출금│ │종결  │ │
+│  └──────────┘ └────────┘ └────────┘ └────────┘ └────────┘ │대기  │ │
+│  ┌──────┐ ┌──────────────── 손실 §4.5 ────────────────┐ │      │ │
+│  │계산서│ │ 손실 Formula 수 │ 총 손실액 │ 음수 실현순이익 │ └──────┘ │
+│  └──────┘ └────────────────────────────────────────────┘           │
 ├──────────────────────────────┬──────────────────────────────────┤
 │  Recent Activity (3 panels)  │  Quick Actions (4)                │
 │  · 최근 Formula              │  · Formula 생성                   │
@@ -79,26 +83,38 @@ UI must show active scope banner for SUPER_ADMIN `all` mode (NAVIGATION_ARCHITEC
 └──────────────────────────────┴──────────────────────────────────┘
 ```
 
+**P1 KPIs (§4.6)** are **not** on this layout in Dashboard v1.
+
 Exact visual styling is implementation detail (P5–P6). **Information architecture above is normative.**
 
 ---
 
 ## 4. Summary cards (Dashboard V1)
 
-Six summary cards. Each card shows **one aggregated number** (currency or count) for the **scoped formula set**, plus optional drill-down link.
+### 4.0 KPI tiers — **confirmed policy**
 
-**Aggregation rule (v1.5.0):** Client-side roll-up from existing scoped APIs. **No new backend aggregate endpoint.**
+| Tier | Scope | Dashboard v1 |
+|------|-------|--------------|
+| **P0** | Required on Dashboard layout | **Included** (§4.1, §4.5) |
+| **P1** | Secondary analytics | **Excluded** — V2+ (§4.6) |
 
-### 4.1 Card definitions
+**Aggregation rule:** Client-side roll-up from existing scoped APIs. **No new backend aggregate endpoint.**
 
-| Card (KO) | Card (EN) | Metric | Aggregation source | Existing API(s) |
-|-----------|-----------|--------|--------------------|-----------------|
-| **미수금** | Receivable | `SUM(receivable)` over scoped formulas | Per-formula confirmed KPI | `GET /api/v1/formulas` (list) + `GET /api/v1/formulas/{id}/receivable-payable` per row **or** `GET /api/v1/formulas/{id}/kpi/participants` summed by company |
-| **미지급금** | Payable | `SUM(payable)` | Same | Same |
-| **예정 입금** | Scheduled IN | `SUM(scheduled_revenue)` or participant `scheduled_in` | Confirmed KPI scheduled columns | `GET /api/v1/formulas/{id}/kpi/confirmed` or participant KPI list |
-| **예정 출금** | Scheduled OUT | `SUM(scheduled_payment)` or participant `scheduled_out` | Same | Same |
-| **종결 대기** | Close pending | Count of scoped formulas **eligible to close** but `is_closed = false` | Close pre-check view | `GET /api/v1/formulas` + client filter using close eligibility (`v_formula_closeable` semantics via formula detail/close flow — per-formula check on listed IDs, bounded batch) |
-| **계산서 미매칭** | Invoice mismatch | Count of scoped formulas where invoice is **not** fully matched | Invoice derived status | `GET /api/v1/formulas` + `GET /api/v1/formulas/{id}/invoices/status` per row (bounded) **or** count where `invoice_status ≠ AMOUNT_MATCHED` on list response |
+### 4.1 P0 card definitions
+
+Seven P0 summary cards (+ loss block §4.5). Each P0 card shows **one aggregated number** for the **scoped formula set**.
+
+| Priority | Card (KO) | Card (EN) | Metric | Existing API(s) |
+|:--------:|-----------|-----------|--------|-----------------|
+| P0 | **실현 순이익** | Realized Net Profit | `SUM(confirmed_net_profit)` | List + `GET .../kpi/confirmed` |
+| P0 | **미수금** | Receivable | `SUM(receivable)` | List + `GET .../receivable-payable` or `GET .../kpi/participants` |
+| P0 | **미지급금** | Payable | `SUM(payable)` | Same |
+| P0 | **예정 입금** | Scheduled IN | `SUM(scheduled_in)` | `GET .../kpi/confirmed` or participant KPI |
+| P0 | **예정 출금** | Scheduled OUT | `SUM(scheduled_out)` | Same |
+| P0 | **종결 대기** | Close pending | Count close-eligible, not closed | List + `v_formula_closeable` (bounded) |
+| P0 | **계산서 미매칭** | Invoice mismatch | Count not amount-matched | List + `GET .../invoices/status` |
+
+**Label rule:** **실현 순이익** = **Realized Net Profit** only (§4.4).
 
 ### 4.2 Aggregation performance (UI guidance)
 
@@ -114,46 +130,80 @@ Six summary cards. Each card shows **one aggregated number** (currency or count)
 
 | Card | Default drill-down target |
 |------|---------------------------|
+| **실현 순이익** | Formula list sorted by confirmed net profit / KPI detail |
+| **손실** (§4.5) | Formula list filtered to loss formulas (`kpi/confirmed` &lt; 0) |
 | 미수금 / 미지급금 | Formula list sorted by receivable/payable (Formula menu) |
 | 예정 입금 / 예정 출금 | Payment menu — schedules view |
 | 종결 대기 | Formula list filtered to close-eligible (client filter on scoped list) |
 | 계산서 미매칭 | Invoice menu or Formula list with invoice status column |
 
-### 4.4 Pending Decision — Profit/Loss KPI
+### 4.4 Profit policy — **confirmed**
 
-> **Status: PENDING DECISION** — Not included in the six confirmed summary cards (§4.1). **Must be re-reviewed and explicitly approved before any Dashboard UI or API wiring.**
+Shared terminology with [`FORMULA_WIZARD_SPEC.md`](./FORMULA_WIZARD_SPEC.md) §2.5.
 
-Dashboard V1 treats **Profit/Loss** as a **required candidate KPI area**, but the **final metric, label, and display rule are not yet fixed**.
+```
+Estimated Net Profit (예상 순이익)  ≠  Realized Net Profit (실현 순이익)
+```
 
-#### Candidate metrics (choose one primary for v1 UI)
+**Mixing forbidden:** same card, label, or roll-up for both metrics.
 
-| Option (KO) | Option (EN) | Typical source (reference only) | Notes |
-|-------------|-------------|----------------------------------|-------|
-| **실현 순이익** | Confirmed net profit | `GET /api/v1/formulas/{id}/kpi/confirmed` → confirmed net profit (profit engine view) | Cash-bank confirmed basis; aligns with DL confirmed KPI policy |
-| **계산상 이익** | Expected net profit | `GET /api/v1/formulas/{id}/kpi/expected` → `expected_net_profit` | Snapshot / latest version engine; not confirmed cash |
-| **확정 이익** | Confirmed profit (aggregate label TBD) | Overlap with confirmed net profit naming — **product term must be disambiguated** | May duplicate "실현 순이익"; avoid two cards without DL approval |
+#### Estimated Net Profit (예상 순이익)
 
-**Decision required:** Which single primary profit KPI appears on Dashboard v1 (if any), and whether secondary profit metrics stay in Formula detail only.
+| Field | Rule |
+|-------|------|
+| **Definition** | 예상 매출 − 예상 매입 − 예상 비용 − 예상 Share |
+| **Basis** | Formula engine / snapshot — not bank cash |
+| **Dashboard v1** | **Excluded** — **must not** appear on Dashboard cards or P1 placeholders in v1 layout |
+| **Allowed surfaces** | **Formula Wizard** · **Formula Detail** · **Formula Preview** |
+| **API (existing)** | `GET /api/v1/formulas/{id}/kpi/expected` → `expected_net_profit` |
 
-#### Loss display (choose one)
+#### Realized Net Profit (실현 순이익)
 
-| Option | Description |
-|--------|-------------|
-| **A. Negative net profit** | Single Profit/Loss card; loss shown as negative value on same card |
-| **B. Separate loss card** | Dedicated "손실" card when aggregate net profit is negative (or always show absolute loss) |
+| Field | Rule |
+|-------|------|
+| **Definition** | 실제 입금 − 실제 출금 − 실제 비용 − 확정 Share |
+| **Basis** | **Payment Record** — confirmed bank movements |
+| **Dashboard v1** | **Only profit metric on Dashboard** — P0 card **실현 순이익** (§4.1) |
+| **Company scope** | Aggregate per active company context (client roll-up) |
+| **API (existing)** | `GET /api/v1/formulas/{id}/kpi/confirmed` → confirmed net profit |
 
-**Decision required:** Loss presentation style before UI implementation.
+**Deprecated in new UI copy:** “계산상 이익”, “확정 이익” as standalone KPI names.
 
-#### Implementation gate
+---
 
-| Gate | Rule |
-|------|------|
-| **Before P6 Dashboard UI** | Product owner sign-off on metric choice + loss display |
-| **Before new API work** | Forbidden without separate DL — reuse existing per-formula KPI routes only |
-| **Scope** | Same as other cards: scoped formula set via `request.companyContext` (DL-050) |
-| **Forbidden until approved** | Adding profit/loss to layout wireframe as finalized; new aggregate profit engine |
+### 4.5 Loss policy — **confirmed**
 
-See also [`FEATURE_DECISION_AUDIT.md`](./FEATURE_DECISION_AUDIT.md) — Dashboard widget set requires explicit approval.
+Applies to **Realized Net Profit** only (§4.4). **Estimated** loss preview is **not** on Dashboard.
+
+| Rule | Detail |
+|------|--------|
+| **음수 실현 순이익 표시** | P0 **실현 순이익** card shows **negative values** when aggregate confirmed net profit &lt; 0 |
+| **별도 손실 카드** | Dedicated **손실** block/cards on Dashboard (§3 layout) — distinct from other P0 cash cards |
+| **손실 Formula 수** | Count of scoped formulas where **per-formula** Realized Net Profit &lt; 0 |
+| **총 손실액** | `SUM(ABS(confirmed_net_profit))` for formulas with confirmed net profit &lt; 0 only (display as positive loss amount with clear label) |
+
+| Metric | Source |
+|--------|--------|
+| Per-formula sign | `GET .../kpi/confirmed` per scoped formula |
+| Aggregate | Client roll-up (§4.2) — **no new API** |
+
+**Forbidden:** Hiding losses behind zero-only display; using Estimated metric for loss block.
+
+---
+
+### 4.6 P1 KPI — **out of Dashboard v1 scope**
+
+Documented for **V2+** or later Dashboard iteration. **Not** on v1 layout (§3). Requires separate product approval before UI/API work.
+
+| P1 KPI (KO) | Notes |
+|-------------|-------|
+| **월 매출** | Monthly revenue roll-up — period filter TBD |
+| **월 매입** | Monthly purchase roll-up — period filter TBD |
+| **회사별 매출** | Per-company revenue within scope |
+| **회사별 순이익** | Per-company **Realized** net profit (not Estimated on Dashboard) |
+| **품목별 순이익** | Per-item net profit — item dimension on scoped formulas |
+
+**V1 rule:** P6 Dashboard implements **P0 + §4.5 only**. P1 is **not** a v1 deliverable unless explicitly re-scoped.
 
 ---
 
@@ -242,8 +292,8 @@ Dashboard v1 **must not** introduce new HTTP routes in v1.5.0.
 |---------|-------|
 | Scoped formula set | `GET /api/v1/formulas` |
 | Receivable / payable | `GET /api/v1/formulas/{id}/receivable-payable` |
-| Confirmed KPI | `GET /api/v1/formulas/{id}/kpi/confirmed` |
-| Expected KPI (profit engine) | `GET /api/v1/formulas/{id}/kpi/expected` — **Pending Decision §4.4 only; not wired in v1 layout** |
+| Confirmed KPI — **Realized Net Profit** (Dashboard P0) | `GET /api/v1/formulas/{id}/kpi/confirmed` |
+| Expected KPI — **Estimated Net Profit** | `GET /api/v1/formulas/{id}/kpi/expected` — **not used on Dashboard v1** (§4.4); Formula Wizard / Detail / Preview only |
 | Participant KPI | `GET /api/v1/formulas/{id}/kpi/participants` |
 | Unmatched payments | `GET /api/v1/payments/unmatched` |
 | Invoice status | `GET /api/v1/formulas/{id}/invoices/status` |
@@ -263,7 +313,9 @@ All routes require auth + company context per v1.4.2.
 | `?company_id=` query params | Headers only |
 | Client-side filter after unscoped API | Backend must enforce scope |
 | New KPI engine / aggregate API | v1.5.0 docs-only; defer to V2 proposal |
-| Profit/Loss card without §4.4 approval | Pending product decision |
+| **Estimated Net Profit** on Dashboard v1 | §4.4 — Dashboard **Realized only** |
+| Mixing Estimated / Realized labels or roll-ups | §4.4 — **forbidden** |
+| P1 KPI cards without re-scope | §4.6 — out of v1 layout |
 | Formula Wizard on Quick Action | Separate product decision (FEATURE_DECISION_AUDIT) |
 | Dashboard-only API variants | Reuse standard business routes |
 
@@ -288,3 +340,5 @@ Optional **V2:** dedicated `GET /api/v1/dashboard/summary` — must accept same 
 | 2026-06-30 | v1.4.0 — Initial Dashboard v1 outline; global company context (DL-050) |
 | 2026-07-01 | v1.5.0 — Full Dashboard V1 spec: 6 summary cards, Recent Activity, Quick Actions (DL-051) |
 | 2026-07-01 | v1.5.0 — Pending Decision note: Profit/Loss KPI (§4.4) |
+| 2026-07-01 | v1.5.2 — §4.4: Estimated vs Realized Net Profit terminology confirmed; layout L1–L4 Pending |
+| 2026-07-01 | v1.5.4 — **KPI policy confirmed:** P0 (7 cards + loss §4.5), P1 deferred §4.6; Dashboard Realized only |

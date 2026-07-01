@@ -104,7 +104,31 @@ Documentation-only batch; no application, schema, middleware, UI, or test change
 
 **Forbidden:** Backend/API/DB/UI changes; new KPI engine; Formula Wizard; aggregate dashboard API.
 
-**Pending (docs):** Profit/Loss KPI — 실현 순이익 / 계산상 이익 / 확정 이익 중 최종 선택 및 손실 표시 방식(음수 vs 별도 카드) 미확정 (`DASHBOARD_V1_SPEC.md` §4.4). UI/API 구현 전 재검토 필수.
+**Pending (docs):** Wizard §12 A–C · §14 #5 Pending. Wizard **Draft Deferred** (§2.6). Dashboard **KPI policy confirmed** v1.5.4 (`DASHBOARD_V1_SPEC.md` §4.0–§4.6).
+
+### Profit terminology v1.5.2 (docs)
+
+| Batch | Scope |
+|-------|--------|
+| v1.5.2 | **Estimated Net Profit** / **Realized Net Profit** definitions confirmed; mixing forbidden; `FORMULA_WIZARD_SPEC.md` §2.5; `DASHBOARD_V1_SPEC.md` §4.4 layout Pending |
+
+**Integration gate:** **343 / 343 PASS** (unchanged — documentation-only).
+
+### Formula Wizard Draft policy v1.5.3 (docs)
+
+| Batch | Scope |
+|-------|--------|
+| v1.5.3 | Wizard **Draft Deferred** from V1 — no save/auto-save/resume/list/expiry; `FORMULA_WIZARD_SPEC.md` §2.6 |
+
+**Integration gate:** **343 / 343 PASS** (unchanged — documentation-only).
+
+### Dashboard KPI policy v1.5.4 (docs)
+
+| Batch | Scope |
+|-------|--------|
+| v1.5.4 | P0 KPI (7 cards + loss), P1 deferred; Dashboard **Realized Net Profit only**; Estimated on Wizard/Detail/Preview only |
+
+**Integration gate:** **343 / 343 PASS** (unchanged — documentation-only).
 
 ### Formula Wizard Core Design v1.5.1
 
