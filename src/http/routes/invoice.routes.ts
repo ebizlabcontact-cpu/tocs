@@ -10,6 +10,8 @@ import {
   type UpdateInvoiceStatusRequest,
 } from '../../actions/invoice.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import { getCompanyScopeFromRequest } from '../lib/company-scope-route.js';
+import { requireCompanyContext } from '../plugins/company-context.js';
 import {
   formulaIdFromParam,
   requireFormulaScope,
@@ -62,11 +64,15 @@ export async function registerInvoiceRoutes(app: FastifyInstance): Promise<void>
     '/api/v1/formulas/:formulaId/invoices',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listInvoicesByFormulaId(request.params.formulaId),
+        listInvoicesByFormulaId(
+          request.params.formulaId,
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {

@@ -9,6 +9,8 @@ import {
   type DashboardListRequest,
 } from '../../actions/dashboard.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import { getCompanyScopeFromRequest } from '../lib/company-scope-route.js';
+import { requireCompanyContext } from '../plugins/company-context.js';
 import {
   formulaIdFromParam,
   requireFormulaScope,
@@ -52,11 +54,15 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     '/api/v1/formulas/:formulaId/receivable-payable',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        getFormulaReceivablePayable(request.params.formulaId),
+        getFormulaReceivablePayable(
+          request.params.formulaId,
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {
@@ -69,11 +75,15 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     '/api/v1/formulas/:formulaId/kpi/confirmed',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        getFormulaConfirmedKpi(request.params.formulaId),
+        getFormulaConfirmedKpi(
+          request.params.formulaId,
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {
@@ -86,11 +96,15 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     '/api/v1/formulas/:formulaId/kpi/expected',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        getFormulaProfitEngine(request.params.formulaId),
+        getFormulaProfitEngine(
+          request.params.formulaId,
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {
@@ -106,14 +120,18 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
     '/api/v1/formulas/:formulaId/kpi/participants',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listParticipantConfirmedKpi({
-          ...parseDashboardListQuery(request.query),
-          formula_id: request.params.formulaId,
-        }),
+        listParticipantConfirmedKpi(
+          {
+            ...parseDashboardListQuery(request.query),
+            formula_id: request.params.formulaId,
+          },
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {
@@ -124,10 +142,13 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
 
   app.get<{ Querystring: Record<string, unknown> }>(
     '/api/v1/payments/unmatched',
-    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE)),
+    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE), requireCompanyContext()),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listUnmatchedPayments(parseDashboardListQuery(request.query)),
+        listUnmatchedPayments(
+          parseDashboardListQuery(request.query),
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {

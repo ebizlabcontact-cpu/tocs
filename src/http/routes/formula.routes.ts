@@ -16,6 +16,8 @@ import {
   type PatchFormulaRequest,
 } from '../../actions/formula.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import { getCompanyScopeFromRequest } from '../lib/company-scope-route.js';
+import { requireCompanyContext } from '../plugins/company-context.js';
 import {
   formulaIdFromParam,
   requireAnyActiveMembership,
@@ -78,10 +80,10 @@ export async function registerFormulaRoutes(app: FastifyInstance): Promise<void>
 
   app.get<{ Querystring: Record<string, unknown> }>(
     '/api/v1/formulas',
-    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE)),
+    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE), requireCompanyContext()),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listFormulas(parseListFormulasQuery(request.query)),
+        listFormulas(parseListFormulasQuery(request.query), getCompanyScopeFromRequest(request)),
       );
 
       if (result !== undefined) {

@@ -9,6 +9,8 @@ import {
   type CreateVersionRequest,
 } from '../../actions/version.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import { getCompanyScopeFromRequest } from '../lib/company-scope-route.js';
+import { requireCompanyContext } from '../plugins/company-context.js';
 import {
   formulaIdFromParam,
   requireFormulaScope,
@@ -86,11 +88,15 @@ export async function registerVersionRoutes(app: FastifyInstance): Promise<void>
     '/api/v1/formulas/:formulaId/versions',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listVersionsByFormulaId(request.params.formulaId),
+        listVersionsByFormulaId(
+          request.params.formulaId,
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {

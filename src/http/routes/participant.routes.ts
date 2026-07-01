@@ -7,6 +7,8 @@ import {
   type CreateParticipantRequest,
 } from '../../actions/participant.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import { getCompanyScopeFromRequest } from '../lib/company-scope-route.js';
+import { requireCompanyContext } from '../plugins/company-context.js';
 import {
   formulaIdFromParam,
   requireFormulaScope,
@@ -42,11 +44,15 @@ export async function registerParticipantRoutes(app: FastifyInstance): Promise<v
     '/api/v1/formulas/:formulaId/participants',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listParticipantsByFormulaId(request.params.formulaId),
+        listParticipantsByFormulaId(
+          request.params.formulaId,
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {

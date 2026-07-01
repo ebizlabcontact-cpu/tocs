@@ -16,6 +16,7 @@ import { shareRepository } from '../../repositories/share.repository.js';
 import { formulaVersionRepository } from '../../repositories/version.repository.js';
 import { sendActionError } from '../lib/handle-action.js';
 import type { RequestAuthContext } from '../types/auth-request.js';
+import type { RequestCompanyContext } from '../types/company-context-request.js';
 
 export const RBAC_AUTHENTICATION_REQUIRED = 'Authentication required';
 export const RBAC_FORBIDDEN = 'Forbidden';
@@ -147,15 +148,28 @@ async function resolveFormulaIdValue(
 export async function hasFormulaScope(
   auth: RequestAuthContext,
   formulaId: string,
+  companyContext: RequestCompanyContext | null = null,
 ): Promise<boolean> {
-  if (isSuperAdmin(auth)) {
-    return true;
-  }
-
   const participants = await participantRepository.listParticipantsByFormulaId(formulaId);
 
+  if (companyContext?.mode === 'all') {
+    return isSuperAdmin(auth);
+  }
+
   if (participants.length === 0) {
-    return false;
+    if (companyContext?.mode === 'company') {
+      return false;
+    }
+
+    return isSuperAdmin(auth);
+  }
+
+  if (companyContext?.mode === 'company' && companyContext.companyId) {
+    return participants.some((participant) => participant.companyId === companyContext.companyId);
+  }
+
+  if (isSuperAdmin(auth)) {
+    return true;
   }
 
   const formulaCompanyIds = new Set(participants.map((participant) => participant.companyId));
@@ -171,10 +185,6 @@ export function requireFormulaScope(
       return;
     }
 
-    if (isSuperAdmin(request.auth)) {
-      return;
-    }
-
     const formulaId = await resolveFormulaIdValue(request, resolveFormulaId);
 
     if (formulaId === undefined) {
@@ -182,7 +192,7 @@ export function requireFormulaScope(
       return;
     }
 
-    const allowed = await hasFormulaScope(request.auth, formulaId);
+    const allowed = await hasFormulaScope(request.auth, formulaId, request.companyContext);
 
     if (!allowed) {
       sendActionError(reply, new ActionError(404, RBAC_NOT_FOUND));

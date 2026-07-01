@@ -13,6 +13,8 @@ import {
   type CreatePaymentScheduleRequest,
 } from '../../actions/payment.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import { getCompanyScopeFromRequest } from '../lib/company-scope-route.js';
+import { requireCompanyContext } from '../plugins/company-context.js';
 import {
   formulaIdFromParam,
   requireFormulaScope,
@@ -50,11 +52,15 @@ export async function registerPaymentRoutes(app: FastifyInstance): Promise<void>
     '/api/v1/formulas/:formulaId/payment-schedules',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listPaymentSchedulesByFormulaId(request.params.formulaId),
+        listPaymentSchedulesByFormulaId(
+          request.params.formulaId,
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {
@@ -104,11 +110,15 @@ export async function registerPaymentRoutes(app: FastifyInstance): Promise<void>
     '/api/v1/formulas/:formulaId/payment-records',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listPaymentRecordsByFormulaId(request.params.formulaId),
+        listPaymentRecordsByFormulaId(
+          request.params.formulaId,
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {

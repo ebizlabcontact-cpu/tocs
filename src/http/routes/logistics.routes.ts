@@ -9,6 +9,8 @@ import {
   type UpdateLogisticsStatusRequest,
 } from '../../actions/logistics.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import { getCompanyScopeFromRequest } from '../lib/company-scope-route.js';
+import { requireCompanyContext } from '../plugins/company-context.js';
 import {
   formulaIdFromParam,
   requireFormulaScope,
@@ -44,11 +46,15 @@ export async function registerLogisticsRoutes(app: FastifyInstance): Promise<voi
     '/api/v1/formulas/:formulaId/logistics',
     withProtection(
       requireRole(ROLES_VIEWER_AND_ABOVE),
+      requireCompanyContext(),
       requireFormulaScope(formulaIdFromParam('formulaId')),
     ),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listLogisticsByFormulaId(request.params.formulaId),
+        listLogisticsByFormulaId(
+          request.params.formulaId,
+          getCompanyScopeFromRequest(request),
+        ),
       );
 
       if (result !== undefined) {

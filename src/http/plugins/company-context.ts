@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
 import { MembershipRole } from '@prisma/client';
 
 import { ActionError } from '../../actions/formula.actions.js';
@@ -10,6 +10,7 @@ import { RBAC_AUTHENTICATION_REQUIRED, RBAC_FORBIDDEN } from './rbac.js';
 export const COMPANY_CONTEXT_INVALID_COMPANY_ID = 'Invalid company id';
 export const COMPANY_CONTEXT_HEADERS_CONFLICT = 'Company context headers conflict';
 export const COMPANY_CONTEXT_INVALID_SCOPE = 'Invalid company scope';
+export const COMPANY_CONTEXT_REQUIRED = 'Company context required';
 
 const HEADER_COMPANY_ID = 'x-company-id';
 const HEADER_COMPANY_SCOPE = 'x-company-scope';
@@ -56,6 +57,14 @@ function hasActiveMembership(auth: RequestAuthContext, companyId: string): boole
 
 function isValidUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
+}
+
+export function requireCompanyContext(): preHandlerHookHandler {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.companyContext === null) {
+      sendActionError(reply, new ActionError(400, COMPANY_CONTEXT_REQUIRED));
+    }
+  };
 }
 
 export async function registerCompanyContext(app: FastifyInstance): Promise<void> {

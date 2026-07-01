@@ -31,6 +31,7 @@ import {
   createTestAuthFixture,
   deleteTestAuthFixture,
   withBearer,
+  withCompanyScopeAll,
 } from './helpers/http-auth.helper.js';
 import type { CreateFormulaInput } from '../types/formula.types.js';
 import type {
@@ -741,7 +742,7 @@ test('Participant integration flow', { skip: !hasDatabase }, async (t) => {
     const response = await app.inject({
       method: 'GET',
       url: `/api/v1/formulas/${httpFormulaId}/participants`,
-      headers: bearerHeaders(authFixture.accessToken),
+      headers: withCompanyScopeAll(authFixture.accessToken),
     });
 
     assert.equal(response.statusCode, 200);

@@ -31,6 +31,27 @@ export function withBearer(
   };
 }
 
+export function withCompanyId(
+  accessToken: string,
+  companyId: string,
+  headers: Record<string, string> = {},
+): Record<string, string> {
+  return withBearer(accessToken, {
+    ...headers,
+    'x-company-id': companyId,
+  });
+}
+
+export function withCompanyScopeAll(
+  accessToken: string,
+  headers: Record<string, string> = {},
+): Record<string, string> {
+  return withBearer(accessToken, {
+    ...headers,
+    'x-company-scope': 'all',
+  });
+}
+
 export async function createTestAuthFixture(
   role: MembershipRole,
   emailPrefix: string,

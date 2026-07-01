@@ -8,6 +8,8 @@ import {
   type ListCompaniesQuery,
 } from '../../actions/company.actions.js';
 import { runAction } from '../lib/handle-action.js';
+import { getCompanyScopeFromRequest } from '../lib/company-scope-route.js';
+import { requireCompanyContext } from '../plugins/company-context.js';
 import {
   companyIdFromParam,
   requireCompanyScope,
@@ -57,10 +59,10 @@ export async function registerCompanyRoutes(app: FastifyInstance): Promise<void>
 
   app.get<{ Querystring: Record<string, unknown> }>(
     '/api/v1/companies',
-    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE)),
+    withProtection(requireRole(ROLES_VIEWER_AND_ABOVE), requireCompanyContext()),
     async (request, reply) => {
       const result = await runAction(reply, () =>
-        listCompanies(parseListCompaniesQuery(request.query)),
+        listCompanies(parseListCompaniesQuery(request.query), getCompanyScopeFromRequest(request)),
       );
 
       if (result !== undefined) {

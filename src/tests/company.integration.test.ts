@@ -26,6 +26,7 @@ import {
   createTestAuthFixture,
   deleteTestAuthFixture,
   withBearer,
+  withCompanyScopeAll,
 } from './helpers/http-auth.helper.js';
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
@@ -403,7 +404,7 @@ test('Company DB integration and HTTP smoke', { skip: !hasDatabase }, async (t) 
     const response = await app.inject({
       method: 'GET',
       url: '/api/v1/companies?page=1&page_size=20',
-      headers: bearerHeaders(authFixture.accessToken),
+      headers: withCompanyScopeAll(authFixture.accessToken),
     });
 
     assert.equal(response.statusCode, 200);
