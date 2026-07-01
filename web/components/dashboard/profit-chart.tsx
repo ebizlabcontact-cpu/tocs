@@ -49,6 +49,7 @@ export function ProfitChart({ data }: { data: Point[] }) {
             fill="url(#profitFill)"
             dot={false}
             activeDot={{ r: 4, fill: "#10b981" }}
+            isAnimationActive={false}
           />
         </AreaChart>
       </ResponsiveContainer>
