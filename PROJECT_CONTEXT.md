@@ -127,6 +127,8 @@ Public endpoint: `GET /api/v1/health` only.
 | **Dashboard Module UI** | Not Started |
 | **Formula Wizard UI** | Not Started |
 
+**IA baseline (v1.5.5):** Global nav — Dashboard, Formulas, Companies, Calendar, Reports, Settings. Formula Detail — Overview, Timeline, Participants, Payments, Invoices, Logistics, Shares, Versions, Settlement. See `NAVIGATION_ARCHITECTURE.md`.
+
 ---
 
 ## 7. Pending Decisions
@@ -529,7 +531,7 @@ When implementing, state: goal, files, scope, forbidden, verification, git (if a
 | `.cursor/rules/tocs-core.mdc` | Cursor agent rules |
 | `docs/specs/GLOBAL_COMPANY_CONTEXT_POLICY.md` | Global company context (DL-050) |
 | `docs/specs/PRODUCTIZATION_V1_PLAN.md` | Productization v1 phases |
-| `docs/specs/NAVIGATION_ARCHITECTURE.md` | Header switcher + shell |
+| `docs/specs/NAVIGATION_ARCHITECTURE.md` | Global nav + Formula Detail IA (v1.5.5 baseline) |
 | `docs/specs/DASHBOARD_V1_SPEC.md` | Dashboard v1 (global context) |
 | `docs/specs/FORMULA_WIZARD_SPEC.md` | Formula Wizard v1.5.1 (minimal design) |
 | `CHANGELOG.md` | Release batches |

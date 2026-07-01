@@ -130,6 +130,14 @@ Documentation-only batch; no application, schema, middleware, UI, or test change
 
 **Integration gate:** **343 / 343 PASS** (unchanged — documentation-only).
 
+### Navigation IA baseline v1.5.5 (docs)
+
+| Batch | Scope |
+|-------|--------|
+| v1.5.5 | Productization V1 IA — global nav (Dashboard, Formulas, Companies, Calendar, Reports, Settings); Formula Detail 9 tabs; `NAVIGATION_ARCHITECTURE.md` |
+
+**Integration gate:** **343 / 343 PASS** (unchanged — documentation-only).
+
 ### Formula Wizard Core Design v1.5.1
 
 | Batch | Scope |
