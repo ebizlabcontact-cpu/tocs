@@ -11,7 +11,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Header />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 pb-20 lg:pb-0">
+        <main className="min-w-0 flex-1 pb-20 lg:pb-0">
           <AllCompaniesBanner />
           <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6 md:py-8">{children}</div>
         </main>

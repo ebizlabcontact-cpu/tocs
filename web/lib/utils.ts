@@ -44,3 +44,9 @@ export function formatRelative(date: string | Date) {
   if (days < 30) return `${Math.floor(days / 7)}w ago`
   return formatDate(d)
 }
+
+let uidCounter = 0
+export function uid() {
+  uidCounter += 1
+  return `uid-${Date.now().toString(36)}-${uidCounter}`
+}

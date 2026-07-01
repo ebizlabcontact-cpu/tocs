@@ -32,7 +32,7 @@ export function CompanySwitcher() {
         >
           {selected.id === "all" ? <Building2 className="size-3" /> : selected.shortName}
         </span>
-        <span className="max-w-[10rem] truncate">{selected.name}</span>
+        <span className="max-w-[7rem] truncate sm:max-w-[10rem]">{selected.name}</span>
         <ChevronsUpDown className="size-3.5 text-muted-foreground" />
       </button>
 

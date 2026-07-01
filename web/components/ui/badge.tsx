@@ -29,3 +29,22 @@ export interface BadgeProps
 export function Badge({ className, tone, ...props }: BadgeProps) {
   return <span className={cn(badgeVariants({ tone }), className)} {...props} />
 }
+
+export type BadgeTone = NonNullable<VariantProps<typeof badgeVariants>["tone"]>
+
+export function StatusBadge({
+  tone,
+  children,
+  className,
+}: {
+  tone: BadgeTone
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <Badge tone={tone} className={className}>
+      <span className="size-1.5 rounded-full bg-current" aria-hidden />
+      {children}
+    </Badge>
+  )
+}

@@ -19,7 +19,7 @@ export function Header() {
       <div className="mx-1 hidden h-6 w-px bg-border md:block" />
 
       {/* Center controls */}
-      <div className="flex flex-1 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <CompanySwitcher />
         <div className="hidden md:block">
           <DateRangeSelector />
