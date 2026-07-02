@@ -8,6 +8,11 @@
     "doc": "docs"
   },
   "scripts": {
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix web run start",
+    "web:install": "npm --prefix web install",
+    "postinstall": "npm --prefix web install",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "test:integration": "tsx --test --test-concurrency=1 src/tests/*.integration.test.ts",
