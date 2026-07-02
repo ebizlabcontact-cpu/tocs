@@ -13,6 +13,10 @@ import {
   CheckCircle2,
   Share2,
   AlertTriangle,
+  LayoutDashboard,
+  PieChart,
+  GitCommitVertical,
+  Scale,
 } from "lucide-react"
 import type { Formula } from "@/lib/types"
 import { formatCurrency, formatRelative, cn } from "@/lib/utils"
@@ -27,6 +31,10 @@ import {
   InvoicesPanel,
   LogisticsPanel,
   TimelinePanel,
+  OverviewPanel,
+  SharesPanel,
+  VersionsPanel,
+  SettlementPanel,
 } from "./detail-panels"
 
 function MetricPill({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
@@ -48,7 +56,7 @@ function MetricPill({ label, value, tone }: { label: string; value: string; tone
 }
 
 export function FormulaDetailView({ formula }: { formula: Formula }) {
-  const [tab, setTab] = useState("participants")
+  const [tab, setTab] = useState("overview")
   const status = statusConfig[formula.status]
 
   return (
@@ -113,13 +121,21 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
       <div className="mt-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
+            <TabsTrigger value="overview">
+              <LayoutDashboard className="size-4" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="timeline" count={formula.timeline.length}>
+              <History className="size-4" />
+              Timeline
+            </TabsTrigger>
             <TabsTrigger value="participants" count={formula.participants.length}>
               <Users className="size-4" />
               Participants
             </TabsTrigger>
-            <TabsTrigger value="schedule" count={formula.schedule.length}>
+            <TabsTrigger value="payments" count={formula.schedule.length}>
               <CalendarClock className="size-4" />
-              Schedule
+              Payments
             </TabsTrigger>
             <TabsTrigger value="invoices" count={formula.invoices.length}>
               <FileText className="size-4" />
@@ -129,17 +145,31 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
               <Ship className="size-4" />
               Logistics
             </TabsTrigger>
-            <TabsTrigger value="timeline" count={formula.timeline.length}>
-              <History className="size-4" />
-              Timeline
+            <TabsTrigger value="shares" count={formula.participants.filter((p) => (p.sharePct ?? 0) > 0).length}>
+              <PieChart className="size-4" />
+              Shares
+            </TabsTrigger>
+            <TabsTrigger value="versions" count={Math.max(1, formula.version)}>
+              <GitCommitVertical className="size-4" />
+              Versions
+            </TabsTrigger>
+            <TabsTrigger value="settlement">
+              <Scale className="size-4" />
+              Settlement
             </TabsTrigger>
           </TabsList>
 
           <div className="mt-4">
+            <TabsContent value="overview">
+              <OverviewPanel formula={formula} />
+            </TabsContent>
+            <TabsContent value="timeline">
+              <TimelinePanel formula={formula} />
+            </TabsContent>
             <TabsContent value="participants">
               <ParticipantsPanel formula={formula} />
             </TabsContent>
-            <TabsContent value="schedule">
+            <TabsContent value="payments">
               <SchedulePanel formula={formula} />
             </TabsContent>
             <TabsContent value="invoices">
@@ -148,8 +178,14 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
             <TabsContent value="logistics">
               <LogisticsPanel formula={formula} />
             </TabsContent>
-            <TabsContent value="timeline">
-              <TimelinePanel formula={formula} />
+            <TabsContent value="shares">
+              <SharesPanel formula={formula} />
+            </TabsContent>
+            <TabsContent value="versions">
+              <VersionsPanel formula={formula} />
+            </TabsContent>
+            <TabsContent value="settlement">
+              <SettlementPanel formula={formula} />
             </TabsContent>
           </div>
         </Tabs>

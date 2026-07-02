@@ -6,8 +6,9 @@ import { tradeTypeConfig } from "@/lib/status"
 import type { TradeType } from "@/lib/types"
 import { Field, Input, Select, Label } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
+import { ParticipantChain } from "@/components/formulas/participant-chain"
 import { formatCurrency, uid } from "@/lib/utils"
-import type { WizardState } from "./types"
+import type { WizardParticipant, WizardState } from "./types"
 
 type Setter = (updater: (s: WizardState) => WizardState) => void
 
@@ -66,97 +67,55 @@ export function StepBasics({ state, set }: { state: WizardState; set: Setter }) 
   )
 }
 
-/* Step 2 — Participants */
+/* Step 2 — Participants (visual trade chain) */
 const roleOptions = ["buyer", "seller", "agent", "logistics", "financier"] as const
 
 export function StepParticipants({ state, set }: { state: WizardState; set: Setter }) {
   return (
     <div className="space-y-3">
-      {state.participants.map((p, i) => (
-        <div key={p.id} className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-[1fr_auto_auto_auto]">
-          <Field label={i === 0 ? "Name" : ""}>
-            <Input
-              value={p.name}
-              placeholder="Counterparty name"
-              onChange={(e) =>
-                set((s) => ({
-                  ...s,
-                  participants: s.participants.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)),
-                }))
-              }
-            />
-          </Field>
-          <Field label={i === 0 ? "Role" : ""}>
-            <Select
-              value={p.role}
-              onChange={(e) =>
-                set((s) => ({
-                  ...s,
-                  participants: s.participants.map((x) =>
-                    x.id === p.id ? { ...x, role: e.target.value as (typeof roleOptions)[number] } : x,
-                  ),
-                }))
-              }
-            >
-              {roleOptions.map((r) => (
-                <option key={r} value={r} className="capitalize">
-                  {r}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={i === 0 ? "Share %" : ""}>
-            <Input
-              type="number"
-              value={p.sharePct}
-              className="w-24"
-              onChange={(e) =>
-                set((s) => ({
-                  ...s,
-                  participants: s.participants.map((x) =>
-                    x.id === p.id ? { ...x, sharePct: Number(e.target.value) } : x,
-                  ),
-                }))
-              }
-            />
-          </Field>
-          <div className="flex items-end">
-            <Button
-              variant="ghost"
-              size="icon"
-              type="button"
-              disabled={state.participants.length === 1}
-              onClick={() => set((s) => ({ ...s, participants: s.participants.filter((x) => x.id !== p.id) }))}
-              aria-label="Remove participant"
-            >
-              <Trash2 className="size-4 text-muted-foreground" />
-            </Button>
-          </div>
-        </div>
-      ))}
-      <Button
-        variant="subtle"
-        type="button"
-        onClick={() =>
+      <p className="text-sm text-muted-foreground">
+        Order participants top-to-bottom to represent the flow of goods and funds through the deal.
+      </p>
+      <ParticipantChain
+        nodes={state.participants}
+        editable
+        showShare
+        roleOptions={roleOptions}
+        minNodes={1}
+        onChange={(id, patch) =>
+          set((s) => ({
+            ...s,
+            participants: s.participants.map((x) =>
+              x.id === id
+                ? {
+                    ...x,
+                    ...patch,
+                    role: (patch.role as WizardParticipant["role"]) ?? x.role,
+                  }
+                : x,
+            ),
+          }))
+        }
+        onRemove={(id) => set((s) => ({ ...s, participants: s.participants.filter((x) => x.id !== id) }))}
+        onAdd={() =>
           set((s) => ({
             ...s,
             participants: [...s.participants, { id: uid(), name: "", role: "buyer", sharePct: 0 }],
           }))
         }
-      >
-        <Plus className="size-4" />
-        Add participant
-      </Button>
+      />
     </div>
   )
 }
 
-/* Step 3 — Line Items */
-export function StepLines({ state, set }: { state: WizardState; set: Setter }) {
+/* Step 3 — Pricing (line items + costs + profit share) */
+export function StepPricing({ state, set }: { state: WizardState; set: Setter }) {
   const sell = state.lines.reduce((s, l) => s + (l.sell || 0), 0)
   const buy = state.lines.reduce((s, l) => s + (l.buy || 0), 0)
   return (
-    <div className="space-y-3">
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <Label>Line Items</Label>
       {state.lines.map((l, i) => (
         <div key={l.id} className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-[1fr_auto_auto_auto]">
           <Field label={i === 0 ? "Description" : ""}>
@@ -227,14 +186,8 @@ export function StepLines({ state, set }: { state: WizardState; set: Setter }) {
           <span className="font-mono font-semibold text-foreground">{formatCurrency(buy)}</span>
         </p>
       </div>
-    </div>
-  )
-}
+      </div>
 
-/* Step 4 — Costs & Share */
-export function StepCosts({ state, set }: { state: WizardState; set: Setter }) {
-  return (
-    <div className="space-y-5">
       <div className="space-y-3">
         <Label>Costs</Label>
         {state.costs.map((c) => (
@@ -296,7 +249,7 @@ export function StepCosts({ state, set }: { state: WizardState; set: Setter }) {
   )
 }
 
-/* Step 5 — Schedule */
+/* Step 4 — Payment Schedule */
 export function StepSchedule({ state, set }: { state: WizardState; set: Setter }) {
   return (
     <div className="space-y-3">
@@ -386,6 +339,104 @@ export function StepSchedule({ state, set }: { state: WizardState; set: Setter }
   )
 }
 
+/* Step 5 — Logistics */
+const logisticsModes = [
+  { value: "sea", label: "Sea" },
+  { value: "air", label: "Air" },
+  { value: "land", label: "Land" },
+] as const
+
+export function StepLogistics({ state, set }: { state: WizardState; set: Setter }) {
+  return (
+    <div className="space-y-3">
+      {state.logistics.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+          No shipment legs yet. Add routing for goods moving through the deal.
+        </div>
+      )}
+      {state.logistics.map((leg) => (
+        <div
+          key={leg.id}
+          className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-[auto_1fr_1fr_auto_auto]"
+        >
+          <Select
+            value={leg.mode}
+            className="w-28"
+            onChange={(e) =>
+              set((s) => ({
+                ...s,
+                logistics: s.logistics.map((x) =>
+                  x.id === leg.id ? { ...x, mode: e.target.value as "sea" | "air" | "land" } : x,
+                ),
+              }))
+            }
+          >
+            {logisticsModes.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </Select>
+          <Input
+            value={leg.origin}
+            placeholder="Origin"
+            onChange={(e) =>
+              set((s) => ({
+                ...s,
+                logistics: s.logistics.map((x) => (x.id === leg.id ? { ...x, origin: e.target.value } : x)),
+              }))
+            }
+          />
+          <Input
+            value={leg.destination}
+            placeholder="Destination"
+            onChange={(e) =>
+              set((s) => ({
+                ...s,
+                logistics: s.logistics.map((x) => (x.id === leg.id ? { ...x, destination: e.target.value } : x)),
+              }))
+            }
+          />
+          <Input
+            type="date"
+            value={leg.eta}
+            className="w-40"
+            aria-label="ETA"
+            onChange={(e) =>
+              set((s) => ({
+                ...s,
+                logistics: s.logistics.map((x) => (x.id === leg.id ? { ...x, eta: e.target.value } : x)),
+              }))
+            }
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            type="button"
+            onClick={() => set((s) => ({ ...s, logistics: s.logistics.filter((x) => x.id !== leg.id) }))}
+            aria-label="Remove shipment leg"
+          >
+            <Trash2 className="size-4 text-muted-foreground" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        variant="subtle"
+        type="button"
+        onClick={() =>
+          set((s) => ({
+            ...s,
+            logistics: [...s.logistics, { id: uid(), mode: "sea", origin: "", destination: "", eta: "" }],
+          }))
+        }
+      >
+        <Plus className="size-4" />
+        Add shipment leg
+      </Button>
+    </div>
+  )
+}
+
 /* Step 6 — Review */
 export function StepReview({ state, set }: { state: WizardState; set: Setter }) {
   const company = companies.find((c) => c.id === state.companyId)
@@ -399,7 +450,9 @@ export function StepReview({ state, set }: { state: WizardState; set: Setter }) 
         <ReviewItem label="Participants" value={`${state.participants.length}`} />
         <ReviewItem label="Line items" value={`${state.lines.length}`} />
         <ReviewItem label="Costs" value={`${state.costs.length}`} />
-        <ReviewItem label="Scheduled cashflows" value={`${state.schedule.length}`} />
+        <ReviewItem label="Payment schedule" value={`${state.schedule.length}`} />
+        <ReviewItem label="Shipment legs" value={`${state.logistics.length}`} />
+        <ReviewItem label="Profit share" value={`${state.sharePct}%`} />
       </div>
       <Field label="Notes (optional)">
         <textarea

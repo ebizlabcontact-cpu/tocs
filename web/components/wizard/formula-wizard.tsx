@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ArrowRight, Check, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, X, Building2 } from "lucide-react"
+import { useCompany } from "@/components/company-context"
 import { Button } from "@/components/ui/button"
 import { Stepper, StepperMobile, type Step } from "./stepper"
 import { FormulaPreview } from "./formula-preview"
@@ -10,26 +11,48 @@ import { emptyWizardState, type WizardState } from "./types"
 import {
   StepBasics,
   StepParticipants,
-  StepLines,
-  StepCosts,
+  StepPricing,
   StepSchedule,
+  StepLogistics,
   StepReview,
 } from "./steps"
 
 const steps: Step[] = [
-  { id: 1, label: "Basics", hint: "Company, item, trade type" },
-  { id: 2, label: "Participants", hint: "Buyers, sellers, agents" },
-  { id: 3, label: "Line Items", hint: "Sell and buy amounts" },
-  { id: 4, label: "Costs & Share", hint: "Deductions and split" },
-  { id: 5, label: "Schedule", hint: "Expected cashflows" },
+  { id: 1, label: "Basic Information", hint: "Company, item, trade type" },
+  { id: 2, label: "Participants", hint: "Build the trade chain" },
+  { id: 3, label: "Pricing", hint: "Line items, costs, and profit share" },
+  { id: 4, label: "Payment Schedule", hint: "Expected receipts and payments" },
+  { id: 5, label: "Logistics", hint: "Shipment legs and routing" },
   { id: 6, label: "Review", hint: "Confirm and create" },
 ]
 
 export function FormulaWizard() {
   const router = useRouter()
+  const { isAllCompanies } = useCompany()
   const [current, setCurrent] = useState(1)
   const [state, setState] = useState<WizardState>(emptyWizardState)
   const [submitting, setSubmitting] = useState(false)
+
+  if (isAllCompanies) {
+    return (
+      <div className="animate-fade-in flex min-h-[60vh] items-center justify-center">
+        <div className="max-w-md rounded-xl border border-border bg-card p-8 text-center">
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-warning-soft text-warning">
+            <Building2 className="size-6" />
+          </div>
+          <h1 className="text-lg font-semibold text-foreground">Select a company first</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Formulas belong to a single entity, so creation is disabled while viewing All Companies. Choose a
+            specific company from the switcher, then start a new formula.
+          </p>
+          <Button variant="outline" className="mt-5" onClick={() => router.push("/formulas")}>
+            <ArrowLeft className="size-4" />
+            Back to Formulas
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const set = (updater: (s: WizardState) => WizardState) => setState(updater)
   const isLast = current === steps.length
@@ -86,9 +109,9 @@ export function FormulaWizard() {
 
             {current === 1 && <StepBasics state={state} set={set} />}
             {current === 2 && <StepParticipants state={state} set={set} />}
-            {current === 3 && <StepLines state={state} set={set} />}
-            {current === 4 && <StepCosts state={state} set={set} />}
-            {current === 5 && <StepSchedule state={state} set={set} />}
+            {current === 3 && <StepPricing state={state} set={set} />}
+            {current === 4 && <StepSchedule state={state} set={set} />}
+            {current === 5 && <StepLogistics state={state} set={set} />}
             {current === 6 && <StepReview state={state} set={set} />}
           </div>
 
