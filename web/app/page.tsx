@@ -1,11 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Plus } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { useCompany } from "@/components/company-context"
+import { useDateRange } from "@/components/date-range-context"
 import { PageHeader } from "@/components/page-header"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { CreateFormulaButton } from "@/components/formulas/create-formula-button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { ProfitChart } from "@/components/dashboard/profit-chart"
@@ -13,9 +13,10 @@ import { LossRanking } from "@/components/dashboard/loss-ranking"
 import { CashflowTimeline } from "@/components/dashboard/cashflow-timeline"
 import { FormulaMiniRow } from "@/components/dashboard/formula-mini-row"
 import { QuickActions } from "@/components/dashboard/quick-actions"
+import { DateRangeSelector } from "@/components/shell/date-range-selector"
 import {
   getKpis,
-  getMonthlyRealizedProfit,
+  getProfitSeries,
   getLossRanking,
   getCashflowTimeline,
   getFormulasByCompany,
@@ -53,10 +54,11 @@ function SectionCard({
 
 export default function DashboardPage() {
   const { selected } = useCompany()
+  const { range } = useDateRange()
   const companyId = selected.id
 
-  const kpis = getKpis(companyId)
-  const profitData = getMonthlyRealizedProfit(companyId)
+  const kpis = getKpis(companyId, range)
+  const profitData = getProfitSeries(companyId, range)
   const lossRanking = getLossRanking(companyId)
   const receipts = getCashflowTimeline(companyId, "receipt")
   const payments = getCashflowTimeline(companyId, "payment")
@@ -68,12 +70,14 @@ export default function DashboardPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="Command Center"
-        description={`Realized performance for ${selected.name}. Understand your business at a glance.`}
+        description={`Dashboard figures are aggregated from formulas — ${selected.name} · ${range}.`}
         actions={
-          <Link href="/formulas/new" className={cn(buttonVariants({ variant: "accent" }), "gap-2")}>
-            <Plus className="size-4" />
-            Create Formula
-          </Link>
+          <div className="flex items-center gap-2">
+            <div className="md:hidden">
+              <DateRangeSelector />
+            </div>
+            <CreateFormulaButton />
+          </div>
         }
       />
 
@@ -87,7 +91,7 @@ export default function DashboardPage() {
       {/* 2. Profit area */}
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <SectionCard
-          title="Monthly Realized Profit"
+          title={`Realized Profit · ${range}`}
           className="lg:col-span-2"
           action={{ label: "Reports", href: "/reports" }}
         >
@@ -100,10 +104,10 @@ export default function DashboardPage() {
 
       {/* 3. Cashflow area */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Upcoming Receipts" action={{ label: "All receipts", href: "/payments?type=receipt" }}>
+        <SectionCard title="Upcoming Receipts" action={{ label: "All receipts", href: "/calendar?type=receipt" }}>
           <CashflowTimeline items={receipts} type="receipt" />
         </SectionCard>
-        <SectionCard title="Upcoming Payments" action={{ label: "All payments", href: "/payments?type=payment" }}>
+        <SectionCard title="Upcoming Payments" action={{ label: "All payments", href: "/calendar?type=payment" }}>
           <CashflowTimeline items={payments} type="payment" />
         </SectionCard>
       </div>

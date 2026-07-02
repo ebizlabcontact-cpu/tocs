@@ -8,6 +8,11 @@
     "doc": "docs"
   },
   "scripts": {
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix web run start",
+    "web:install": "npm --prefix web install",
+    "postinstall": "npm --prefix web install",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "test:integration": "tsx --test --test-concurrency=1 src/tests/*.integration.test.ts",
@@ -22,11 +27,17 @@
     "@prisma/client": "^7.8.0",
     "argon2": "^0.44.0",
     "bcrypt": "^6.0.0",
+    "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "fastify": "^5.8.5",
     "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^1.23.0",
+    "next": "^16.2.10",
     "pg": "^8.22.0",
-    "prisma": "^7.8.0"
+    "prisma": "^7.8.0",
+    "react": "^19.2.7",
+    "recharts": "^3.9.1",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

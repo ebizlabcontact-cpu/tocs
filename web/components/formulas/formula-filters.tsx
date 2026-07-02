@@ -3,8 +3,20 @@
 import { Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type StatusFilter = "all" | "active" | "invoicing" | "closeable" | "closed" | "loss"
+export type StatusFilter =
+  | "all"
+  | "active"
+  | "invoicing"
+  | "closeable"
+  | "closed"
+  | "loss"
+  | "profit"
+  | "receivable"
+  | "payable"
+  | "unmatched"
+  | "attention"
 
+/** Primary filter tabs shown in the bar. Other filters arrive via KPI drill-down. */
 const FILTERS: { key: StatusFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "active", label: "Active" },
@@ -13,6 +25,21 @@ const FILTERS: { key: StatusFilter; label: string }[] = [
   { key: "closed", label: "Closed" },
   { key: "loss", label: "Loss" },
 ]
+
+/** Human labels for every filter, including drill-down-only ones. */
+export const filterLabels: Record<StatusFilter, string> = {
+  all: "All formulas",
+  active: "Active",
+  invoicing: "Invoicing",
+  closeable: "Closeable",
+  closed: "Closed",
+  loss: "Loss-making",
+  profit: "Profitable",
+  receivable: "Has receivable",
+  payable: "Has payable",
+  unmatched: "Invoice unmatched",
+  attention: "Needs attention",
+}
 
 export function FormulaFilters({
   query,
@@ -25,7 +52,7 @@ export function FormulaFilters({
   onQuery: (v: string) => void
   status: StatusFilter
   onStatus: (v: StatusFilter) => void
-  counts: Record<StatusFilter, number>
+  counts: Partial<Record<StatusFilter, number>>
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -69,7 +96,7 @@ export function FormulaFilters({
                   active ? "bg-accent-foreground/20 text-accent-foreground" : "bg-muted text-muted-foreground",
                 )}
               >
-                {counts[f.key]}
+                {counts[f.key] ?? 0}
               </span>
             </button>
           )

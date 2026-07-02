@@ -99,3 +99,18 @@ body {
 .animate-fade-in {
   animation: tocs-fade-in 0.3s ease-out both;
 }
+
+@keyframes tocs-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: tocs-slide-in-right 0.25s ease-out both;
+}
