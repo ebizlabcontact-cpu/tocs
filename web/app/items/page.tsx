@@ -6,7 +6,7 @@ export default function ItemsPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="Items"
-        description="Registered item master data. Selecting an item in a formula pulls in its default unit and spec / quality memo."
+        description="Registered item master data. Create, edit, and review items — selecting an item in a formula pulls in its default unit and spec / quality memo."
       />
       <ItemsExplorer />
     </div>

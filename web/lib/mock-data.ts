@@ -303,6 +303,7 @@ export const DATE_RANGES: DateRange[] = [
   "This Month",
   "Last Month",
   "This Year",
+  "Custom Range",
 ]
 
 /**
@@ -315,6 +316,12 @@ const rangeFactor: Record<DateRange, number> = {
   "This Month": 0.55,
   "Last Month": 0.47,
   "This Year": 1,
+  "Custom Range": 0.42,
+}
+
+/** Illustrative share of full-period totals for a range (mock, matches dashboard). */
+export function getRangeFactor(range: DateRange): number {
+  return rangeFactor[range]
 }
 
 /** Dashboard KPIs — REALIZED profit only, never estimated. Reacts to date range (mock). */
@@ -370,6 +377,7 @@ export function getProfitSeries(companyId: string, range: DateRange = "This Year
     "This Month": ["Week 1", "Week 2", "Week 3", "Week 4"],
     "Last Month": ["Week 1", "Week 2", "Week 3", "Week 4"],
     "This Year": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    "Custom Range": ["Week 1", "Week 2", "Week 3", "Week 4"],
   }
   const labels = buckets[range]
   const base = (total * rangeFactor[range]) / labels.length

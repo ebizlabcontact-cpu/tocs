@@ -72,7 +72,13 @@ export type CalendarEvent = {
 }
 
 /** Dashboard date-range presets (mock filtering only). */
-export type DateRange = "Last 7 Days" | "Last 30 Days" | "This Month" | "Last Month" | "This Year"
+export type DateRange =
+  | "Last 7 Days"
+  | "Last 30 Days"
+  | "This Month"
+  | "Last Month"
+  | "This Year"
+  | "Custom Range"
 
 export type PaymentScheduleItem = {
   id: string
