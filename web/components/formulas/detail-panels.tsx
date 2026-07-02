@@ -284,6 +284,8 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
         </div>
       </div>
 
+      <FormulaChainView formula={formula} />
+
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Profit Transparency
