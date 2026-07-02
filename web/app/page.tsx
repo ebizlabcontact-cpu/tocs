@@ -100,10 +100,10 @@ export default function DashboardPage() {
 
       {/* 3. Cashflow area */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Upcoming Receipts" action={{ label: "All receipts", href: "/payments?type=receipt" }}>
+        <SectionCard title="Upcoming Receipts" action={{ label: "All receipts", href: "/calendar?type=receipt" }}>
           <CashflowTimeline items={receipts} type="receipt" />
         </SectionCard>
-        <SectionCard title="Upcoming Payments" action={{ label: "All payments", href: "/payments?type=payment" }}>
+        <SectionCard title="Upcoming Payments" action={{ label: "All payments", href: "/calendar?type=payment" }}>
           <CashflowTimeline items={payments} type="payment" />
         </SectionCard>
       </div>

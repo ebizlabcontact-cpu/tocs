@@ -3,9 +3,9 @@ import { Plus, ArrowDownLeft, ArrowUpRight, ReceiptText } from "lucide-react"
 
 const actions = [
   { label: "Create Formula", href: "/formulas/new", icon: Plus, accent: true },
-  { label: "Record Receipt", href: "/payments?type=receipt", icon: ArrowDownLeft },
-  { label: "Record Payment", href: "/payments?type=payment", icon: ArrowUpRight },
-  { label: "Review Invoices", href: "/invoices", icon: ReceiptText },
+  { label: "Upcoming Receipts", href: "/calendar?type=receipt", icon: ArrowDownLeft },
+  { label: "Upcoming Payments", href: "/calendar?type=payment", icon: ArrowUpRight },
+  { label: "Review Invoicing", href: "/formulas?filter=invoicing", icon: ReceiptText },
 ]
 
 export function QuickActions() {
