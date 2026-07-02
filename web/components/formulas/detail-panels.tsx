@@ -1,7 +1,13 @@
 import type { Formula } from "@/lib/types"
-import { formatCurrency, formatDate, cn } from "@/lib/utils"
+import { formatCurrency, formatDate, formatRelative, cn } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/badge"
-import { invoiceStatusConfig, logisticsStatusConfig, scheduleStatusConfig } from "@/lib/status"
+import {
+  invoiceStatusConfig,
+  logisticsStatusConfig,
+  scheduleStatusConfig,
+  statusConfig,
+  tradeTypeConfig,
+} from "@/lib/status"
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -14,6 +20,10 @@ import {
   Handshake,
   StickyNote,
   Plus,
+  PieChart,
+  Scale,
+  CheckCircle2,
+  Circle,
 } from "lucide-react"
 
 function SectionEmpty({ label }: { label: string }) {
@@ -225,5 +235,242 @@ export function TimelinePanel({ formula }: { formula: Formula }) {
         )
       })}
     </ol>
+  )
+}
+
+/* ---------------- Overview ---------------- */
+function OverviewStat({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          "mt-1 font-mono text-sm font-semibold tabular-nums",
+          tone === "pos" && "text-success",
+          tone === "neg" && "text-danger",
+          !tone && "text-foreground",
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  )
+}
+
+export function OverviewPanel({ formula }: { formula: Formula }) {
+  const status = statusConfig[formula.status]
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+          <div className="mt-1.5">
+            <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Trade Type</p>
+          <p className="mt-1 text-sm font-medium text-foreground">{tradeTypeConfig[formula.tradeType].label}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Item</p>
+          <p className="mt-1 truncate text-sm font-medium text-foreground">{formula.item}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Last Updated</p>
+          <p className="mt-1 text-sm font-medium text-foreground">{formatRelative(formula.updatedAt)}</p>
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Financial Snapshot</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <OverviewStat label="Expected Profit" value={formatCurrency(formula.expectedProfit)} tone="pos" />
+          <OverviewStat
+            label="Realized Profit"
+            value={formatCurrency(formula.realizedProfit)}
+            tone={formula.realizedProfit >= 0 ? "pos" : "neg"}
+          />
+          <OverviewStat label="Receivable" value={formatCurrency(formula.receivable)} />
+          <OverviewStat label="Payable" value={formatCurrency(formula.payable)} />
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <OverviewStat label="Participants" value={`${formula.participants.length}`} />
+        <OverviewStat label="Schedule Items" value={`${formula.schedule.length}`} />
+        <OverviewStat label="Invoices" value={`${formula.invoices.length}`} />
+        <OverviewStat label="Logistics Legs" value={`${formula.logistics.length}`} />
+      </div>
+    </div>
+  )
+}
+
+/* ---------------- Shares ---------------- */
+export function SharesPanel({ formula }: { formula: Formula }) {
+  const shared = formula.participants.filter((p) => p.sharePct !== undefined && p.sharePct > 0)
+  if (shared.length === 0) return <SectionEmpty label="No profit shares defined for this formula." />
+  const totalPct = shared.reduce((s, p) => s + (p.sharePct ?? 0), 0)
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-4 py-2.5 text-sm text-muted-foreground">
+        <PieChart className="size-4 shrink-0 text-accent" />
+        Allocated {totalPct}% of gross margin across {shared.length} participant{shared.length === 1 ? "" : "s"}.
+      </div>
+      {shared.map((p) => {
+        const pct = p.sharePct ?? 0
+        const est = Math.round((formula.expectedProfit * pct) / 100)
+        return (
+          <div key={p.id} className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
+                <p className="truncate text-xs capitalize text-muted-foreground">{p.role}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-sm font-semibold text-foreground">{pct}%</p>
+                <p className="font-mono text-xs text-muted-foreground">≈ {formatCurrency(est)}</p>
+              </div>
+            </div>
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+              <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, pct)}%` }} />
+            </div>
+          </div>
+        )
+      })}
+      <p className="text-xs text-muted-foreground">
+        Estimated amounts are illustrative, based on expected profit. Realized shares are calculated at settlement.
+      </p>
+    </div>
+  )
+}
+
+/* ---------------- Versions ---------------- */
+const versionNotes = [
+  "Current version",
+  "Pricing adjusted",
+  "Participants updated",
+  "Schedule revised",
+  "Initial draft created",
+]
+
+export function VersionsPanel({ formula }: { formula: Formula }) {
+  const count = Math.max(1, formula.version)
+  const versions = Array.from({ length: count }, (_, i) => {
+    const versionNo = count - i
+    return {
+      versionNo,
+      current: i === 0,
+      note: versionNotes[Math.min(i, versionNotes.length - 1)],
+      date: i === 0 ? formula.updatedAt : formula.createdAt,
+    }
+  })
+  return (
+    <div className="space-y-3">
+      {versions.map((v) => (
+        <div
+          key={v.versionNo}
+          className={cn(
+            "flex items-center gap-4 rounded-lg border bg-card p-4",
+            v.current ? "border-accent/40" : "border-border",
+          )}
+        >
+          <div
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-semibold",
+              v.current ? "bg-accent-soft text-accent" : "bg-secondary text-muted-foreground",
+            )}
+          >
+            v{v.versionNo}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="truncate text-sm font-semibold text-foreground">{v.note}</p>
+              {v.current && <StatusBadge tone="success">Current</StatusBadge>}
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">{formatDate(v.date)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ---------------- Settlement ---------------- */
+function SettlementCheck({ label, done }: { label: string; done: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+      {done ? (
+        <CheckCircle2 className="size-4 shrink-0 text-success" />
+      ) : (
+        <Circle className="size-4 shrink-0 text-muted-foreground" />
+      )}
+      <span className={done ? "text-foreground" : "text-muted-foreground"}>{label}</span>
+    </div>
+  )
+}
+
+export function SettlementPanel({ formula }: { formula: Formula }) {
+  const receiptsSettled = formula.schedule
+    .filter((s) => s.type === "receipt")
+    .reduce((sum, s) => sum + s.settledAmount, 0)
+  const receiptsTotal = formula.schedule.filter((s) => s.type === "receipt").reduce((sum, s) => sum + s.amount, 0)
+  const paymentsSettled = formula.schedule
+    .filter((s) => s.type === "payment")
+    .reduce((sum, s) => sum + s.settledAmount, 0)
+  const paymentsTotal = formula.schedule.filter((s) => s.type === "payment").reduce((sum, s) => sum + s.amount, 0)
+  const receiptPct = receiptsTotal > 0 ? Math.round((receiptsSettled / receiptsTotal) * 100) : 0
+  const paymentPct = paymentsTotal > 0 ? Math.round((paymentsSettled / paymentsTotal) * 100) : 0
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-medium text-foreground">Receipts Settled</p>
+            <span className="font-mono text-xs text-muted-foreground">{receiptPct}%</span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-success" style={{ width: `${receiptPct}%` }} />
+          </div>
+          <p className="mt-2 font-mono text-xs text-muted-foreground">
+            {formatCurrency(receiptsSettled)} / {formatCurrency(receiptsTotal)}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-medium text-foreground">Payments Settled</p>
+            <span className="font-mono text-xs text-muted-foreground">{paymentPct}%</span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-warning" style={{ width: `${paymentPct}%` }} />
+          </div>
+          <p className="mt-2 font-mono text-xs text-muted-foreground">
+            {formatCurrency(paymentsSettled)} / {formatCurrency(paymentsTotal)}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-secondary/40 p-4">
+        <div className="flex items-center gap-2">
+          <Scale className="size-4 text-accent" />
+          <p className="text-sm font-semibold text-foreground">Net Position</p>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <OverviewStat label="Outstanding Receivable" value={formatCurrency(formula.receivable)} />
+          <OverviewStat label="Outstanding Payable" value={formatCurrency(formula.payable)} />
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Settlement Checklist</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <SettlementCheck label="All receipts collected" done={receiptPct >= 100} />
+          <SettlementCheck label="All payments cleared" done={paymentPct >= 100} />
+          <SettlementCheck label="Invoices matched" done={formula.invoiceStatus === "complete"} />
+          <SettlementCheck label="Ready to close" done={formula.closeable} />
+        </div>
+      </div>
+    </div>
   )
 }

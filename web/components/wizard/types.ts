@@ -28,6 +28,14 @@ export type WizardScheduleItem = {
   dueDate: string
 }
 
+export type WizardLogisticsLeg = {
+  id: string
+  mode: "sea" | "air" | "land"
+  origin: string
+  destination: string
+  eta: string
+}
+
 export type WizardState = {
   companyId: string
   item: string
@@ -38,6 +46,7 @@ export type WizardState = {
   costs: WizardCost[]
   sharePct: number
   schedule: WizardScheduleItem[]
+  logistics: WizardLogisticsLeg[]
   notes: string
 }
 

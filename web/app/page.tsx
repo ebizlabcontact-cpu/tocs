@@ -1,11 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Plus } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { useCompany } from "@/components/company-context"
 import { PageHeader } from "@/components/page-header"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { CreateFormulaButton } from "@/components/formulas/create-formula-button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { ProfitChart } from "@/components/dashboard/profit-chart"
@@ -69,12 +68,7 @@ export default function DashboardPage() {
       <PageHeader
         title="Command Center"
         description={`Realized performance for ${selected.name}. Understand your business at a glance.`}
-        actions={
-          <Link href="/formulas/new" className={cn(buttonVariants({ variant: "accent" }), "gap-2")}>
-            <Plus className="size-4" />
-            Create Formula
-          </Link>
-        }
+        actions={<CreateFormulaButton />}
       />
 
       {/* 1. KPI cards — realized profit only */}
