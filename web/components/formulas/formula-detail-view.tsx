@@ -9,7 +9,6 @@ import {
   FileText,
   Ship,
   History,
-  Pencil,
   CheckCircle2,
   Share2,
   AlertTriangle,
@@ -21,8 +20,10 @@ import {
 import type { Formula } from "@/lib/types"
 import { formatCurrency, formatRelative, cn } from "@/lib/utils"
 import { statusConfig, tradeTypeConfig } from "@/lib/status"
+import { useCompany } from "@/components/company-context"
 import { StatusBadge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { Tooltip } from "@/components/ui/tooltip"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FormulaEquation } from "./formula-equation"
 import {
@@ -55,9 +56,12 @@ function MetricPill({ label, value, tone }: { label: string; value: string; tone
   )
 }
 
+const WRITE_HINT = "Select a company to perform write actions."
+
 export function FormulaDetailView({ formula }: { formula: Formula }) {
   const [tab, setTab] = useState("overview")
   const status = statusConfig[formula.status]
+  const { isAllCompanies } = useCompany()
 
   return (
     <div className="animate-fade-in pb-6">
@@ -84,18 +88,42 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline">
-            <Share2 className="size-4" />
-            Share
-          </Button>
-          <Link href={`/formulas/${formula.id}/edit`} className={cn(buttonVariants({ variant: "outline" }))}>
-            <Pencil className="size-4" />
-            Edit
-          </Link>
-          <Button variant="accent" disabled={!formula.closeable}>
-            <CheckCircle2 className="size-4" />
-            {formula.closeable ? "Close Formula" : "Not Closeable"}
-          </Button>
+          {isAllCompanies ? (
+            <Tooltip content={WRITE_HINT}>
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className={cn(buttonVariants({ variant: "outline" }), "gap-2 opacity-50")}
+              >
+                <Share2 className="size-4" />
+                Share
+              </button>
+            </Tooltip>
+          ) : (
+            <Button variant="outline">
+              <Share2 className="size-4" />
+              Share
+            </Button>
+          )}
+          {isAllCompanies ? (
+            <Tooltip content={WRITE_HINT}>
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className={cn(buttonVariants({ variant: "accent" }), "gap-2 opacity-50")}
+              >
+                <CheckCircle2 className="size-4" />
+                Close Formula
+              </button>
+            </Tooltip>
+          ) : (
+            <Button variant="accent" disabled={!formula.closeable}>
+              <CheckCircle2 className="size-4" />
+              {formula.closeable ? "Close Formula" : "Not Closeable"}
+            </Button>
+          )}
         </div>
       </div>
 

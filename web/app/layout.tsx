@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="bg-background">
+    <html lang="ko" className="bg-background">
       <body className={`${inter.variable} font-sans antialiased`}>
         <CompanyProvider>
           <AppShell>{children}</AppShell>

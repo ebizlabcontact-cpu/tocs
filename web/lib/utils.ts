@@ -23,7 +23,7 @@ export function formatSignedCurrency(value: number, opts?: { compact?: boolean }
 }
 
 export function formatNumber(value: number, opts?: { compact?: boolean }) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("ko-KR", {
     notation: opts?.compact ? "compact" : "standard",
     maximumFractionDigits: 1,
   }).format(value)
@@ -31,7 +31,7 @@ export function formatNumber(value: number, opts?: { compact?: boolean }) {
 
 export function formatDate(date: string | Date, opts?: Intl.DateTimeFormatOptions) {
   const d = typeof date === "string" ? new Date(date) : date
-  return new Intl.DateTimeFormat("en-US", opts ?? { month: "short", day: "numeric", year: "numeric" }).format(d)
+  return new Intl.DateTimeFormat("ko-KR", opts ?? { month: "short", day: "numeric", year: "numeric" }).format(d)
 }
 
 export function formatRelative(date: string | Date) {

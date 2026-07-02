@@ -31,7 +31,6 @@ export type WizardParticipant = {
   startPoint: boolean
   /** Chain end point toggle. */
   endPoint: boolean
-  sharePct: number
 }
 
 export type WizardScheduleItem = {
@@ -87,7 +86,6 @@ export const emptyWizardState: WizardState = {
       paymentGroup: "prepaid",
       startPoint: true,
       endPoint: false,
-      sharePct: 60,
     },
   ],
   lines: [

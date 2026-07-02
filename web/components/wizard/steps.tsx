@@ -324,7 +324,6 @@ export function StepParticipants({ state, set }: { state: WizardState; set: Sett
                   paymentGroup: "credit",
                   startPoint: false,
                   endPoint: false,
-                  sharePct: 0,
                 },
               ],
             }))
