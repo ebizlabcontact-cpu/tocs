@@ -4,11 +4,13 @@ import type {
   FormulaStatus,
   TradeType,
   Kpi,
+  Participant,
   RegisteredCompany,
   DateRange,
   CalendarEvent,
   VersionEntry,
 } from "./types"
+import { deriveChainFinancials } from "./derive"
 
 export const companies: Company[] = [
   { id: "all", name: "All Companies", shortName: "ALL", color: "#f59e0b" },
@@ -55,6 +57,7 @@ function buildFormula(i: number): Formula {
   const tradeItem = tradeItems[i % tradeItems.length]
   const item = tradeItem.name
   const tradeType = tradeTypes[i % tradeTypes.length]
+  const quantity = 100 + (i % 9) * 50
 
   // KRW-scale amounts (₩80M – ₩400M range).
   const totalSell = Math.round((80000000 + rand() * 320000000) / 1000000) * 1000000
@@ -108,6 +111,8 @@ function buildFormula(i: number): Formula {
     item,
     specMemo: tradeItem.memo,
     tradeType,
+    quantity,
+    unit: "MT",
     participants: [
       { id: "p1", name: cp1, role: "seller", company: cp1, sharePct: 60 },
       { id: "p2", name: cp2, role: "buyer", company: cp2, sharePct: 40 },
@@ -229,6 +234,27 @@ function buildChainFormula(): Formula {
   const base = buildFormula(7)
   const createdAt = new Date(Date.now() - 54 * 86400000).toISOString()
   const updatedAt = new Date(Date.now() - 2 * 86400000).toISOString()
+
+  const formulaQuantity = 500
+  // Participant quantities may differ from the total formula quantity —
+  // e.g. Nature Insight only handles part of the volume.
+  const participants: Participant[] = [
+    { id: "cp1", name: "CJ CheilJedang", company: "CJ CheilJedang", role: "seller", nature: "Manufacturer", chainOrder: 0, quantity: 500, buyPrice: 0, sellPrice: 920000 },
+    { id: "cp2", name: "GeoWorks", company: "GeoWorks", role: "agent", nature: "Distributor", chainOrder: 1, quantity: 500, buyPrice: 920000, sellPrice: 948000 },
+    { id: "cp3", name: "Nature Insight", company: "Nature Insight", role: "agent", nature: "Trading Company", chainOrder: 2, quantity: 300, buyPrice: 948000, sellPrice: 985000 },
+    { id: "cp4", name: "Logistics Partner", company: "Logistics Partner", role: "logistics", nature: "Logistics Company", chainOrder: 3, quantity: 500, buyPrice: 985000, sellPrice: 992000 },
+    { id: "cp5", name: "Eco & Recycle", company: "Eco & Recycle", role: "buyer", nature: "Buyer", chainOrder: 4, quantity: 500, buyPrice: 992000, sellPrice: 0 },
+  ]
+
+  // Every headline number is derived from the chain — no independent inputs.
+  const logisticsCost = 3000000
+  const share = 5000000
+  const derived = deriveChainFinancials(participants, { logisticsCost, share })!
+  const totalSell = derived.expectedRevenue
+  const totalBuy = derived.expectedCost
+  const actualReceipts = Math.round(totalSell * 0.5)
+  const actualPayments = Math.round(totalBuy * 0.45)
+
   return {
     ...base,
     id: "f-chain",
@@ -238,16 +264,22 @@ function buildChainFormula(): Formula {
     specMemo: "FFA ≤ 3.5%, Moisture ≤ 1%, ISCC-EU certified, multi-tier collection chain.",
     tradeType: "triangular",
     status: "active",
+    quantity: formulaQuantity,
+    unit: "MT",
     createdAt,
     updatedAt,
     version: 4,
-    participants: [
-      { id: "cp1", name: "CJ CheilJedang", company: "CJ CheilJedang", role: "seller", nature: "Manufacturer", chainOrder: 0, quantity: 500, buyPrice: 0, sellPrice: 920000 },
-      { id: "cp2", name: "GeoWorks", company: "GeoWorks", role: "agent", nature: "Distributor", chainOrder: 1, quantity: 500, buyPrice: 920000, sellPrice: 948000 },
-      { id: "cp3", name: "Nature Insight", company: "Nature Insight", role: "agent", nature: "Trading Company", chainOrder: 2, quantity: 500, buyPrice: 948000, sellPrice: 985000 },
-      { id: "cp4", name: "Logistics Partner", company: "Logistics Partner", role: "logistics", nature: "Logistics Company", chainOrder: 3, quantity: 500, buyPrice: 985000, sellPrice: 992000 },
-      { id: "cp5", name: "Eco & Recycle", company: "Eco & Recycle", role: "buyer", nature: "Buyer", chainOrder: 4, quantity: 500, buyPrice: 992000, sellPrice: 0 },
-    ],
+    totalSell,
+    totalBuy,
+    cost: logisticsCost,
+    share,
+    expectedProfit: derived.expectedProfit,
+    actualReceipts,
+    actualPayments,
+    realizedProfit: actualReceipts - actualPayments,
+    receivable: Math.max(0, totalSell - actualReceipts),
+    payable: Math.max(0, totalBuy - actualPayments),
+    participants,
   }
 }
 

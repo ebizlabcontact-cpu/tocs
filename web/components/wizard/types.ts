@@ -70,8 +70,23 @@ export type WizardState = {
  * from this so numbers always trace back to Formula inputs.
  */
 export function deriveFormula(state: WizardState) {
-  const expectedRevenue = state.participants.reduce((s, p) => s + (p.sellPrice || 0) * (p.quantity || 0), 0)
-  const expectedCost = state.participants.reduce((s, p) => s + (p.buyPrice || 0) * (p.quantity || 0), 0)
+  const nodes = state.participants
+  const priced = nodes.filter((p) => (p.buyPrice || 0) > 0 || (p.sellPrice || 0) > 0)
+  const endBuyers = priced.filter((p) => (p.sellPrice || 0) === 0 && (p.buyPrice || 0) > 0)
+  const origins = priced.filter((p) => (p.buyPrice || 0) === 0 && (p.sellPrice || 0) > 0)
+  const buyers = priced.filter((p) => (p.buyPrice || 0) > 0)
+  // Revenue = end buyer's payment; Cost = origin's proceeds. Both trace to
+  // chain quantity × price so a closed chain reflects the captured spread.
+  const expectedRevenue = endBuyers.length
+    ? endBuyers.reduce((s, p) => s + (p.buyPrice || 0) * (p.quantity || 0), 0)
+    : priced.length
+      ? Math.max(...priced.map((p) => (p.sellPrice || 0) * (p.quantity || 0)))
+      : 0
+  const expectedCost = origins.length
+    ? origins.reduce((s, p) => s + (p.sellPrice || 0) * (p.quantity || 0), 0)
+    : buyers.length
+      ? Math.min(...buyers.map((p) => (p.buyPrice || 0) * (p.quantity || 0)))
+      : 0
   const costs = state.costs.reduce((s, c) => s + (c.amount || 0), 0)
   const grossMargin = expectedRevenue - expectedCost - costs
   const retainedShare = (grossMargin * state.sharePct) / 100

@@ -120,6 +120,10 @@ export type Formula = {
   item: string
   specMemo: string
   tradeType: TradeType
+  /** Total business quantity of the formula (may differ from each participant's quantity). */
+  quantity: number
+  /** Unit for the formula quantity (e.g. "MT"). */
+  unit: string
   participants: Participant[]
   totalSell: number
   totalBuy: number

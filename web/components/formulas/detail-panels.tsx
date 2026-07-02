@@ -1,8 +1,9 @@
 import type { Formula } from "@/lib/types"
-import { formatCurrency, formatDate, formatRelative, cn } from "@/lib/utils"
+import { formatCurrency, formatDate, formatNumber, formatRelative, cn } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/badge"
 import { CalculationBreakdown } from "./calculation-breakdown"
 import { FormulaChainView } from "./formula-chain"
+import { SettlementScenarios } from "@/components/wizard/settlement-scenarios"
 import {
   invoiceStatusConfig,
   logisticsStatusConfig,
@@ -279,6 +280,12 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
           <p className="mt-1 truncate text-sm font-medium text-foreground">{formula.item}</p>
         </div>
         <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Formula Quantity</p>
+          <p className="mt-1 font-mono text-sm font-medium text-foreground">
+            {formatNumber(formula.quantity)} {formula.unit}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-card px-3 py-2.5">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Last Updated</p>
           <p className="mt-1 text-sm font-medium text-foreground">{formatRelative(formula.updatedAt)}</p>
         </div>
@@ -428,6 +435,10 @@ export function SettlementPanel({ formula }: { formula: Formula }) {
           <SettlementCheck label="Invoices matched" done={formula.invoiceStatus === "complete"} />
           <SettlementCheck label="Ready to close" done={formula.closeable} />
         </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <SettlementScenarios expectedReceipts={formula.totalSell} expectedPayments={formula.totalBuy} />
       </div>
     </div>
   )

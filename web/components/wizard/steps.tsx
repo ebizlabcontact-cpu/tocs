@@ -16,6 +16,7 @@ import {
   deriveFormula,
   type WizardState,
 } from "./types"
+import { SettlementScenarios } from "./settlement-scenarios"
 
 type Setter = (updater: (s: WizardState) => WizardState) => void
 
@@ -487,6 +488,7 @@ function MoneyRow({
 }
 
 export function StepSettlement({ state, set }: { state: WizardState; set: Setter }) {
+  const d = deriveFormula(state)
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
@@ -553,6 +555,11 @@ export function StepSettlement({ state, set }: { state: WizardState; set: Setter
 
       {/* Derived money flow */}
       <MoneyFlow state={state} />
+
+      {/* Settlement scenario demonstration */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <SettlementScenarios expectedReceipts={d.expectedReceipts} expectedPayments={d.expectedPayments} />
+      </div>
 
       {/* Planned settlement timing (optional) */}
       <div className="space-y-3">

@@ -1,5 +1,6 @@
 import type { Formula, Participant } from "@/lib/types"
 import { formatCurrency, formatNumber, cn } from "@/lib/utils"
+import { deriveChainFinancials } from "@/lib/derive"
 import { ArrowRight } from "lucide-react"
 
 const roleTone: Record<Participant["role"], string> = {
@@ -29,13 +30,20 @@ export function FormulaChainView({ formula }: { formula: Formula }) {
   // Only render the rich chain view when the formula carries ordered chain data.
   if (chain.length < 3) return null
 
+  const derived = deriveChainFinancials(formula.participants, {
+    logisticsCost: formula.cost,
+    share: formula.share,
+  })
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Participant Chain
         </p>
-        <span className="text-xs text-muted-foreground">{chain.length} parties</span>
+        <span className="text-xs text-muted-foreground">
+          {chain.length} parties · {formatNumber(formula.quantity)} {formula.unit}
+        </span>
       </div>
 
       {/* Visual flow */}
@@ -124,6 +132,58 @@ export function FormulaChainView({ formula }: { formula: Formula }) {
           </tbody>
         </table>
       </div>
+
+      {derived && (
+        <div className="rounded-lg border border-border bg-secondary/40 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Derived from Chain
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <DerivedStat label="Expected Revenue" value={derived.expectedRevenue} tone="pos" />
+            <DerivedStat label="Expected Cost" value={derived.expectedCost} />
+            <DerivedStat
+              label="Gross Margin"
+              value={derived.grossMargin}
+              tone={derived.grossMargin >= 0 ? "pos" : "neg"}
+            />
+            <DerivedStat
+              label="Expected Profit"
+              value={derived.expectedProfit}
+              tone={derived.expectedProfit >= 0 ? "pos" : "neg"}
+            />
+          </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+            Every figure shown here is derived from Formula — revenue from the end buyer, cost from the origin, and
+            margin from the spread captured across the chain.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DerivedStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: number
+  tone?: "pos" | "neg"
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          "mt-0.5 font-mono text-sm font-semibold tabular-nums",
+          tone === "pos" && "text-success",
+          tone === "neg" && "text-danger",
+          !tone && "text-foreground",
+        )}
+      >
+        {formatCurrency(value)}
+      </p>
     </div>
   )
 }

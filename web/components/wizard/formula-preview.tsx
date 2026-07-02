@@ -16,9 +16,18 @@ export function FormulaPreview({ state }: { state: WizardState }) {
 
       {/* Construction counters */}
       <div className="mb-4 grid grid-cols-2 gap-2">
+        <Counter
+          label="Formula Qty"
+          value={state.quantity ? `${formatNumber(state.quantity)} ${state.unit}` : `0 ${state.unit}`}
+        />
         <Counter label="Participants" value={String(d.participantCount)} />
-        <Counter label="Quantity" value={d.totalQuantity ? `${formatNumber(d.totalQuantity)} ${state.unit}` : `0 ${state.unit}`} />
       </div>
+      {d.totalQuantity !== state.quantity && d.totalQuantity > 0 && (
+        <p className="mb-3 -mt-2 text-[11px] leading-relaxed text-muted-foreground">
+          Participant quantities total {formatNumber(d.totalQuantity)} {state.unit} — individual involvement may differ
+          from the formula quantity.
+        </p>
+      )}
 
       {/* Progressive money flow */}
       <div className="space-y-2.5">
