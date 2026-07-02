@@ -297,14 +297,80 @@ Use Formula instead.
 
 Do not rename Formula to another business concept.
 
-## 14. Cursor Behavior Rules
+## 14. UI/UX Workflow (v0 + Cursor)
+
+Product UI uses a two-tool pipeline. Backend, DB, and API stay frozen during UI iteration unless explicitly approved.
+
+### v0
+
+* UI/UX 시안 및 프론트엔드 컴포넌트 **초안** 생성 담당.
+* GitHub 연동 → **`web/**` 기준**으로 작업.
+* Premium SaaS visual direction 반영 (§16).
+* Mock data 기반 시안 생성 — API 연결 금지.
+
+### Cursor
+
+* v0 생성 코드를 TOCS 구조에 맞게 **정리·통합** — 무조건 그대로 덮어쓰지 말 것.
+* **`web/**` 내부에서만** 리팩토링.
+* `AppShell`, `CompanyProvider`, `DateRangeProvider` 유지 또는 정합성 맞춰 통합.
+* Backend / API / DB / Prisma 수정 **금지** — 필요 시 즉시 중단·보고.
+* Formula First / Company Context / Profit Engine (Estimated ≠ Realized) 위반 여부 **먼저 점검**.
+* `cd web && npm run typecheck` · lint/build 가능 시 실행; root `npm run typecheck` · `npm run test:integration` 검증 담당.
+* UI 개선은 작은 단위로 커밋 가능하게 분리.
+
+## 15. UI Source Boundary
+
+Frontend 작업 허용:
+
+* `web/app/**`
+* `web/components/**`
+* `web/hooks/**`
+* `web/lib/**`
+* `web/styles/**`
+* `web/public/**`
+
+UI 작업 시 수정 금지:
+
+* `src/**`
+* `prisma/**`
+* `db/**`
+* `docs/**` (except `PROJECT_CONTEXT.md` and `.cursor/rules/tocs-core.mdc` when explicitly tasked)
+* Root `package.json`
+* Backend env / config
+
+## 16. Design Direction
+
+TOCS UI 목표:
+
+* 2026 Premium B2B SaaS — Formula First Financial Operating System
+* Visual references: Stripe Dashboard, Linear, Notion, Mercury, Attio
+* Dashboard = Command Center (Realized Profit 중심)
+* Formula Detail = Primary Workspace
+* Timeline 중심 UX
+* 최소 클릭 · 최소 인지부하
+* Mobile 대응 (shell, bottom nav, sticky subnav)
+* Dark Mode ready (CSS tokens)
+
+## 17. Product UX Non-negotiables
+
+* Dashboard는 **Realized Profit** 중심 — Estimated Profit Dashboard **금지**.
+* Estimated Profit은 Formula / Wizard / Detail에서만 사용.
+* **Estimated Profit ≠ Realized Profit** — 혼용·동일 표시 금지.
+* KPI card click = **List + filter** → row → Detail (Detail 직접 jump 금지).
+* KPI card click → **modal 금지**.
+* Company Switcher = **Global Company Context** (Dashboard-only 아님).
+* Frontend-only filtering을 보안/스코프처럼 구현 **금지**.
+* AI Assistant = **placeholder only** — V1 구현 금지.
+* Wizard **Draft** (save / resume / list) — V1 **제외**.
+
+## 18. Cursor Behavior Rules
 
 When editing code:
 
 * Touch only the files explicitly requested.
 * Do not refactor unrelated files.
 * Do not improve architecture without approval.
-* Do not add dependencies without approval.
+* Do not add dependencies without approval — **report before adding to `web/`**.
 * Do not create migrations.
 * Do not change schema.prisma unless explicitly requested.
 * Do not change SQL schema files unless explicitly requested.
@@ -312,7 +378,15 @@ When editing code:
 * Report changed files after every task.
 * If a requirement conflicts with TOCS rules, stop and ask.
 
-## 15. Current Implementation Phase
+When editing **`web/**`** (UI / v0 handoff):
+
+* Do **not** blind-merge v0 output — review §14–§17 compliance first.
+* Limit all changes to **`web/**`**; backend drift → stop and report immediately.
+* Preserve or align `AppShell`, `CompanyProvider`, `DateRangeProvider`.
+* Run `cd web && npm run typecheck`; report lint/build availability.
+* Keep UI diffs small and reviewable when user requests commit.
+
+## 19. Current Implementation Phase
 
 This section is milestone-sensitive and must be updated after each
 approved implementation milestone. If the current task is outside the
@@ -320,6 +394,12 @@ listed allowed scope, Cursor must stop and ask for explicit approval
 instead of implementing it. Do not silently expand the allowed scope.
 
 Current phase:
+
+* Backend Engine **Stable** — 343 / 343 integration PASS
+* **Product UI Prototype** in `web/` — mock data, Premium SaaS direction
+* UI workflow: **v0 drafts → Cursor integrates** under `web/**` only
+
+Backend domains (complete):
 
 * Formula Domain complete
 * Formula PATCH Domain MVP complete
@@ -356,6 +436,7 @@ Allowed:
 
 Not Allowed until explicitly requested:
 
+* API wiring from `web/` to backend (real fetch, auth cookies, company headers)
 * Reopen
 * Close undo
 * Cancel undo
@@ -370,3 +451,18 @@ Known gaps / deferred:
 * Logistics §5.3 audit_logs deferred
 * Auth/RBAC deferred
 * Reopen/Undo deferred
+
+UI prototype allowed (mock only):
+
+* `web/app/**` routes and pages
+* `web/components/**` shell, dashboard, formula list/detail/wizard
+* `web/lib/**` mock data, providers, formatters
+* Design system tokens in `web/app/globals.css` and `web/components/ui/**`
+
+UI forbidden without approval:
+
+* Real API integration from frontend
+* AI Assistant implementation (placeholder only)
+* Wizard Draft save/resume
+* Frontend-only scope presented as security enforcement
+* New npm dependencies in `web/` without report

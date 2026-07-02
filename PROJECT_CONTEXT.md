@@ -1,7 +1,7 @@
 # TOCS Project Context
 
 > **Purpose:** Bootstrap new ChatGPT / Cursor conversations with ≥95% project context retention.  
-> **Last updated:** 2026-07-01 (v1.5.x — Productization specs + backend stable)  
+> **Last updated:** 2026-07-01 (v1.5.3 — v0/Cursor UI workflow + web/ prototype status)  
 > **Canonical deep specs:** `docs/master/TOCS_MASTER_SPEC.md`, `docs/decisions/DECISION_LOG.md`, `.cursor/rules/tocs-core.mdc`
 
 ---
@@ -123,13 +123,101 @@ Public endpoint: `GET /api/v1/health` only.
 |------|--------|
 | **Dashboard V1 Specification** | Completed (docs only) |
 | **Formula Wizard** | Spec Draft (Pending Decisions) |
-| **Product UI Shell** | Not Started |
-| **Dashboard Module UI** | Not Started |
-| **Formula Wizard UI** | Not Started |
+| **Product UI Shell** | Prototype in `web/` (mock data) |
+| **Dashboard Module UI** | Prototype in `web/` (mock data) |
+| **Formula Wizard UI** | Prototype in `web/` (mock data) |
+
+**UI workflow:** v0 generates visual drafts → Cursor integrates into TOCS structure under `web/**` only. See **§6.1 UI/UX Workflow**.
 
 **IA baseline (v1.5.5):** Global nav — Dashboard, Formulas, Companies, Calendar, Reports, Settings. Formula Detail — Overview, Timeline, Participants, Payments, Invoices, Logistics, Shares, Versions, Settlement. See `NAVIGATION_ARCHITECTURE.md`.
 
 **Dashboard wireframe (v1.5.6):** Header + KPI 8 cards + Profit + Cash Flow + Formula sections — `DASHBOARD_V1_SPEC.md` §11.
+
+---
+
+## 6.1 UI/UX Workflow (v0 + Cursor)
+
+Two-tool pipeline for Product UI. **Backend, DB, and API remain frozen** during UI iteration unless explicitly approved.
+
+### v0 — Visual draft generator
+
+| Responsibility | Detail |
+|----------------|--------|
+| **Scope** | UI/UX 시안 및 프론트엔드 컴포넌트 **초안** 생성 |
+| **Target path** | `web/**` only (GitHub 연동) |
+| **Visual direction** | Premium SaaS — see §6.3 Design Direction |
+| **Data** | Mock data only — no API wiring |
+| **Output** | Component layouts, styling tokens, page wireframes as React/Tailwind code |
+
+v0 does **not** own TOCS architecture integration, provider wiring, or backend alignment.
+
+### Cursor — TOCS integration & verification
+
+| Responsibility | Detail |
+|----------------|--------|
+| **Scope** | v0 생성 코드를 TOCS 구조에 맞게 **정리·통합** |
+| **Path limit** | `web/**` 내부만 리팩토링 |
+| **Preserve / align** | `AppShell`, `CompanyProvider`, `DateRangeProvider` — 유지 또는 정합성 맞춰 통합 |
+| **Forbidden** | Backend / API / DB / Prisma / `docs/**` (except this file and `.cursor/rules/`) 수정 |
+| **Principle review** | Formula First, Company Context, Profit Engine (Estimated ≠ Realized) 위반 여부 점검 |
+| **Verification** | `cd web && npm run typecheck` · `npm run dev` · lint/build 가능 시 실행; root `npm run typecheck` · `npm run test:integration` |
+
+**Rule:** v0 코드가 들어와도 **무조건 그대로 덮어쓰지 않음**. TOCS 원칙 위반 시 중단·보고 후 수정.
+
+### UI Source Boundary
+
+**Frontend 작업 허용:**
+
+| Path | Purpose |
+|------|---------|
+| `web/app/**` | Next.js routes, layouts, pages |
+| `web/components/**` | UI components, shell, feature views |
+| `web/hooks/**` | Client hooks |
+| `web/lib/**` | Mock data, providers, formatters, auth mock |
+| `web/styles/**` | Global / token styles |
+| `web/public/**` | Static assets |
+
+**수정 금지 (UI 작업 시):**
+
+| Path | Reason |
+|------|--------|
+| `src/**` | Backend engine |
+| `prisma/**` | ORM mapping — SQL-first |
+| `db/**` | Schema source of truth |
+| `docs/**` | Spec docs (this task excepted: `PROJECT_CONTEXT.md`, `.cursor/rules/tocs-core.mdc`) |
+| Root `package.json` | Monorepo scripts — report before change |
+| Backend env / config | `src/config/`, `.env` patterns |
+
+---
+
+## 6.2 Design Direction
+
+| Goal | Direction |
+|------|-----------|
+| **Positioning** | 2026 Premium B2B SaaS — Formula First Financial Operating System |
+| **Visual references** | Stripe Dashboard · Linear · Notion · Mercury · Attio |
+| **Dashboard** | Command Center — Realized Profit 중심, 5초 스캔 |
+| **Formula Detail** | Primary Workspace — Timeline 중심 UX |
+| **Interaction** | 최소 클릭 · 최소 인지부하 |
+| **Responsive** | Mobile-first shell, bottom nav, sticky subnav |
+| **Theme** | Dark Mode ready (tokens in CSS; toggle optional) |
+| **Tone** | Clean, premium, modern — subtle shadow, 12–16px radius, neutral surface |
+
+---
+
+## 6.3 Product UX Non-negotiables
+
+| Rule | Detail |
+|------|--------|
+| **Dashboard = Realized Profit** | 실현 순이익 중심 KPI; **Estimated Profit Dashboard 금지** |
+| **Estimated ≠ Realized** | Estimated는 Formula / Wizard / Detail에서만; 혼용·동일 표시 금지 |
+| **KPI drill-down** | Card click → **List + filter** → row → Detail (Detail 직접 jump 금지) |
+| **No modal drill-down** | KPI card click → modal 금지 |
+| **Global Company Context** | Company Switcher = 전역 스코프; Dashboard-only 아님 |
+| **No fake security scope** | Frontend-only filtering을 보안/스코프처럼 구현 금지 — mock은 mock으로 표시 |
+| **AI Assistant** | Placeholder only — **V1 구현 금지** (`FORMULA_DETAIL_SPEC.md` §5.1) |
+| **Draft** | Wizard save/resume/list — **V1 제외** (`FORMULA_WIZARD_SPEC.md` §2.6) |
+| **Formula First** | 모든 화면·네비·KPI는 Formula에서 파생; Deal/Order 등 금지 |
 
 ---
 
@@ -319,6 +407,21 @@ Code milestones v1.3.7–v1.3.17 close DL-047 Implementation Phases 1–6. Phase
 
 ## 14. Current Milestone
 
+### v1.5.3 Product UI Prototype + v0/Cursor Workflow ✅
+
+| Deliverable | Status |
+|-------------|--------|
+| `web/` — App Shell, Dashboard, Formula List/Detail/Wizard, secondary pages | ✅ Mock prototype |
+| §6.1 UI/UX Workflow (v0 + Cursor) | ✅ Documented |
+| §6.2 Design Direction · §6.3 UX Non-negotiables | ✅ Documented |
+| `.cursor/rules/tocs-core.mdc` UI boundaries | ✅ Updated |
+
+**Scope:** `web/**` mock UI + project context / Cursor rules only. Backend/API/DB unchanged.
+
+**Integration gate:** **343 / 343 PASS** (unchanged).
+
+**Next (requires approval):** API wiring, real Company Context headers, auth integration.
+
 ### v1.5.2 Product UI implementation scope ✅
 
 | Deliverable | Status |
@@ -465,6 +568,19 @@ Every implementation response should include:
 5. **Verification commands** — typecheck, tests  
 6. **Git commands** — only when user requests commit  
 
+### UI work (v0 handoff) — Cursor-specific
+
+When the task touches `web/**`:
+
+1. **Do not blind-merge v0 output** — review Formula First, Company Context, Profit Engine compliance first.
+2. **Limit changes to `web/**`** — if backend/API/DB change is needed, **stop and report**.
+3. **Preserve shell providers** — `AppShell`, `CompanyProvider`, `DateRangeProvider`; integrate v0 into existing structure.
+4. **Report before new dependencies** — no silent `npm install` in `web/`.
+5. **Verification** — `cd web && npm run typecheck` (and lint/build if scripts exist); root `npm run typecheck` + `npm run test:integration` when backend untouched.
+6. **Small commits** — UI improvements should be separable into reviewable units when user requests commit.
+
+See **§6.1–§6.3** for full UI workflow, boundaries, and UX non-negotiables.
+
 ### End-of-feedback template (Cursor handoff)
 
 ```
@@ -520,7 +636,8 @@ Current state:
 - Company Context + Service-layer Filters Completed
 - Dashboard V1 docs completed
 - Formula Wizard spec draft
-- Next: Product UI Shell, Dashboard Module UI, Formula Wizard UI
+- web/ mock UI prototype (Premium SaaS direction)
+- UI workflow: v0 drafts → Cursor integrates under web/** only
 
 Non-negotiable:
 - 문서 최소화
@@ -528,6 +645,9 @@ Non-negotiable:
 - Formula First
 - SQL-first
 - No scope creep
+- Dashboard = Realized Profit only; Estimated ≠ Realized
+- KPI click = List + filter (no Detail jump, no modal)
+- UI changes web/** only; backend frozen unless approved
 
 When implementing, state: goal, files, scope, forbidden, verification, git (if asked).
 ```
@@ -545,7 +665,8 @@ When implementing, state: goal, files, scope, forbidden, verification, git (if a
 | `docs/api/API_MVP_SCOPE.md` | 48-route inventory |
 | `prisma/schema.prisma` | ORM mapping (read SQL first) |
 | `db/schema/tocs_base_schema.sql` | Base DDL |
-| `.cursor/rules/tocs-core.mdc` | Cursor agent rules |
+| `web/` | Next.js UI prototype (mock data; v0 + Cursor workflow) |
+| `.cursor/rules/tocs-core.mdc` | Cursor agent rules (incl. UI boundaries) |
 | `docs/specs/GLOBAL_COMPANY_CONTEXT_POLICY.md` | Global company context (DL-050) |
 | `docs/specs/PRODUCTIZATION_V1_PLAN.md` | Productization v1 phases |
 | `docs/specs/NAVIGATION_ARCHITECTURE.md` | Global nav + Formula Detail IA (v1.5.5 baseline) |
@@ -560,4 +681,5 @@ When implementing, state: goal, files, scope, forbidden, verification, git (if a
 | Date | Change |
 |------|--------|
 | 2026-06-23 | Initial PROJECT_CONTEXT.md — Engineering Hardening bootstrap |
+| 2026-07-01 | v1.5.3 — §6.1–§6.3 UI/UX Workflow (v0 + Cursor), Design Direction, UX non-negotiables; web/ prototype status |
 | 2026-07-01 | v1.5.x — Current State, Productization, Pending Decisions, Product Principles; integration gate 343/343 |
