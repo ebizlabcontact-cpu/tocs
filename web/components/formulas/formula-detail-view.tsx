@@ -34,9 +34,9 @@ import {
   TimelinePanel,
   OverviewPanel,
   SharesPanel,
-  VersionsPanel,
   SettlementPanel,
 } from "./detail-panels"
+import { VersionsPanel } from "./versions-panel"
 
 function MetricPill({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
   return (

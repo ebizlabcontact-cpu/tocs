@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { CompanyProvider } from "@/components/company-context"
+import { DateRangeProvider } from "@/components/date-range-context"
 import { AppShell } from "@/components/shell/app-shell"
 
 const inter = Inter({
@@ -30,7 +31,9 @@ export default function RootLayout({
     <html lang="ko" className="bg-background">
       <body className={`${inter.variable} font-sans antialiased`}>
         <CompanyProvider>
-          <AppShell>{children}</AppShell>
+          <DateRangeProvider>
+            <AppShell>{children}</AppShell>
+          </DateRangeProvider>
         </CompanyProvider>
       </body>
     </html>

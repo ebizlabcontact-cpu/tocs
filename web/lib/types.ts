@@ -33,7 +33,46 @@ export type Participant = {
   role: "buyer" | "seller" | "agent" | "logistics" | "financier"
   company: string
   sharePct?: number
+  /** Trade nature label shown in a participant chain (e.g. "Manufacturer"). */
+  nature?: string
+  /** Position in a multi-party chain (0-based). Present only for chain demos. */
+  chainOrder?: number
+  quantity?: number
+  buyPrice?: number
+  sellPrice?: number
 }
+
+/** A single field change within a formula version. */
+export type VersionChange = {
+  label: string
+  from?: string
+  to?: string
+  note?: string
+}
+
+/** One entry in a formula's mock version history. */
+export type VersionEntry = {
+  versionNo: number
+  createdAt: string
+  createdBy: string
+  summary: string
+  changes: VersionChange[]
+}
+
+/** A scheduled receipt/payment surfaced on the calendar. */
+export type CalendarEvent = {
+  id: string
+  formula: string
+  formulaId: string
+  item: string
+  flow: "receipt" | "payment"
+  amount: number
+  dueDate: string
+  status: string
+}
+
+/** Dashboard date-range presets (mock filtering only). */
+export type DateRange = "Last 7 Days" | "Last 30 Days" | "This Month" | "Last Month" | "This Year"
 
 export type PaymentScheduleItem = {
   id: string

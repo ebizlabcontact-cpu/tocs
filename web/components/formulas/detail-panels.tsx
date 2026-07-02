@@ -1,6 +1,8 @@
 import type { Formula } from "@/lib/types"
 import { formatCurrency, formatDate, formatRelative, cn } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/badge"
+import { CalculationBreakdown } from "./calculation-breakdown"
+import { FormulaChainView } from "./formula-chain"
 import {
   invoiceStatusConfig,
   logisticsStatusConfig,
@@ -283,17 +285,10 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
       </div>
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Financial Snapshot</p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <OverviewStat label="Expected Profit" value={formatCurrency(formula.expectedProfit)} tone="pos" />
-          <OverviewStat
-            label="Realized Profit"
-            value={formatCurrency(formula.realizedProfit)}
-            tone={formula.realizedProfit >= 0 ? "pos" : "neg"}
-          />
-          <OverviewStat label="Receivable" value={formatCurrency(formula.receivable)} />
-          <OverviewStat label="Payable" value={formatCurrency(formula.payable)} />
-        </div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Profit Transparency
+        </p>
+        <CalculationBreakdown formula={formula} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -350,57 +345,6 @@ export function SharesPanel({ formula }: { formula: Formula }) {
       <p className="text-xs text-muted-foreground">
         Estimated amounts are illustrative, based on expected profit. Realized shares are calculated at settlement.
       </p>
-    </div>
-  )
-}
-
-/* ---------------- Versions ---------------- */
-const versionNotes = [
-  "Current version",
-  "Pricing adjusted",
-  "Participants updated",
-  "Schedule revised",
-  "Initial draft created",
-]
-
-export function VersionsPanel({ formula }: { formula: Formula }) {
-  const count = Math.max(1, formula.version)
-  const versions = Array.from({ length: count }, (_, i) => {
-    const versionNo = count - i
-    return {
-      versionNo,
-      current: i === 0,
-      note: versionNotes[Math.min(i, versionNotes.length - 1)],
-      date: i === 0 ? formula.updatedAt : formula.createdAt,
-    }
-  })
-  return (
-    <div className="space-y-3">
-      {versions.map((v) => (
-        <div
-          key={v.versionNo}
-          className={cn(
-            "flex items-center gap-4 rounded-lg border bg-card p-4",
-            v.current ? "border-accent/40" : "border-border",
-          )}
-        >
-          <div
-            className={cn(
-              "flex size-10 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-semibold",
-              v.current ? "bg-accent-soft text-accent" : "bg-secondary text-muted-foreground",
-            )}
-          >
-            v{v.versionNo}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-sm font-semibold text-foreground">{v.note}</p>
-              {v.current && <StatusBadge tone="success">Current</StatusBadge>}
-            </div>
-            <p className="mt-0.5 text-xs text-muted-foreground">{formatDate(v.date)}</p>
-          </div>
-        </div>
-      ))}
     </div>
   )
 }

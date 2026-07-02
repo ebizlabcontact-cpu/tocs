@@ -3,12 +3,11 @@
 import * as React from "react"
 import { Calendar, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-const ranges = ["Last 7 days", "Last 30 days", "This quarter", "This year", "All time"]
+import { useDateRange } from "@/components/date-range-context"
 
 export function DateRangeSelector() {
+  const { ranges, range, setRange } = useDateRange()
   const [open, setOpen] = React.useState(false)
-  const [selected, setSelected] = React.useState("Last 30 days")
   const ref = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
@@ -26,7 +25,7 @@ export function DateRangeSelector() {
         className="flex h-9 items-center gap-2 rounded-[var(--radius-md)] border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
       >
         <Calendar className="size-4 text-muted-foreground" />
-        <span className="hidden sm:inline">{selected}</span>
+        <span className="hidden sm:inline">{range}</span>
         <ChevronDown className="size-3.5 text-muted-foreground" />
       </button>
       {open && (
@@ -35,12 +34,12 @@ export function DateRangeSelector() {
             <button
               key={r}
               onClick={() => {
-                setSelected(r)
+                setRange(r)
                 setOpen(false)
               }}
               className={cn(
                 "flex w-full items-center rounded-[var(--radius-sm)] px-2 py-2 text-sm transition-colors hover:bg-secondary",
-                r === selected && "bg-secondary font-medium",
+                r === range && "bg-secondary font-medium",
               )}
             >
               {r}
