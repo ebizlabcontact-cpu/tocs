@@ -70,7 +70,9 @@ export function FormulaWizard() {
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Create Formula</h1>
-          <p className="mt-1 text-muted-foreground">Build a transaction as a profit formula.</p>
+          <p className="mt-1 text-muted-foreground">
+            The Formula is the source of truth — every downstream figure is derived from these inputs.
+          </p>
         </div>
         <Button variant="ghost" size="icon" onClick={() => router.push("/formulas")} aria-label="Cancel">
           <X className="size-5" />
