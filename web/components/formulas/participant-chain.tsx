@@ -73,17 +73,18 @@ export function ParticipantChain({
           <Fragment key={node.id}>
             {i > 0 && <Connector />}
             {editable ? (
-              <div className="grid gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-[auto_1fr_auto_auto]">
-                <div className="flex size-8 items-center justify-center self-center rounded-full bg-accent-soft font-mono text-xs font-semibold text-accent">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 sm:flex-nowrap">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft font-mono text-xs font-semibold text-accent">
                   {i + 1}
                 </div>
                 <Input
+                  className="min-w-0 flex-1"
                   value={node.name}
                   placeholder={`Company ${String.fromCharCode(65 + i)}`}
                   onChange={(e) => onChange?.(node.id, { name: e.target.value })}
                 />
                 <Select
-                  className="w-36"
+                  className="w-32 shrink-0"
                   value={node.role}
                   onChange={(e) => onChange?.(node.id, { role: e.target.value })}
                 >
@@ -94,19 +95,24 @@ export function ParticipantChain({
                   ))}
                 </Select>
                 {showShare ? (
-                  <Input
-                    type="number"
-                    className="w-24"
-                    value={node.sharePct ?? 0}
-                    aria-label="Share percent"
-                    onChange={(e) => onChange?.(node.id, { sharePct: Number(e.target.value) })}
-                  />
+                  <div className="relative w-20 shrink-0">
+                    <Input
+                      type="number"
+                      className="pr-6"
+                      value={node.sharePct ?? 0}
+                      aria-label="Share percent"
+                      onChange={(e) => onChange?.(node.id, { sharePct: Number(e.target.value) })}
+                    />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                      %
+                    </span>
+                  </div>
                 ) : null}
                 <Button
                   variant="ghost"
                   size="icon"
                   type="button"
-                  className="self-center"
+                  className="shrink-0"
                   disabled={nodes.length <= minNodes}
                   onClick={() => onRemove?.(node.id)}
                   aria-label={`Remove ${node.name || `company ${i + 1}`}`}

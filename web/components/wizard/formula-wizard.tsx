@@ -11,18 +11,18 @@ import { emptyWizardState, type WizardState } from "./types"
 import {
   StepBasics,
   StepParticipants,
-  StepLines,
-  StepCosts,
+  StepPricing,
   StepSchedule,
+  StepLogistics,
   StepReview,
 } from "./steps"
 
 const steps: Step[] = [
-  { id: 1, label: "Basics", hint: "Company, item, trade type" },
-  { id: 2, label: "Participants", hint: "Buyers, sellers, agents" },
-  { id: 3, label: "Line Items", hint: "Sell and buy amounts" },
-  { id: 4, label: "Costs & Share", hint: "Deductions and split" },
-  { id: 5, label: "Schedule", hint: "Expected cashflows" },
+  { id: 1, label: "Basic Information", hint: "Company, item, trade type" },
+  { id: 2, label: "Participants", hint: "Build the trade chain" },
+  { id: 3, label: "Pricing", hint: "Line items, costs, and profit share" },
+  { id: 4, label: "Payment Schedule", hint: "Expected receipts and payments" },
+  { id: 5, label: "Logistics", hint: "Shipment legs and routing" },
   { id: 6, label: "Review", hint: "Confirm and create" },
 ]
 
@@ -109,9 +109,9 @@ export function FormulaWizard() {
 
             {current === 1 && <StepBasics state={state} set={set} />}
             {current === 2 && <StepParticipants state={state} set={set} />}
-            {current === 3 && <StepLines state={state} set={set} />}
-            {current === 4 && <StepCosts state={state} set={set} />}
-            {current === 5 && <StepSchedule state={state} set={set} />}
+            {current === 3 && <StepPricing state={state} set={set} />}
+            {current === 4 && <StepSchedule state={state} set={set} />}
+            {current === 5 && <StepLogistics state={state} set={set} />}
             {current === 6 && <StepReview state={state} set={set} />}
           </div>
 

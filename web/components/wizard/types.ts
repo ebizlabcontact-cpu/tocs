@@ -60,5 +60,6 @@ export const emptyWizardState: WizardState = {
   costs: [{ id: "co1", label: "Freight", amount: 0 }],
   sharePct: 100,
   schedule: [],
+  logistics: [],
   notes: "",
 }
