@@ -1,9 +1,9 @@
 "use client"
 
 import { Fragment } from "react"
-import { Plus, Trash2, ArrowDown, Link2 } from "lucide-react"
-import { companies } from "@/lib/mock-data"
-import { items, getItem, unitOptions } from "@/lib/items"
+import { Plus, Trash2, ArrowDown, Link2, Pencil, Flag, FlagOff } from "lucide-react"
+import { companies, registeredCompanies } from "@/lib/mock-data"
+import { getItem, items, unitOptions } from "@/lib/items"
 import { tradeTypeConfig } from "@/lib/status"
 import type { TradeType } from "@/lib/types"
 import { Field, Input, Select, Label } from "@/components/ui/field"
@@ -18,6 +18,32 @@ import {
 
 type Setter = (updater: (s: WizardState) => WizardState) => void
 
+/** Reusable dropdown for picking a registered company. */
+function CompanySelect({
+  value,
+  onChange,
+  className,
+  placeholderLabel = "Select company…",
+}: {
+  value: string
+  onChange: (v: string) => void
+  className?: string
+  placeholderLabel?: string
+}) {
+  return (
+    <Select className={className} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{placeholderLabel}</option>
+      {registeredCompanies.map((c) => (
+        <option key={c.id} value={c.name}>
+          {c.name}
+          {c.nature ? ` · ${c.nature}` : ""}
+          {c.status === "inactive" ? " (inactive)" : ""}
+        </option>
+      ))}
+    </Select>
+  )
+}
+
 /* Step 1 — Basic Information */
 export function StepBasics({ state, set }: { state: WizardState; set: Setter }) {
   const item = getItem(state.itemId)
@@ -29,7 +55,8 @@ export function StepBasics({ state, set }: { state: WizardState; set: Setter }) 
       itemId: id,
       item: picked?.name ?? "",
       unit: picked?.unit ?? s.unit,
-      specs: {}, // reset specs when the item (and thus its template) changes
+      // Prefill the spec / quality memo from the item's default (still editable).
+      specMemo: picked?.specMemo ?? s.specMemo,
     }))
   }
 
@@ -48,7 +75,7 @@ export function StepBasics({ state, set }: { state: WizardState; set: Setter }) 
           </Select>
         </Field>
 
-        <Field label="Item">
+        <Field label="Item" hint={item ? item.category : undefined}>
           <Select value={state.itemId} onChange={(e) => selectItem(e.target.value)}>
             <option value="">Select an item…</option>
             {items.map((it) => (
@@ -84,58 +111,6 @@ export function StepBasics({ state, set }: { state: WizardState; set: Setter }) 
         </div>
       </div>
 
-      {/* Dynamic item specification fields */}
-      {item ? (
-        <div className="rounded-xl border border-border bg-secondary/30 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold text-foreground">{item.name} Specifications</p>
-            <span className="text-xs text-muted-foreground">{item.category}</span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {item.specTemplate.map((f) => (
-              <div key={f.key}>
-                <Label>{f.label}</Label>
-                {f.type === "select" ? (
-                  <Select
-                    value={state.specs[f.key] ?? ""}
-                    onChange={(e) =>
-                      set((s) => ({ ...s, specs: { ...s.specs, [f.key]: e.target.value } }))
-                    }
-                  >
-                    <option value="">Select…</option>
-                    {f.options?.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </Select>
-                ) : (
-                  <div className="relative">
-                    <Input
-                      type={f.type === "number" ? "number" : "text"}
-                      value={state.specs[f.key] ?? ""}
-                      placeholder={f.placeholder ?? ""}
-                      onChange={(e) =>
-                        set((s) => ({ ...s, specs: { ...s.specs, [f.key]: e.target.value } }))
-                      }
-                    />
-                    {f.unit && (
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                        {f.unit}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-          Select an item to load its specification fields.
-        </div>
-      )}
-
       <Field label="Trade Type">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {(Object.keys(tradeTypeConfig) as TradeType[]).map((t) => (
@@ -156,13 +131,23 @@ export function StepBasics({ state, set }: { state: WizardState; set: Setter }) 
         </div>
       </Field>
 
-      <Field label="Memo (optional)">
+      <Field label="Spec / Quality Memo" hint="Free text — quality criteria differ per item, so there are no structured spec fields.">
         <textarea
-          value={state.memo}
-          onChange={(e) => set((s) => ({ ...s, memo: e.target.value }))}
+          value={state.specMemo}
+          onChange={(e) => set((s) => ({ ...s, specMemo: e.target.value }))}
+          rows={3}
+          className="w-full rounded-[var(--radius-md)] border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/40"
+          placeholder="e.g. FFA ≤ 3.5%, Moisture ≤ 1%, Impurity ≤ 0.5%, ISCC eligible, Vietnam origin"
+        />
+      </Field>
+
+      <Field label="Internal Memo (optional)">
+        <textarea
+          value={state.internalMemo}
+          onChange={(e) => set((s) => ({ ...s, internalMemo: e.target.value }))}
           rows={2}
           className="w-full rounded-[var(--radius-md)] border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/40"
-          placeholder="Short note about this deal…"
+          placeholder="Internal notes for your team (not shared externally)…"
         />
       </Field>
     </div>
@@ -178,6 +163,35 @@ function ChainConnector() {
   )
 }
 
+function ToggleChip({
+  active,
+  onClick,
+  children,
+  icon: Icon,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+  icon: typeof Flag
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors " +
+        (active
+          ? "border-accent bg-accent-soft text-accent"
+          : "border-border bg-card text-muted-foreground hover:text-foreground")
+      }
+    >
+      <Icon className="size-3.5" />
+      {children}
+    </button>
+  )
+}
+
 export function StepParticipants({ state, set }: { state: WizardState; set: Setter }) {
   const update = (id: string, patch: Partial<WizardState["participants"][number]>) =>
     set((s) => ({
@@ -189,7 +203,7 @@ export function StepParticipants({ state, set }: { state: WizardState; set: Sett
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
         Build the trade chain top-to-bottom. Each company&apos;s role, nature, and payment terms are specific to
-        this formula.
+        this formula. Supports up to 5 companies.
       </p>
 
       <div className="rounded-xl border border-border bg-secondary/30 p-4">
@@ -203,16 +217,16 @@ export function StepParticipants({ state, set }: { state: WizardState; set: Sett
             <Fragment key={p.id}>
               {i > 0 && <ChainConnector />}
               <div className="rounded-lg border border-border bg-card p-3">
-                {/* Row 1: company + remove */}
+                {/* Row 1: sequence + company + remove */}
                 <div className="flex items-center gap-2">
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft font-mono text-xs font-semibold text-accent">
                     {i + 1}
                   </div>
-                  <Input
+                  <CompanySelect
                     className="min-w-0 flex-1"
                     value={p.company}
-                    placeholder={`Company ${String.fromCharCode(65 + i)}`}
-                    onChange={(e) => update(p.id, { company: e.target.value })}
+                    onChange={(v) => update(p.id, { company: v })}
+                    placeholderLabel={`Select company ${String.fromCharCode(65 + i)}…`}
                   />
                   <Button
                     variant="ghost"
@@ -267,28 +281,25 @@ export function StepParticipants({ state, set }: { state: WizardState; set: Sett
                   </label>
                 </div>
 
-                {/* Row 3: start / end points */}
-                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Start Point
-                    </span>
-                    <Input
-                      value={p.startPoint}
-                      placeholder="e.g. Shanghai, CN"
-                      onChange={(e) => update(p.id, { startPoint: e.target.value })}
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      End Point
-                    </span>
-                    <Input
-                      value={p.endPoint}
-                      placeholder="e.g. Busan, KR"
-                      onChange={(e) => update(p.id, { endPoint: e.target.value })}
-                    />
-                  </label>
+                {/* Row 3: start / end point toggles */}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Chain endpoints
+                  </span>
+                  <ToggleChip
+                    active={p.startPoint}
+                    onClick={() => update(p.id, { startPoint: !p.startPoint })}
+                    icon={Flag}
+                  >
+                    Start point
+                  </ToggleChip>
+                  <ToggleChip
+                    active={p.endPoint}
+                    onClick={() => update(p.id, { endPoint: !p.endPoint })}
+                    icon={FlagOff}
+                  >
+                    End point
+                  </ToggleChip>
                 </div>
               </div>
             </Fragment>
@@ -299,6 +310,7 @@ export function StepParticipants({ state, set }: { state: WizardState; set: Sett
           variant="subtle"
           type="button"
           className="mt-3 w-full"
+          disabled={state.participants.length >= 5}
           onClick={() =>
             set((s) => ({
               ...s,
@@ -308,10 +320,10 @@ export function StepParticipants({ state, set }: { state: WizardState; set: Sett
                   id: uid(),
                   company: "",
                   roleGroup: "buyer",
-                  natureGroup: "sale",
-                  paymentGroup: "lc",
-                  startPoint: "",
-                  endPoint: "",
+                  natureGroup: "distributor",
+                  paymentGroup: "credit",
+                  startPoint: false,
+                  endPoint: false,
                   sharePct: 0,
                 },
               ],
@@ -319,27 +331,27 @@ export function StepParticipants({ state, set }: { state: WizardState; set: Sett
           }
         >
           <Plus className="size-4" />
-          Add to chain
+          {state.participants.length >= 5 ? "Maximum 5 companies" : "Add to chain"}
         </Button>
       </div>
     </div>
   )
 }
 
-/* Step 3 — Pricing (per-line buy/sell/qty/direct cost + profit preview) */
+/* Step 3 — Pricing (per-company line: buy/sell/qty/direct cost + profit preview) */
 export function StepPricing({ state, set }: { state: WizardState; set: Setter }) {
   const totals = state.lines.reduce(
     (acc, l) => {
-      const buy = (l.buyUnitPrice || 0) * (l.quantity || 0)
-      const sell = (l.sellUnitPrice || 0) * (l.quantity || 0)
-      acc.buy += buy
-      acc.sell += sell
+      acc.buy += (l.buyUnitPrice || 0) * (l.quantity || 0)
+      acc.sell += (l.sellUnitPrice || 0) * (l.quantity || 0)
       acc.cost += l.directCost || 0
       return acc
     },
     { buy: 0, sell: 0, cost: 0 },
   )
-  const expectedProfit = totals.sell - totals.buy - totals.cost
+  const sharedCost = state.costs.reduce((s, c) => s + (c.amount || 0), 0)
+  const optionalShare = ((totals.sell - totals.buy - totals.cost - sharedCost) * (100 - state.sharePct)) / 100
+  const expectedProfit = totals.sell - totals.buy - totals.cost - sharedCost - Math.max(0, optionalShare)
 
   const update = (id: string, patch: Partial<WizardState["lines"][number]>) =>
     set((s) => ({ ...s, lines: s.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) }))
@@ -348,6 +360,9 @@ export function StepPricing({ state, set }: { state: WizardState; set: Setter })
     <div className="space-y-6">
       <div className="space-y-3">
         <Label>Pricing Lines</Label>
+        <p className="text-xs text-muted-foreground">
+          Each line ties buy/sell unit prices to a company in the trade chain.
+        </p>
         {state.lines.map((l, i) => {
           const totalBuy = (l.buyUnitPrice || 0) * (l.quantity || 0)
           const totalSell = (l.sellUnitPrice || 0) * (l.quantity || 0)
@@ -355,11 +370,11 @@ export function StepPricing({ state, set }: { state: WizardState; set: Setter })
           return (
             <div key={l.id} className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center gap-2">
-                <Input
+                <CompanySelect
                   className="min-w-0 flex-1"
-                  value={l.description}
-                  placeholder={`Line ${i + 1} description`}
-                  onChange={(e) => update(l.id, { description: e.target.value })}
+                  value={l.company}
+                  onChange={(v) => update(l.id, { company: v })}
+                  placeholderLabel={`Company for line ${i + 1}…`}
                 />
                 <Button
                   variant="ghost"
@@ -373,6 +388,13 @@ export function StepPricing({ state, set }: { state: WizardState; set: Setter })
                   <Trash2 className="size-4 text-muted-foreground" />
                 </Button>
               </div>
+
+              <Input
+                className="mt-2"
+                value={l.description}
+                placeholder={`Line ${i + 1} description (optional)`}
+                onChange={(e) => update(l.id, { description: e.target.value })}
+              />
 
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <NumField
@@ -405,9 +427,7 @@ export function StepPricing({ state, set }: { state: WizardState; set: Setter })
                 <span className="text-muted-foreground">
                   Line profit{" "}
                   <span
-                    className={
-                      "font-mono font-semibold " + (lineProfit >= 0 ? "text-success" : "text-danger")
-                    }
+                    className={"font-mono font-semibold " + (lineProfit >= 0 ? "text-success" : "text-danger")}
                   >
                     {formatCurrency(lineProfit)}
                   </span>
@@ -424,7 +444,15 @@ export function StepPricing({ state, set }: { state: WizardState; set: Setter })
               ...s,
               lines: [
                 ...s.lines,
-                { id: uid(), description: "", buyUnitPrice: 0, sellUnitPrice: 0, quantity: 0, directCost: 0 },
+                {
+                  id: uid(),
+                  company: "",
+                  description: "",
+                  buyUnitPrice: 0,
+                  sellUnitPrice: 0,
+                  quantity: 0,
+                  directCost: 0,
+                },
               ],
             }))
           }
@@ -483,7 +511,7 @@ export function StepPricing({ state, set }: { state: WizardState; set: Setter })
       <div className="rounded-xl border border-border bg-secondary/40 p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Expected Profit (estimate)</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Expected Net Profit (estimate)</p>
             <p
               className={
                 "mt-1 font-mono text-2xl font-bold tabular-nums " +
@@ -495,17 +523,24 @@ export function StepPricing({ state, set }: { state: WizardState; set: Setter })
           </div>
           <div className="text-right text-xs text-muted-foreground">
             <p>
-              Sell <span className="font-mono text-foreground">{formatCurrency(totals.sell)}</span>
+              Total sell <span className="font-mono text-foreground">{formatCurrency(totals.sell)}</span>
             </p>
             <p>
-              Buy <span className="font-mono text-foreground">{formatCurrency(totals.buy)}</span> · Costs{" "}
+              Total buy <span className="font-mono text-foreground">{formatCurrency(totals.buy)}</span> · Direct cost{" "}
               <span className="font-mono text-foreground">{formatCurrency(totals.cost)}</span>
+            </p>
+            <p>
+              Shared cost <span className="font-mono text-foreground">{formatCurrency(sharedCost)}</span> · Optional
+              share <span className="font-mono text-foreground">{formatCurrency(Math.max(0, optionalShare))}</span>
             </p>
           </div>
         </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Net profit = Total sell − Total buy − Direct cost − Optional share.
+        </p>
       </div>
 
-      <Field label={`Profit share — ${state.sharePct}%`} hint="Your entitled portion of the gross margin.">
+      <Field label={`Retained share — ${state.sharePct}%`} hint="Your entitled portion of the margin. The remainder is treated as optional share.">
         <input
           type="range"
           min={0}
@@ -538,10 +573,14 @@ function NumField({
   )
 }
 
-/* Step 4 — Payment Schedule */
+/* Step 4 — Payment Schedule (planned only — no actual payment records) */
 export function StepSchedule({ state, set }: { state: WizardState; set: Setter }) {
   return (
     <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Plan expected receipts and payments. Actual receipts and payments are recorded after the formula is created —
+        nothing here creates a real payment record.
+      </p>
       {state.schedule.length === 0 && (
         <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
           No scheduled cashflows yet. Add expected receipts and payments.
@@ -561,8 +600,8 @@ export function StepSchedule({ state, set }: { state: WizardState; set: Setter }
               }))
             }
           >
-            <option value="receipt">Receipt</option>
-            <option value="payment">Payment</option>
+            <option value="receipt">Incoming (Receipt)</option>
+            <option value="payment">Outgoing (Payment)</option>
           </Select>
           <Input
             value={item.counterparty}
@@ -578,7 +617,7 @@ export function StepSchedule({ state, set }: { state: WizardState; set: Setter }
             type="number"
             value={item.amount || ""}
             placeholder="Amount"
-            className="w-32"
+            className="w-36"
             onChange={(e) =>
               set((s) => ({
                 ...s,
@@ -619,7 +658,7 @@ export function StepSchedule({ state, set }: { state: WizardState; set: Setter }
         }
       >
         <Plus className="size-4" />
-        Add cashflow
+        Add planned cashflow
       </Button>
     </div>
   )
@@ -635,9 +674,12 @@ const logisticsModes = [
 export function StepLogistics({ state, set }: { state: WizardState; set: Setter }) {
   return (
     <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Add routing for goods moving through the deal. Logistics companies can be picked from registered companies.
+      </p>
       {state.logistics.length === 0 && (
         <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
-          No shipment legs yet. Add routing for goods moving through the deal.
+          No shipment legs yet.
         </div>
       )}
       {state.logistics.map((leg) => (
@@ -724,43 +766,154 @@ export function StepLogistics({ state, set }: { state: WizardState; set: Setter 
 }
 
 /* Step 6 — Review */
-export function StepReview({ state, set }: { state: WizardState; set: Setter }) {
+export function StepReview({
+  state,
+  goTo,
+}: {
+  state: WizardState
+  set: Setter
+  goTo?: (step: number) => void
+}) {
   const company = companies.find((c) => c.id === state.companyId)
-  const item = getItem(state.itemId)
-  const specCount = Object.values(state.specs).filter((v) => v !== "").length
+  const totals = state.lines.reduce(
+    (acc, l) => {
+      acc.buy += (l.buyUnitPrice || 0) * (l.quantity || 0)
+      acc.sell += (l.sellUnitPrice || 0) * (l.quantity || 0)
+      acc.cost += l.directCost || 0
+      return acc
+    },
+    { buy: 0, sell: 0, cost: 0 },
+  )
+  const sharedCost = state.costs.reduce((s, c) => s + (c.amount || 0), 0)
+  const optionalShare = ((totals.sell - totals.buy - totals.cost - sharedCost) * (100 - state.sharePct)) / 100
+  const expectedProfit = totals.sell - totals.buy - totals.cost - sharedCost - Math.max(0, optionalShare)
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <ReviewItem label="Company" value={company?.name ?? "—"} />
-        <ReviewItem label="Item" value={state.item || "—"} />
-        <ReviewItem label="Quantity" value={state.quantity ? `${state.quantity} ${state.unit}` : "—"} />
-        <ReviewItem label="Trade Type" value={tradeTypeConfig[state.tradeType].label} />
-        <ReviewItem label="Specs filled" value={item ? `${specCount} / ${item.specTemplate.length}` : "—"} />
-        <ReviewItem label="Chain participants" value={`${state.participants.length}`} />
-        <ReviewItem label="Pricing lines" value={`${state.lines.length}`} />
-        <ReviewItem label="Payment schedule" value={`${state.schedule.length}`} />
+      {/* Basic information */}
+      <ReviewSection title="Basic Information" step={1} goTo={goTo}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ReviewItem label="Company" value={company?.name ?? "—"} />
+          <ReviewItem label="Item" value={state.item || "—"} />
+          <ReviewItem label="Quantity" value={state.quantity ? `${state.quantity} ${state.unit}` : "—"} />
+          <ReviewItem label="Trade Type" value={tradeTypeConfig[state.tradeType].label} />
+        </div>
+        <ReviewText label="Spec / Quality Memo" value={state.specMemo} />
+        {state.internalMemo ? <ReviewText label="Internal Memo" value={state.internalMemo} /> : null}
+      </ReviewSection>
+
+      {/* Participant chain */}
+      <ReviewSection title="Participant Chain" step={2} goTo={goTo}>
+        {state.participants.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No participants added.</p>
+        ) : (
+          <ol className="space-y-1.5">
+            {state.participants.map((p, i) => {
+              const role = roleGroupOptions.find((o) => o.value === p.roleGroup)?.label ?? p.roleGroup
+              return (
+                <li key={p.id} className="flex items-center gap-2 text-sm">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent-soft font-mono text-[11px] font-semibold text-accent">
+                    {i + 1}
+                  </span>
+                  <span className="font-medium text-foreground">{p.company || "—"}</span>
+                  <span className="text-muted-foreground">· {role}</span>
+                  {p.startPoint && <span className="text-[11px] font-medium text-accent">Start</span>}
+                  {p.endPoint && <span className="text-[11px] font-medium text-accent">End</span>}
+                </li>
+              )
+            })}
+          </ol>
+        )}
+      </ReviewSection>
+
+      {/* Pricing */}
+      <ReviewSection title="Pricing" step={3} goTo={goTo}>
+        <div className="space-y-1.5">
+          {state.lines.map((l, i) => {
+            const totalSell = (l.sellUnitPrice || 0) * (l.quantity || 0)
+            const totalBuy = (l.buyUnitPrice || 0) * (l.quantity || 0)
+            return (
+              <div key={l.id} className="flex items-center justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate text-muted-foreground">
+                  {l.company || `Line ${i + 1}`}
+                </span>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                  Buy {formatCurrency(totalBuy)} · Sell {formatCurrency(totalSell)}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+          <span className="text-sm font-medium text-foreground">Expected Net Profit</span>
+          <span
+            className={"font-mono text-sm font-bold " + (expectedProfit >= 0 ? "text-success" : "text-danger")}
+          >
+            {formatCurrency(expectedProfit)}
+          </span>
+        </div>
+      </ReviewSection>
+
+      {/* Payment schedule */}
+      <ReviewSection title="Payment Schedule" step={4} goTo={goTo}>
+        <ReviewItem label="Planned cashflows" value={`${state.schedule.length}`} />
+      </ReviewSection>
+
+      {/* Logistics */}
+      <ReviewSection title="Logistics" step={5} goTo={goTo}>
         <ReviewItem label="Shipment legs" value={`${state.logistics.length}`} />
-        <ReviewItem label="Profit share" value={`${state.sharePct}%`} />
+      </ReviewSection>
+    </div>
+  )
+}
+
+function ReviewSection({
+  title,
+  step,
+  goTo,
+  children,
+}: {
+  title: string
+  step: number
+  goTo?: (step: number) => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {goTo && (
+          <button
+            type="button"
+            onClick={() => goTo(step)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-accent"
+          >
+            <Pencil className="size-3.5" />
+            Edit
+          </button>
+        )}
       </div>
-      <Field label="Notes (optional)">
-        <textarea
-          value={state.notes}
-          onChange={(e) => set((s) => ({ ...s, notes: e.target.value }))}
-          rows={3}
-          className="w-full rounded-[var(--radius-md)] border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/40"
-          placeholder="Add any context for this formula..."
-        />
-      </Field>
+      {children}
     </div>
   )
 }
 
 function ReviewItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2.5">
+    <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2.5">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-0.5 text-sm font-medium text-foreground">{value}</p>
+    </div>
+  )
+}
+
+function ReviewText({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mt-3">
+      <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="whitespace-pre-line rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm leading-relaxed text-foreground text-pretty">
+        {value || "—"}
+      </p>
     </div>
   )
 }

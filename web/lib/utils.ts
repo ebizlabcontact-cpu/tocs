@@ -5,10 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/** Format a number as compact currency (KRW by default). */
+/** Format a number as currency (KRW / Korean won by default). */
 export function formatCurrency(value: number, opts?: { compact?: boolean; currency?: string }) {
-  const { compact = false, currency = "USD" } = opts ?? {}
-  return new Intl.NumberFormat("en-US", {
+  const { compact = false, currency = "KRW" } = opts ?? {}
+  return new Intl.NumberFormat("ko-KR", {
     style: "currency",
     currency,
     notation: compact ? "compact" : "standard",

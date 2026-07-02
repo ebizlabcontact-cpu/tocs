@@ -1,4 +1,4 @@
-import type { Company, Formula, FormulaStatus, TradeType, Kpi } from "./types"
+import type { Company, Formula, FormulaStatus, TradeType, Kpi, RegisteredCompany } from "./types"
 
 export const companies: Company[] = [
   { id: "all", name: "All Companies", shortName: "ALL", color: "#f59e0b" },
@@ -7,31 +7,27 @@ export const companies: Company[] = [
   { id: "c3", name: "Northgate Resources", shortName: "NR", color: "#10b981" },
 ]
 
-const items = [
-  "HR Steel Coil",
-  "Copper Cathode",
-  "Polypropylene Resin",
-  "Aluminium Ingot",
-  "Zinc Concentrate",
-  "Naphtha",
-  "Soybean Meal",
-  "Cotton Yarn",
-  "Nickel Briquette",
-  "Base Oil SN500",
+/** Registered trade companies — selectable as formula participants. */
+export const registeredCompanies: RegisteredCompany[] = [
+  { id: "rc1", name: "CJ CheilJedang", nature: "Manufacturer", status: "active" },
+  { id: "rc2", name: "GeoWorks", nature: "Distributor", status: "active" },
+  { id: "rc3", name: "Nature Insight", nature: "Manufacturer", status: "active" },
+  { id: "rc4", name: "Eco & Recycle", nature: "Distributor", status: "active" },
+  { id: "rc5", name: "Local Collector", nature: "Supplier", status: "active" },
+  { id: "rc6", name: "Logistics Partner", nature: "Logistics", status: "active" },
 ]
 
-const counterparties = [
-  "Hansol Metals",
-  "Orient Steel",
-  "Delta Chemicals",
-  "Kobe Alloys",
-  "Sunrise Grains",
-  "Anglobe Freight",
-  "Maritime Logistics",
-  "Vertex Capital",
-  "Blue Ocean Corp",
-  "Everline Traders",
+const tradeItems: { name: string; memo: string }[] = [
+  {
+    name: "Used Cooking Oil",
+    memo: "FFA ≤ 3.5%, Moisture ≤ 1%, Impurity ≤ 0.5%, ISCC eligible, Vietnam origin",
+  },
+  { name: "Residue", memo: "FFA 40–50%, Moisture ≤ 1.5%, IV ~55, refining residue" },
+  { name: "Vegetable Oil", memo: "RBD grade, FFA ≤ 0.1%, IV ~110, Malaysia origin" },
+  { name: "Glucose", memo: "DE 42, Moisture ~18%, pH 4.8, syrup form" },
 ]
+
+const counterparties = registeredCompanies.map((c) => c.name)
 
 const tradeTypes: TradeType[] = ["import", "export", "domestic", "triangular"]
 
@@ -46,10 +42,12 @@ function rng(seed: number) {
 function buildFormula(i: number): Formula {
   const rand = rng(i * 131 + 7)
   const companyId = ["c1", "c2", "c3"][i % 3]
-  const item = items[i % items.length]
+  const tradeItem = tradeItems[i % tradeItems.length]
+  const item = tradeItem.name
   const tradeType = tradeTypes[i % tradeTypes.length]
 
-  const totalSell = Math.round((800000 + rand() * 3200000) / 1000) * 1000
+  // KRW-scale amounts (₩80M – ₩400M range).
+  const totalSell = Math.round((80000000 + rand() * 320000000) / 1000000) * 1000000
   const totalBuy = Math.round(totalSell * (0.72 + rand() * 0.2))
   const cost = Math.round(totalSell * (0.02 + rand() * 0.05))
   const share = Math.round(totalSell * (0.01 + rand() * 0.03))
@@ -98,11 +96,12 @@ function buildFormula(i: number): Formula {
     number,
     companyId,
     item,
+    specMemo: tradeItem.memo,
     tradeType,
     participants: [
       { id: "p1", name: cp1, role: "seller", company: cp1, sharePct: 60 },
       { id: "p2", name: cp2, role: "buyer", company: cp2, sharePct: 40 },
-      { id: "p3", name: "Anglobe Freight", role: "logistics", company: "Anglobe Freight" },
+      { id: "p3", name: "Logistics Partner", role: "logistics", company: "Logistics Partner" },
     ],
     totalSell,
     totalBuy,
@@ -185,7 +184,7 @@ function buildFormula(i: number): Formula {
         id: "t2",
         type: "logistics",
         title: "Shipment booked",
-        description: `Sea freight booked with Anglobe Freight`,
+        description: `Sea freight booked with Logistics Partner`,
         date: new Date(Date.parse(createdAt) + 3 * 86400000).toISOString(),
         actor: "Logistics Bot",
         linkTab: "logistics",

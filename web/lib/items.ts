@@ -1,102 +1,60 @@
 /**
- * Item catalog + specification templates.
+ * Registered item master data.
  * Mock UI data only — no backend, no persistence.
- * Each item carries a spec template that drives the dynamic
- * specification fields shown in the Formula Wizard (Step 1).
+ *
+ * V1 rule: items carry only a free-text Spec / Quality Memo.
+ * Structured item specification templates are deferred to V2, because
+ * each item category has different quality/spec criteria.
  */
-
-export type SpecFieldType = "number" | "text" | "select"
-
-export type ItemSpecField = {
-  key: string
-  label: string
-  type: SpecFieldType
-  unit?: string
-  placeholder?: string
-  options?: string[]
-}
 
 export type Item = {
   id: string
+  code: string
   name: string
   category: string
+  /** Default unit applied when the item is selected in a formula. */
   unit: string
-  description: string
-  specTemplate: ItemSpecField[]
+  active: boolean
+  /** Free-text spec / quality memo — no structured fields. */
+  specMemo: string
 }
 
 export const items: Item[] = [
   {
     id: "it-uco",
+    code: "UCO-001",
     name: "Used Cooking Oil",
     category: "Recovered Oils",
     unit: "MT",
-    description:
-      "Collected and filtered used cooking oil destined for biodiesel feedstock and oleochemical processing.",
-    specTemplate: [
-      { key: "ffa", label: "FFA %", type: "number", unit: "%", placeholder: "e.g. 3.5" },
-      { key: "moisture", label: "Moisture %", type: "number", unit: "%", placeholder: "e.g. 0.5" },
-      { key: "impurity", label: "Impurity %", type: "number", unit: "%", placeholder: "e.g. 1.0" },
-      { key: "origin", label: "Origin", type: "text", placeholder: "e.g. Southeast Asia" },
-      {
-        key: "color",
-        label: "Color",
-        type: "select",
-        options: ["Light Yellow", "Amber", "Dark Brown", "Black"],
-      },
-    ],
+    active: true,
+    specMemo: "FFA ≤ 3.5%, Moisture ≤ 1%, Impurity ≤ 0.5%, ISCC eligible, Vietnam origin",
   },
   {
     id: "it-residue",
+    code: "RES-002",
     name: "Residue",
     category: "Processing By-products",
     unit: "MT",
-    description: "Refining residue and fatty by-products recovered from edible oil processing lines.",
-    specTemplate: [
-      { key: "ffa", label: "FFA %", type: "number", unit: "%", placeholder: "e.g. 45" },
-      { key: "moisture", label: "Moisture %", type: "number", unit: "%", placeholder: "e.g. 1.2" },
-      { key: "iv", label: "IV (Iodine Value)", type: "number", placeholder: "e.g. 55" },
-      { key: "ash", label: "Ash", type: "number", unit: "%", placeholder: "e.g. 0.3" },
-      { key: "density", label: "Density", type: "number", unit: "g/cm³", placeholder: "e.g. 0.91" },
-    ],
+    active: true,
+    specMemo: "FFA 40–50%, Moisture ≤ 1.5%, IV ~55, refining residue from edible oil lines",
   },
   {
     id: "it-vegoil",
+    code: "VEG-003",
     name: "Vegetable Oil",
     category: "Edible Oils",
     unit: "MT",
-    description: "Refined vegetable oil traded for food-grade and industrial applications.",
-    specTemplate: [
-      { key: "ffa", label: "FFA %", type: "number", unit: "%", placeholder: "e.g. 0.1" },
-      { key: "moisture", label: "Moisture %", type: "number", unit: "%", placeholder: "e.g. 0.05" },
-      { key: "iv", label: "IV (Iodine Value)", type: "number", placeholder: "e.g. 110" },
-      {
-        key: "grade",
-        label: "Grade",
-        type: "select",
-        options: ["Crude", "RBD (Refined)", "Food Grade", "Industrial"],
-      },
-      { key: "origin", label: "Origin", type: "text", placeholder: "e.g. Malaysia" },
-    ],
+    active: true,
+    specMemo: "RBD grade, FFA ≤ 0.1%, Moisture ≤ 0.05%, IV ~110, Malaysia origin",
   },
   {
     id: "it-glucose",
+    code: "GLU-004",
     name: "Glucose",
     category: "Sweeteners",
     unit: "MT",
-    description: "Glucose syrup and dextrose products for food, beverage, and fermentation industries.",
-    specTemplate: [
-      { key: "de", label: "DE (Dextrose Equivalent)", type: "number", placeholder: "e.g. 42" },
-      { key: "moisture", label: "Moisture %", type: "number", unit: "%", placeholder: "e.g. 18" },
-      { key: "ash", label: "Ash", type: "number", unit: "%", placeholder: "e.g. 0.1" },
-      { key: "ph", label: "pH", type: "number", placeholder: "e.g. 4.8" },
-      {
-        key: "form",
-        label: "Form",
-        type: "select",
-        options: ["Syrup", "Powder", "Crystalline"],
-      },
-    ],
+    active: true,
+    specMemo: "DE 42, Moisture ~18%, Ash ≤ 0.1%, pH 4.8, syrup form for food & fermentation",
   },
 ]
 

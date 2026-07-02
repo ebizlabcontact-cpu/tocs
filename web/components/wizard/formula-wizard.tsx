@@ -112,7 +112,7 @@ export function FormulaWizard() {
             {current === 3 && <StepPricing state={state} set={set} />}
             {current === 4 && <StepSchedule state={state} set={set} />}
             {current === 5 && <StepLogistics state={state} set={set} />}
-            {current === 6 && <StepReview state={state} set={set} />}
+            {current === 6 && <StepReview state={state} set={set} goTo={setCurrent} />}
           </div>
 
           <div className="mt-4 flex items-center justify-between">

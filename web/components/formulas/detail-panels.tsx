@@ -302,6 +302,15 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
         <OverviewStat label="Invoices" value={`${formula.invoices.length}`} />
         <OverviewStat label="Logistics Legs" value={`${formula.logistics.length}`} />
       </div>
+
+      {formula.specMemo && (
+        <div className="rounded-lg border border-border bg-card px-4 py-3">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Spec / Quality Memo
+          </p>
+          <p className="text-sm leading-relaxed text-foreground">{formula.specMemo}</p>
+        </div>
+      )}
     </div>
   )
 }

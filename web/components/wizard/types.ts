@@ -1,7 +1,9 @@
 import type { TradeType } from "@/lib/types"
 
+/** A pricing line is tied to a company in the participant chain. */
 export type WizardLine = {
   id: string
+  company: string
   description: string
   buyUnitPrice: number
   sellUnitPrice: number
@@ -25,8 +27,10 @@ export type WizardParticipant = {
   roleGroup: string
   natureGroup: string
   paymentGroup: string
-  startPoint: string
-  endPoint: string
+  /** Chain start point toggle. */
+  startPoint: boolean
+  /** Chain end point toggle. */
+  endPoint: boolean
   sharePct: number
 }
 
@@ -51,17 +55,18 @@ export type WizardState = {
   itemId: string
   item: string
   tradeType: TradeType
-  specs: Record<string, string>
   quantity: number
   unit: string
-  memo: string
+  /** Free-text spec / quality memo (Step 1). No structured spec fields. */
+  specMemo: string
+  /** Internal memo (Step 1). */
+  internalMemo: string
   participants: WizardParticipant[]
   lines: WizardLine[]
   costs: WizardCost[]
   sharePct: number
   schedule: WizardScheduleItem[]
   logistics: WizardLogisticsLeg[]
-  notes: string
 }
 
 export const emptyWizardState: WizardState = {
@@ -69,53 +74,50 @@ export const emptyWizardState: WizardState = {
   itemId: "",
   item: "",
   tradeType: "import",
-  specs: {},
   quantity: 0,
   unit: "MT",
-  memo: "",
+  specMemo: "",
+  internalMemo: "",
   participants: [
     {
       id: "p1",
       company: "",
-      roleGroup: "seller",
-      natureGroup: "purchase",
-      paymentGroup: "lc",
-      startPoint: "",
-      endPoint: "",
+      roleGroup: "supplier",
+      natureGroup: "manufacturer",
+      paymentGroup: "prepaid",
+      startPoint: true,
+      endPoint: false,
       sharePct: 60,
     },
   ],
-  lines: [{ id: "l1", description: "", buyUnitPrice: 0, sellUnitPrice: 0, quantity: 0, directCost: 0 }],
+  lines: [
+    { id: "l1", company: "", description: "", buyUnitPrice: 0, sellUnitPrice: 0, quantity: 0, directCost: 0 },
+  ],
   costs: [{ id: "co1", label: "Freight", amount: 0 }],
   sharePct: 100,
   schedule: [],
   logistics: [],
-  notes: "",
 }
 
 /* Formula-specific option groups for the trade chain (Step 2). */
 export const roleGroupOptions = [
+  { value: "supplier", label: "Supplier" },
   { value: "buyer", label: "Buyer" },
-  { value: "seller", label: "Seller" },
-  { value: "intermediary", label: "Intermediary" },
-  { value: "agent", label: "Agent" },
-  { value: "logistics", label: "Logistics" },
-  { value: "financier", label: "Financier" },
+  { value: "carrier", label: "Carrier" },
+  { value: "financial", label: "Financial" },
+  { value: "other", label: "Other" },
 ]
 
 export const natureGroupOptions = [
-  { value: "purchase", label: "Purchase" },
-  { value: "sale", label: "Sale" },
-  { value: "commission", label: "Commission" },
-  { value: "service", label: "Service" },
-  { value: "transit", label: "Transit" },
+  { value: "manufacturer", label: "Manufacturer" },
+  { value: "distributor", label: "Distributor" },
+  { value: "logistics", label: "Logistics" },
+  { value: "financial", label: "Financial" },
+  { value: "other", label: "Other" },
 ]
 
 export const paymentGroupOptions = [
   { value: "prepaid", label: "Prepaid" },
-  { value: "on_delivery", label: "On Delivery" },
-  { value: "credit_30", label: "Credit 30d" },
-  { value: "credit_60", label: "Credit 60d" },
-  { value: "lc", label: "Letter of Credit" },
-  { value: "open_account", label: "Open Account" },
+  { value: "credit", label: "Credit" },
+  { value: "postpaid", label: "Postpaid" },
 ]

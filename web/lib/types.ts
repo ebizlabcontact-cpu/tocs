@@ -5,6 +5,17 @@ export type Company = {
   color: string
 }
 
+/**
+ * A registered trade company. Selectable as a participant in a formula.
+ * Company role is formula-specific, so nature here is only a default hint.
+ */
+export type RegisteredCompany = {
+  id: string
+  name: string
+  nature: string
+  status: "active" | "inactive"
+}
+
 export type FormulaStatus =
   | "draft"
   | "active"
@@ -68,6 +79,7 @@ export type Formula = {
   number: string
   companyId: string
   item: string
+  specMemo: string
   tradeType: TradeType
   participants: Participant[]
   totalSell: number
