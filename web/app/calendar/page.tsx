@@ -95,7 +95,10 @@ function CalendarContent() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Calendar" description="Scheduled receipts and payments across your active formulas." />
+      <PageHeader
+        title="Calendar"
+        description="Calendar events are derived from formula payment schedules — nothing here exists independently of a formula."
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card>

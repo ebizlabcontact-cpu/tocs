@@ -287,8 +287,11 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
       <FormulaChainView formula={formula} />
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Profit Transparency
+        </p>
+        <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+          Expected profit is derived from formula inputs. Realized profit is derived from actual receipts and payments.
         </p>
         <CalculationBreakdown formula={formula} />
       </div>

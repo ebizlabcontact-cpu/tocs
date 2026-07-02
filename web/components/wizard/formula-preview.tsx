@@ -1,15 +1,9 @@
-import { formatCurrency, cn } from "@/lib/utils"
-import type { WizardState } from "./types"
+import { formatCurrency, formatNumber, cn } from "@/lib/utils"
+import { deriveFormula, type WizardState } from "./types"
 import { Sparkles } from "lucide-react"
 
 export function FormulaPreview({ state }: { state: WizardState }) {
-  const sell = state.lines.reduce((s, l) => s + (l.sellUnitPrice || 0) * (l.quantity || 0), 0)
-  const buy = state.lines.reduce((s, l) => s + (l.buyUnitPrice || 0) * (l.quantity || 0), 0)
-  const directCost = state.lines.reduce((s, l) => s + (l.directCost || 0), 0)
-  const sharedCost = state.costs.reduce((s, c) => s + (c.amount || 0), 0)
-  const cost = directCost + sharedCost
-  const gross = sell - buy - cost
-  const share = gross * (state.sharePct / 100)
+  const d = deriveFormula(state)
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
@@ -20,14 +14,21 @@ export function FormulaPreview({ state }: { state: WizardState }) {
         <h3 className="text-sm font-semibold text-foreground">Live Formula</h3>
       </div>
 
+      {/* Construction counters */}
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <Counter label="Participants" value={String(d.participantCount)} />
+        <Counter label="Quantity" value={d.totalQuantity ? `${formatNumber(d.totalQuantity)} ${state.unit}` : `0 ${state.unit}`} />
+      </div>
+
+      {/* Progressive money flow */}
       <div className="space-y-2.5">
-        <Row label="Sell total" value={sell} tone="pos" />
-        <Row label="Buy total" value={buy} minus />
-        <Row label="Costs" value={cost} minus />
+        <Row label="Expected Revenue" value={d.expectedRevenue} tone="pos" />
+        <Row label="Expected Cost" value={d.expectedCost} minus />
+        <Row label="Costs" value={d.costs} minus />
         <div className="border-t border-dashed border-border pt-2.5">
-          <Row label="Gross margin" value={gross} tone={gross >= 0 ? "pos" : "neg"} bold />
+          <Row label="Gross Margin" value={d.grossMargin} tone={d.grossMargin >= 0 ? "pos" : "neg"} bold />
         </div>
-        <Row label={`Your share (${state.sharePct}%)`} value={share} tone={share >= 0 ? "pos" : "neg"} />
+        <Row label={`Share (${state.sharePct}%)`} value={d.retainedShare} tone={d.retainedShare >= 0 ? "pos" : "neg"} />
       </div>
 
       <div className="mt-4 rounded-lg bg-secondary/60 p-3">
@@ -35,17 +36,26 @@ export function FormulaPreview({ state }: { state: WizardState }) {
         <p
           className={cn(
             "mt-1 font-mono text-2xl font-bold tabular-nums",
-            share >= 0 ? "text-success" : "text-danger",
+            d.expectedProfit >= 0 ? "text-success" : "text-danger",
           )}
         >
-          {formatCurrency(share)}
+          {formatCurrency(d.expectedProfit)}
         </p>
       </div>
 
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        This is an <span className="font-medium text-foreground">estimate</span>. Realized profit is
-        calculated only from actual receipts and payments after settlement.
+        Every figure is <span className="font-medium text-foreground">derived from your Formula inputs</span>.
+        Realized profit is calculated only from actual receipts and payments after settlement.
       </p>
+    </div>
+  )
+}
+
+function Counter({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-0.5 font-mono text-sm font-semibold tabular-nums text-foreground">{value}</p>
     </div>
   )
 }

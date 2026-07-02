@@ -8,22 +8,14 @@ import { Button } from "@/components/ui/button"
 import { Stepper, StepperMobile, type Step } from "./stepper"
 import { FormulaPreview } from "./formula-preview"
 import { emptyWizardState, type WizardState } from "./types"
-import {
-  StepBasics,
-  StepParticipants,
-  StepPricing,
-  StepSchedule,
-  StepLogistics,
-  StepReview,
-} from "./steps"
+import { StepBasics, StepTradeChain, StepSettlement, StepLogistics, StepReview } from "./steps"
 
 const steps: Step[] = [
   { id: 1, label: "Basic Information", hint: "Company, item, trade type" },
-  { id: 2, label: "Participants", hint: "Build the trade chain" },
-  { id: 3, label: "Pricing", hint: "Line items, costs, and profit share" },
-  { id: 4, label: "Payment Schedule", hint: "Expected receipts and payments" },
-  { id: 5, label: "Logistics", hint: "Shipment legs and routing" },
-  { id: 6, label: "Review", hint: "Confirm and create" },
+  { id: 2, label: "Trade Chain", hint: "Companies, quantity, and prices" },
+  { id: 3, label: "Settlement Terms", hint: "Costs, share, and money flow" },
+  { id: 4, label: "Logistics", hint: "Shipment legs and routing" },
+  { id: 5, label: "Review", hint: "Confirm and create" },
 ]
 
 export function FormulaWizard() {
@@ -108,11 +100,10 @@ export function FormulaWizard() {
             <p className="mb-5 text-sm text-muted-foreground">{active.hint}</p>
 
             {current === 1 && <StepBasics state={state} set={set} />}
-            {current === 2 && <StepParticipants state={state} set={set} />}
-            {current === 3 && <StepPricing state={state} set={set} />}
-            {current === 4 && <StepSchedule state={state} set={set} />}
-            {current === 5 && <StepLogistics state={state} set={set} />}
-            {current === 6 && <StepReview state={state} set={set} goTo={setCurrent} />}
+            {current === 2 && <StepTradeChain state={state} set={set} />}
+            {current === 3 && <StepSettlement state={state} set={set} />}
+            {current === 4 && <StepLogistics state={state} set={set} />}
+            {current === 5 && <StepReview state={state} set={set} goTo={setCurrent} />}
           </div>
 
           <div className="mt-4 flex items-center justify-between">

@@ -70,7 +70,7 @@ export default function DashboardPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="Command Center"
-        description={`Realized performance for ${selected.name} · ${range}.`}
+        description={`Dashboard figures are aggregated from formulas — ${selected.name} · ${range}.`}
         actions={
           <div className="flex items-center gap-2">
             <div className="md:hidden">
