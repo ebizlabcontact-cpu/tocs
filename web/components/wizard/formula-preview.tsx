@@ -3,9 +3,11 @@ import type { WizardState } from "./types"
 import { Sparkles } from "lucide-react"
 
 export function FormulaPreview({ state }: { state: WizardState }) {
-  const sell = state.lines.reduce((s, l) => s + (l.sell || 0), 0)
-  const buy = state.lines.reduce((s, l) => s + (l.buy || 0), 0)
-  const cost = state.costs.reduce((s, c) => s + (c.amount || 0), 0)
+  const sell = state.lines.reduce((s, l) => s + (l.sellUnitPrice || 0) * (l.quantity || 0), 0)
+  const buy = state.lines.reduce((s, l) => s + (l.buyUnitPrice || 0) * (l.quantity || 0), 0)
+  const directCost = state.lines.reduce((s, l) => s + (l.directCost || 0), 0)
+  const sharedCost = state.costs.reduce((s, c) => s + (c.amount || 0), 0)
+  const cost = directCost + sharedCost
   const gross = sell - buy - cost
   const share = gross * (state.sharePct / 100)
 

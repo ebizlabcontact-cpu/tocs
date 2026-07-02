@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   FileSpreadsheet,
+  Package,
   Building2,
   CalendarDays,
   BarChart3,
@@ -18,6 +19,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard, mobile: true },
   { label: "Formulas", href: "/formulas", icon: FileSpreadsheet, mobile: true },
+  { label: "Items", href: "/items", icon: Package, mobile: true },
   { label: "Companies", href: "/companies", icon: Building2, mobile: true },
   { label: "Calendar", href: "/calendar", icon: CalendarDays, mobile: true },
   { label: "Reports", href: "/reports", icon: BarChart3, mobile: true },
