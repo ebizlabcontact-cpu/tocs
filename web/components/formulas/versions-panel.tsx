@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ArrowRight, ChevronRight, Sparkles } from "lucide-react"
+import { ArrowRight, ChevronRight, Info } from "lucide-react"
 import type { Formula, VersionEntry } from "@/lib/types"
 import { getVersionHistory, companies } from "@/lib/mock-data"
 import { deriveChainFinancials } from "@/lib/derive"
@@ -11,18 +11,8 @@ import { StatusBadge } from "@/components/ui/badge"
 import { SidePanel } from "@/components/ui/side-panel"
 import { FormulaEditSimulation } from "./formula-edit-simulation"
 
-/** A version plus the Formula state it represents (for the snapshot view). */
-type SnapshotVersion = VersionEntry & {
-  isSimulated?: boolean
-  /** Overrides applied to the base formula for this version's snapshot. */
-  snapshot?: {
-    quantity: number
-    expectedRevenue: number
-    expectedCost: number
-    grossMargin: number
-    expectedProfit: number
-  }
-}
+/** A version entry rendered in the snapshot preview. */
+type SnapshotVersion = VersionEntry
 
 /** The five snapshot sections captured for a Formula version. */
 function useSnapshotSections(formula: Formula) {
@@ -48,56 +38,20 @@ function useSnapshotSections(formula: Formula) {
 }
 
 export function VersionsPanel({ formula }: { formula: Formula }) {
-  const baseVersions = useMemo(() => getVersionHistory(formula), [formula])
-  const [simulated, setSimulated] = useState<SnapshotVersion[]>([])
+  const versions = useMemo(() => getVersionHistory(formula), [formula])
   const [active, setActive] = useState<SnapshotVersion | null>(null)
   const { company, chain, base } = useSnapshotSections(formula)
 
-  const versions: SnapshotVersion[] = [...simulated, ...baseVersions]
-  const topVersionNo = versions.reduce((m, v) => Math.max(m, v.versionNo), 0)
-
   return (
     <div className="space-y-5">
-      <FormulaEditSimulation
-        formula={formula}
-        onCapture={(edit, before, after) => {
-          const versionNo = topVersionNo + 1
-          setSimulated((prev) => [
-            {
-              versionNo,
-              createdAt: new Date().toISOString(),
-              createdBy: "You (simulated)",
-              summary: "Simulated edit — quantity & pricing",
-              isSimulated: true,
-              snapshot: {
-                quantity: after.quantity,
-                expectedRevenue: after.expectedRevenue,
-                expectedCost: after.expectedCost,
-                grossMargin: after.grossMargin,
-                expectedProfit: after.expectedProfit,
-              },
-              changes: [
-                ...(after.quantity !== before.quantity
-                  ? [{ label: "Quantity", from: `${formatNumber(before.quantity)} ${formula.unit}`, to: `${formatNumber(after.quantity)} ${formula.unit}` }]
-                  : []),
-                ...(after.sellUnitPrice !== before.sellUnitPrice
-                  ? [{ label: "Sell Unit Price", from: formatCurrency(before.sellUnitPrice), to: formatCurrency(after.sellUnitPrice) }]
-                  : []),
-                { label: "Expected Revenue", from: formatCurrency(before.expectedRevenue), to: formatCurrency(after.expectedRevenue) },
-                { label: "Expected Profit", from: formatCurrency(before.expectedProfit), to: formatCurrency(after.expectedProfit) },
-              ],
-            },
-            ...prev,
-          ])
-        }}
-      />
+      <FormulaEditSimulation formula={formula} />
 
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Version History</p>
         <div className="space-y-3">
           {versions.map((v, i) => (
             <button
-              key={`${v.isSimulated ? "sim" : "v"}-${v.versionNo}`}
+              key={`v-${v.versionNo}`}
               type="button"
               onClick={() => setActive(v)}
               className={cn(
@@ -116,11 +70,7 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-semibold text-foreground">{v.summary}</p>
-                  {v.isSimulated ? (
-                    <StatusBadge tone="info">Simulated</StatusBadge>
-                  ) : (
-                    i === 0 && <StatusBadge tone="success">Current</StatusBadge>
-                  )}
+                  {i === 0 && <StatusBadge tone="success">Latest</StatusBadge>}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {formatDate(v.createdAt)} · {v.createdBy}
@@ -131,7 +81,8 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
           ))}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Versions are snapshots of Formula states. History is illustrative mock data for demonstration.
+          Versions are created and persisted by backend services. This screen previews how snapshots could appear after
+          integration — the values shown are illustrative mock data, not generated or stored in the frontend.
         </p>
       </div>
 
@@ -143,12 +94,10 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
       >
         {active && (
           <div className="space-y-4">
-            {active.isSimulated && (
-              <div className="flex items-center gap-2 rounded-lg border border-info/30 bg-info-soft px-3 py-2 text-xs text-info">
-                <Sparkles className="size-3.5 shrink-0" />
-                Simulated snapshot — not persisted.
-              </div>
-            )}
+            <div className="flex items-center gap-2 rounded-lg border border-info/30 bg-info-soft px-3 py-2 text-xs text-info">
+              <Info className="size-3.5 shrink-0" />
+              Preview of how a backend snapshot could appear after integration. Not persisted here.
+            </div>
 
             <div className="rounded-lg border border-border bg-card px-4">
               <MetaRow label="Version" value={`v${active.versionNo}`} mono border />
@@ -189,10 +138,7 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
                   <SnapItem label="Company" value={company?.name ?? "—"} />
                   <SnapItem label="Item" value={formula.item} />
                   <SnapItem label="Trade Type" value={tradeTypeConfig[formula.tradeType].label} />
-                  <SnapItem
-                    label="Quantity"
-                    value={`${formatNumber(active.snapshot?.quantity ?? base.quantity)} ${formula.unit}`}
-                  />
+                  <SnapItem label="Quantity" value={`${formatNumber(base.quantity)} ${formula.unit}`} />
                 </SnapshotSection>
 
                 <SnapshotSection title="Trade Chain">
@@ -218,16 +164,17 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
                 </SnapshotSection>
 
                 <SnapshotSection title="Derived Financial Summary">
-                  <SnapItem label="Expected Revenue" value={formatCurrency(active.snapshot?.expectedRevenue ?? base.expectedRevenue)} />
-                  <SnapItem label="Expected Cost" value={formatCurrency(active.snapshot?.expectedCost ?? base.expectedCost)} />
-                  <SnapItem label="Gross Margin" value={formatCurrency(active.snapshot?.grossMargin ?? base.grossMargin)} />
-                  <SnapItem label="Expected Profit" value={formatCurrency(active.snapshot?.expectedProfit ?? base.expectedProfit)} strong />
+                  <SnapItem label="Expected Revenue" value={formatCurrency(base.expectedRevenue)} />
+                  <SnapItem label="Expected Cost" value={formatCurrency(base.expectedCost)} />
+                  <SnapItem label="Gross Margin" value={formatCurrency(base.grossMargin)} />
+                  <SnapItem label="Expected Profit" value={formatCurrency(base.expectedProfit)} strong />
                 </SnapshotSection>
               </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Every figure in this snapshot is derived from Formula. Versions are snapshots of Formula states.
+              Illustrative preview only. Authoritative snapshots are captured and persisted by backend services after
+              integration.
             </p>
           </div>
         )}

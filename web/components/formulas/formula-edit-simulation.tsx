@@ -1,26 +1,14 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ArrowRight, RotateCcw, Wand2, GitCommitVertical } from "lucide-react"
+import { ArrowRight, RotateCcw, Wand2 } from "lucide-react"
 import type { Formula } from "@/lib/types"
-import { simulateFormulaEdit, type EditSimResult } from "@/lib/derive"
+import { simulateFormulaEdit } from "@/lib/derive"
 import { formatCurrency, formatNumber, cn } from "@/lib/utils"
 import { Input } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
 
-/** Fields the user can tweak in the simulation. */
-export type SimEdit = {
-  quantity: number
-  sellUnitPrice: number
-}
-
-export function FormulaEditSimulation({
-  formula,
-  onCapture,
-}: {
-  formula: Formula
-  onCapture?: (edit: SimEdit, before: EditSimResult, after: EditSimResult) => void
-}) {
+export function FormulaEditSimulation({ formula }: { formula: Formula }) {
   const baseQty = formula.quantity || 1
   const baseSellUnit = Math.round(formula.totalSell / baseQty)
 
@@ -47,11 +35,11 @@ export function FormulaEditSimulation({
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="mb-1 flex items-center gap-2">
         <Wand2 className="size-4 text-accent" />
-        <h3 className="text-sm font-semibold text-foreground">Simulate a Formula Edit</h3>
+        <h3 className="text-sm font-semibold text-foreground">Preview Edit Impact</h3>
       </div>
       <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
-        Changing Formula inputs changes all derived values. Adjust the quantity or sell price to preview the impact —
-        this is a simulation and nothing is saved.
+        Adjust the quantity or sell price to preview how derived values could change. This is an illustrative preview
+        only — no edit is applied, calculated, or saved here.
       </p>
 
       {/* Editable inputs */}
@@ -101,22 +89,15 @@ export function FormulaEditSimulation({
         />
       </div>
 
-      <div className="mt-4 flex items-center justify-end gap-2">
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Preview only. Authoritative recalculation and versioning are performed by backend services after
+          integration.
+        </p>
         <Button variant="ghost" type="button" onClick={reset} disabled={!dirty}>
           <RotateCcw className="size-4" />
           Reset
         </Button>
-        {onCapture && (
-          <Button
-            variant="accent"
-            type="button"
-            disabled={!dirty}
-            onClick={() => onCapture({ quantity, sellUnitPrice }, before, after)}
-          >
-            <GitCommitVertical className="size-4" />
-            Capture as Version
-          </Button>
-        )}
       </div>
     </div>
   )

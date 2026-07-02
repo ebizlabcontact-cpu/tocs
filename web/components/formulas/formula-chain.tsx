@@ -153,8 +153,8 @@ export function FormulaChainView({ formula }: { formula: Formula }) {
             />
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-            Every figure shown here is derived from Formula — revenue from the end buyer, cost from the origin, and
-            margin from the spread captured across the chain.
+            Illustrative preview — figures are derived from Formula inputs (revenue from the end buyer, cost from the
+            origin, margin from the chain spread). Authoritative values come from backend services after integration.
           </p>
         </div>
       )}
