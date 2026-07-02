@@ -6,14 +6,38 @@ export type Company = {
 }
 
 /**
- * A registered trade company. Selectable as a participant in a formula.
- * Company role is formula-specific, so nature here is only a default hint.
+ * A registered trade company (Company Master). Selectable as a participant in a
+ * formula. Company `nature` belongs to the master and is only a default hint —
+ * operational roles (Supplier / Buyer / Carrier / Financial / Other) belong to
+ * Formula Participants, not here. All extended fields are optional master data.
  */
 export type RegisteredCompany = {
   id: string
   name: string
   nature: string
   status: "active" | "inactive"
+  // Basic
+  englishName?: string
+  country?: string
+  // Registration
+  businessRegNo?: string
+  corporateRegNo?: string
+  taxType?: string
+  // Contact
+  contactPerson?: string
+  department?: string
+  position?: string
+  phone?: string
+  mobile?: string
+  email?: string
+  // Address
+  zipCode?: string
+  address?: string
+  addressDetail?: string
+  // Additional
+  defaultCurrency?: string
+  memo?: string
+  tags?: string[]
 }
 
 export type FormulaStatus =

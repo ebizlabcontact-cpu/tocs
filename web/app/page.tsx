@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { useCompany } from "@/components/company-context"
@@ -14,7 +15,9 @@ import { CashflowTimeline } from "@/components/dashboard/cashflow-timeline"
 import { FormulaMiniRow } from "@/components/dashboard/formula-mini-row"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { DateRangeSelector } from "@/components/shell/date-range-selector"
+import { AnalyticsCompanyFilter } from "@/components/shell/analytics-company-filter"
 import {
+  companies,
   getKpis,
   getProfitSeries,
   getLossRanking,
@@ -55,7 +58,17 @@ function SectionCard({
 export default function DashboardPage() {
   const { selected } = useCompany()
   const { range } = useDateRange()
-  const companyId = selected.id
+  const operatingId = selected.id
+
+  // Analytical company filter — separate from the operating scope switcher.
+  // Defaults to "all in scope" (the operating id) and resets when scope changes.
+  const [analyticsId, setAnalyticsId] = React.useState(operatingId)
+  React.useEffect(() => {
+    setAnalyticsId(operatingId)
+  }, [operatingId])
+
+  const companyId = analyticsId
+  const perspective = companyId !== operatingId
 
   const kpis = getKpis(companyId, range)
   const profitData = getProfitSeries(companyId, range)
@@ -70,9 +83,14 @@ export default function DashboardPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="Command Center"
-        description={`Dashboard figures are aggregated from formulas — ${selected.name} · ${range}.`}
+        description={
+          perspective
+            ? `Dashboard figures are derived from formulas — analyzing ${selected.name} from ${companies.find((c) => c.id === companyId)?.name ?? ""}'s perspective · ${range}.`
+            : `Dashboard figures are derived from formulas — ${selected.name} · ${range}.`
+        }
         actions={
           <div className="flex items-center gap-2">
+            <AnalyticsCompanyFilter operatingId={operatingId} value={analyticsId} onChange={setAnalyticsId} />
             <div className="md:hidden">
               <DateRangeSelector />
             </div>

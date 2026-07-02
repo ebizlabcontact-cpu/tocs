@@ -21,12 +21,44 @@ export const companies: Company[] = [
 
 /** Registered trade companies — selectable as formula participants. */
 export const registeredCompanies: RegisteredCompany[] = [
-  { id: "rc1", name: "CJ CheilJedang", nature: "Manufacturer", status: "active" },
-  { id: "rc2", name: "GeoWorks", nature: "Distributor", status: "active" },
-  { id: "rc3", name: "Nature Insight", nature: "Manufacturer", status: "active" },
-  { id: "rc4", name: "Eco & Recycle", nature: "Distributor", status: "active" },
-  { id: "rc5", name: "Local Collector", nature: "Supplier", status: "active" },
-  { id: "rc6", name: "Logistics Partner", nature: "Logistics", status: "active" },
+  {
+    id: "rc1",
+    name: "CJ CheilJedang",
+    nature: "Manufacturer",
+    status: "active",
+    englishName: "CJ CheilJedang Corp.",
+    country: "Korea",
+    businessRegNo: "104-86-00121",
+    corporateRegNo: "110111-0012345",
+    taxType: "General",
+    contactPerson: "Ji-woo Han",
+    department: "Global Sourcing",
+    position: "Manager",
+    phone: "02-6740-1114",
+    mobile: "010-2345-6789",
+    email: "jiwoo.han@cj.example",
+    zipCode: "04560",
+    address: "330 Dongho-ro, Jung-gu, Seoul",
+    addressDetail: "CJ Cheiljedang Center 12F",
+    defaultCurrency: "KRW",
+    memo: "Primary UCO supplier. ISCC-EU certified.",
+    tags: ["ISCC", "Priority"],
+  },
+  {
+    id: "rc2",
+    name: "GeoWorks",
+    nature: "Distributor",
+    status: "active",
+    englishName: "GeoWorks Ltd.",
+    country: "Vietnam",
+    email: "trade@geoworks.example",
+    defaultCurrency: "USD",
+    tags: ["Import"],
+  },
+  { id: "rc3", name: "Nature Insight", nature: "Manufacturer", status: "active", country: "Malaysia", defaultCurrency: "USD" },
+  { id: "rc4", name: "Eco & Recycle", nature: "Distributor", status: "active", country: "Korea", defaultCurrency: "KRW" },
+  { id: "rc5", name: "Local Collector", nature: "Supplier", status: "active", country: "Korea", defaultCurrency: "KRW" },
+  { id: "rc6", name: "Logistics Partner", nature: "Logistics", status: "active", country: "Korea", defaultCurrency: "KRW" },
 ]
 
 const tradeItems: { name: string; memo: string }[] = [
@@ -291,6 +323,18 @@ export const formulas: Formula[] = [
 export function getFormulasByCompany(companyId: string): Formula[] {
   if (companyId === "all") return formulas
   return formulas.filter((f) => f.companyId === companyId)
+}
+
+/**
+ * Companies that appear at least once inside the currently accessible Formula
+ * set (i.e. the formulas visible under the given operating scope). This powers
+ * the Dashboard / Reports analytical company filter — never the full company
+ * master. Formula First: the option list is derived from Formula data.
+ */
+export function getAccessibleCompanies(operatingId: string): Company[] {
+  const accessible = getFormulasByCompany(operatingId)
+  const ids = new Set(accessible.map((f) => f.companyId))
+  return companies.filter((c) => c.id !== "all" && ids.has(c.id))
 }
 
 export function getFormula(id: string): Formula | undefined {

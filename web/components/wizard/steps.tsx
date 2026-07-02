@@ -13,7 +13,11 @@ import {
   roleGroupOptions,
   natureGroupOptions,
   paymentGroupOptions,
+  countryOptions,
+  currencyOptions,
+  isCrossBorder,
   deriveFormula,
+  deriveFx,
   type WizardState,
 } from "./types"
 import { SettlementScenarios } from "./settlement-scenarios"
@@ -62,6 +66,85 @@ function NumField({
       </span>
       <Input type="number" value={value || ""} placeholder="0" onChange={(e) => onChange(Number(e.target.value))} />
     </label>
+  )
+}
+
+/* Step 1 — Cross-border currency structure (import / export / triangular). Preview only. */
+function FxSection({ state, set }: { state: WizardState; set: Setter }) {
+  const { fx } = state
+  const setFx = (patch: Partial<WizardState["fx"]>) => set((s) => ({ ...s, fx: { ...s.fx, ...patch } }))
+  const d = deriveFx(fx, state.quantity)
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border bg-secondary/30 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Currency &amp; FX</p>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Purchase Country">
+          <Select value={fx.purchaseCountry} onChange={(e) => setFx({ purchaseCountry: e.target.value })}>
+            <option value="">Select country…</option>
+            {countryOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Sales Country">
+          <Select value={fx.salesCountry} onChange={(e) => setFx({ salesCountry: e.target.value })}>
+            <option value="">Select country…</option>
+            {countryOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Base Currency" hint="Reporting currency.">
+          <Select value={fx.baseCurrency} onChange={(e) => setFx({ baseCurrency: e.target.value })}>
+            {currencyOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Transaction Currency" hint="Currency the deal is priced in.">
+          <Select value={fx.txnCurrency} onChange={(e) => setFx({ txnCurrency: e.target.value })}>
+            {currencyOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <NumField label={`Exchange Rate (1 ${fx.txnCurrency} → ${fx.baseCurrency})`} value={fx.exchangeRate} onChange={(v) => setFx({ exchangeRate: v })} />
+        <NumField label={`Foreign Unit Price (${fx.txnCurrency})`} value={fx.foreignUnitPrice} onChange={(v) => setFx({ foreignUnitPrice: v })} />
+      </div>
+
+      {/* Derived KRW preview — no FX engine, no persistence. */}
+      <div className="grid gap-2 rounded-lg border border-border bg-card p-3 sm:grid-cols-3">
+        <FxPreview label={`Foreign Total (${fx.txnCurrency})`} value={d.foreignTotal} currency={fx.txnCurrency} />
+        <FxPreview label={`${fx.baseCurrency} Unit Price`} value={d.krwUnitPrice} currency={fx.baseCurrency} />
+        <FxPreview label={`${fx.baseCurrency} Total`} value={d.krwTotal} currency={fx.baseCurrency} strong />
+      </div>
+
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Trade classification drives currency, settlement, and logistics views. Converted values are an illustrative
+        preview — no FX rates are fetched, calculated, or stored in the frontend.
+      </p>
+    </div>
+  )
+}
+
+function FxPreview({ label, value, currency, strong }: { label: string; value: number; currency: string; strong?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={"font-mono tabular-nums text-foreground " + (strong ? "text-sm font-bold" : "text-xs font-medium")}>
+        {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(value))} {currency}
+      </p>
+    </div>
   )
 }
 
@@ -151,6 +234,16 @@ export function StepBasics({ state, set }: { state: WizardState; set: Setter }) 
           ))}
         </div>
       </Field>
+
+      {isCrossBorder(state.tradeType) ? (
+        <FxSection state={state} set={set} />
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <span className="rounded-md bg-card px-2 py-1 font-medium text-foreground">Country · Korea</span>
+          <span className="rounded-md bg-card px-2 py-1 font-medium text-foreground">Currency · KRW</span>
+          <span>Domestic trade — no foreign exchange. Trade classification drives currency, settlement, and logistics views.</span>
+        </div>
+      )}
 
       <Field label="Spec / Quality Memo" hint="Free text — quality criteria differ per item, so there are no structured spec fields.">
         <textarea
@@ -774,6 +867,17 @@ export function StepReview({
           <ReviewItem label="Item" value={state.item || "—"} />
           <ReviewItem label="Quantity" value={state.quantity ? `${state.quantity} ${state.unit}` : "—"} />
           <ReviewItem label="Trade Type" value={tradeTypeConfig[state.tradeType].label} />
+          {isCrossBorder(state.tradeType) ? (
+            <>
+              <ReviewItem label="Route" value={`${state.fx.purchaseCountry || "—"} → ${state.fx.salesCountry || "—"}`} />
+              <ReviewItem
+                label="Currency"
+                value={`${state.fx.txnCurrency} → ${state.fx.baseCurrency}${state.fx.exchangeRate ? ` @ ${state.fx.exchangeRate}` : ""}`}
+              />
+            </>
+          ) : (
+            <ReviewItem label="Currency" value="KRW · Korea (Domestic)" />
+          )}
         </div>
         <ReviewText label="Spec / Quality Memo" value={state.specMemo} />
         {state.internalMemo ? <ReviewText label="Internal Memo" value={state.internalMemo} /> : null}

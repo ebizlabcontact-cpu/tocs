@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Area,
   AreaChart,
@@ -16,6 +16,7 @@ import {
 import { Info, Activity, LayoutDashboard, SlidersHorizontal } from "lucide-react"
 import { useCompany } from "@/components/company-context"
 import { useDateRange } from "@/components/date-range-context"
+import { AnalyticsCompanyFilter } from "@/components/shell/analytics-company-filter"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -50,7 +51,15 @@ const chartTooltip = {
 export function ReportsWorkspace() {
   const { selected } = useCompany()
   const { range: globalRange } = useDateRange()
-  const companyId = selected.id
+  const operatingId = selected.id
+
+  // Analytical company filter — separate from operating scope, derived from the
+  // accessible formula set. Resets when the operating scope changes.
+  const [analyticsId, setAnalyticsId] = useState(operatingId)
+  useEffect(() => {
+    setAnalyticsId(operatingId)
+  }, [operatingId])
+  const companyId = analyticsId
 
   const [view, setView] = useState<"default" | "custom">("default")
   const [period, setPeriod] = useState<DateRange>(globalRange === "Custom Range" ? "Last 30 Days" : globalRange)
@@ -60,7 +69,7 @@ export function ReportsWorkspace() {
       {/* Microcopy — Reports are a projection of Formula data. */}
       <div className="mb-4 flex items-center gap-2 rounded-xl border border-accent/30 bg-accent-soft px-4 py-2.5 text-sm text-accent">
         <Info className="size-4 shrink-0" />
-        Reports are derived from Formula data.
+        Reports are derived from formulas. Company filters analyze formulas from a selected company&apos;s perspective.
       </div>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -77,16 +86,19 @@ export function ReportsWorkspace() {
           </TabsList>
         </Tabs>
 
-        <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Period</span>
-          <Select value={period} onChange={(e) => setPeriod(e.target.value as DateRange)} className="h-9 w-40">
-            {DATE_RANGES.filter((r) => r !== "Custom Range").map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </Select>
-        </label>
+        <div className="flex items-center gap-3">
+          <AnalyticsCompanyFilter operatingId={operatingId} value={analyticsId} onChange={setAnalyticsId} />
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Period</span>
+            <Select value={period} onChange={(e) => setPeriod(e.target.value as DateRange)} className="h-9 w-40">
+              {DATE_RANGES.filter((r) => r !== "Custom Range").map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </Select>
+          </label>
+        </div>
       </div>
 
       {view === "default" ? (

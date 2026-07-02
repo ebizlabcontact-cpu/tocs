@@ -30,6 +30,19 @@ export type WizardParticipant = {
   endPoint: boolean
 }
 
+/**
+ * Cross-border currency structure. UI/preview only — no FX API, engine, or
+ * persistence. Domestic trades ignore this (KRW / Korea).
+ */
+export type WizardFx = {
+  purchaseCountry: string
+  salesCountry: string
+  baseCurrency: string
+  txnCurrency: string
+  exchangeRate: number
+  foreignUnitPrice: number
+}
+
 export type WizardScheduleItem = {
   id: string
   type: "receipt" | "payment"
@@ -57,6 +70,8 @@ export type WizardState = {
   specMemo: string
   /** Internal memo (Step 1). */
   internalMemo: string
+  /** Cross-border currency structure (Step 1). Preview only. */
+  fx: WizardFx
   participants: WizardParticipant[]
   costs: WizardCost[]
   sharePct: number
@@ -116,6 +131,14 @@ export const emptyWizardState: WizardState = {
   unit: "MT",
   specMemo: "",
   internalMemo: "",
+  fx: {
+    purchaseCountry: "",
+    salesCountry: "",
+    baseCurrency: "KRW",
+    txnCurrency: "USD",
+    exchangeRate: 0,
+    foreignUnitPrice: 0,
+  },
   participants: [
     {
       id: "p1",
@@ -159,3 +182,32 @@ export const paymentGroupOptions = [
   { value: "credit", label: "Credit" },
   { value: "postpaid", label: "Postpaid" },
 ]
+
+/* Cross-border option lists (Step 1 FX section). Preview only. */
+export const countryOptions = [
+  "Korea",
+  "China",
+  "Vietnam",
+  "Malaysia",
+  "Indonesia",
+  "Singapore",
+  "Japan",
+  "Netherlands",
+  "United States",
+  "Germany",
+]
+
+export const currencyOptions = ["KRW", "USD", "EUR", "JPY", "CNY", "SGD"]
+
+/** Domestic trades are fixed to Korea / KRW — FX is hidden. */
+export function isCrossBorder(tradeType: TradeType) {
+  return tradeType !== "domestic"
+}
+
+/** Derived KRW-converted figures from the FX inputs (preview only). */
+export function deriveFx(fx: WizardFx, quantity: number) {
+  const foreignTotal = (fx.foreignUnitPrice || 0) * (quantity || 0)
+  const krwUnitPrice = (fx.foreignUnitPrice || 0) * (fx.exchangeRate || 0)
+  const krwTotal = foreignTotal * (fx.exchangeRate || 0)
+  return { foreignTotal, krwUnitPrice, krwTotal }
+}

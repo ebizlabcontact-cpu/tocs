@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { Building2, Search, Plus, Pencil, Trash2, Archive, ArchiveRestore, Layers, Briefcase } from "lucide-react"
 import { registeredCompanies, formulas } from "@/lib/mock-data"
 import type { RegisteredCompany } from "@/lib/types"
@@ -24,7 +24,44 @@ const natureOptions = [
   "Financier",
 ]
 
-const emptyDraft: Draft = { name: "", nature: "Manufacturer", status: "active" }
+const countryOptions = [
+  "Korea",
+  "China",
+  "Vietnam",
+  "Malaysia",
+  "Indonesia",
+  "Singapore",
+  "Japan",
+  "Netherlands",
+  "United States",
+  "Germany",
+]
+
+const currencyOptions = ["KRW", "USD", "EUR", "JPY", "CNY", "SGD"]
+const taxTypeOptions = ["General", "Simplified", "Exempt", "Zero-rated"]
+
+const emptyDraft: Draft = {
+  name: "",
+  nature: "Manufacturer",
+  status: "active",
+  englishName: "",
+  country: "Korea",
+  businessRegNo: "",
+  corporateRegNo: "",
+  taxType: "General",
+  contactPerson: "",
+  department: "",
+  position: "",
+  phone: "",
+  mobile: "",
+  email: "",
+  zipCode: "",
+  address: "",
+  addressDetail: "",
+  defaultCurrency: "KRW",
+  memo: "",
+  tags: [],
+}
 
 /** Formulas that reference a company as a participant (Formula-derived usage). */
 function formulasUsing(name: string) {
@@ -239,10 +276,64 @@ function CompanyDetail({
         <MetaItem icon={Building2} label="Status" value={archived ? "Archived" : "Active"} />
       </div>
 
+      {(company.tags ?? []).length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {company.tags!.map((t) => (
+            <Badge key={t} tone="outline">
+              {t}
+            </Badge>
+          ))}
+        </div>
+      )}
+
       <p className="rounded-lg border border-border bg-secondary/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground text-pretty">
-        Trade nature is a default hint only — a company&apos;s role (buyer, seller, agent, logistics) is defined per
-        formula in the trade chain.
+        Trade nature is a Company Master attribute and a default hint only — a company&apos;s operational role (supplier,
+        buyer, carrier, financial, other) is defined per formula in the trade chain.
       </p>
+
+      <DetailGroup
+        title="Basic"
+        rows={[
+          ["English Name", company.englishName],
+          ["Country", company.country],
+          ["Default Currency", company.defaultCurrency],
+        ]}
+      />
+      <DetailGroup
+        title="Registration"
+        rows={[
+          ["Business Reg. No.", company.businessRegNo],
+          ["Corporate Reg. No.", company.corporateRegNo],
+          ["Tax Type", company.taxType],
+        ]}
+      />
+      <DetailGroup
+        title="Contact"
+        rows={[
+          ["Contact Person", company.contactPerson],
+          ["Department", company.department],
+          ["Position", company.position],
+          ["Phone", company.phone],
+          ["Mobile", company.mobile],
+          ["Email", company.email],
+        ]}
+      />
+      <DetailGroup
+        title="Address"
+        rows={[
+          ["ZIP Code", company.zipCode],
+          ["Address", company.address],
+          ["Detail", company.addressDetail],
+        ]}
+      />
+      {company.memo && (
+        <div>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Memo</p>
+          <p className="whitespace-pre-line rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm leading-relaxed text-foreground text-pretty">
+            {company.memo}
+          </p>
+        </div>
+      )}
 
       <div>
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -299,17 +390,24 @@ function CompanyFormModal({
   const [lastKey, setLastKey] = useState("")
   if (open && key !== lastKey) {
     setLastKey(key)
-    setDraft(initial ? { name: initial.name, nature: initial.nature, status: initial.status } : emptyDraft)
+    if (initial) {
+      const { id: _id, ...rest } = initial
+      setDraft({ ...emptyDraft, ...rest })
+    } else {
+      setDraft(emptyDraft)
+    }
   }
 
+  const patch = (p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p }))
   const valid = draft.name.trim().length > 0
 
   return (
     <Modal
       open={open}
       onClose={onClose}
+      size="lg"
       title={mode === "create" ? "New Company" : "Edit Company"}
-      description="Prototype form — changes update this view only and are not persisted."
+      description="Company Master — prototype form. Changes update this view only and are not persisted."
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -321,17 +419,27 @@ function CompanyFormModal({
         </>
       }
     >
-      <div className="grid gap-4">
-        <Field label="Company Name">
-          <Input
-            value={draft.name}
-            onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-            placeholder="CJ CheilJedang"
-          />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Trade Nature" hint="Default hint — role is set per formula.">
-            <Select value={draft.nature} onChange={(e) => setDraft((d) => ({ ...d, nature: e.target.value }))}>
+      <div className="flex flex-col gap-6">
+        {/* Basic */}
+        <FormSection title="Basic">
+          <Field label="Company Name" className="sm:col-span-2">
+            <Input value={draft.name} onChange={(e) => patch({ name: e.target.value })} placeholder="CJ CheilJedang" />
+          </Field>
+          <Field label="English Name">
+            <Input value={draft.englishName ?? ""} onChange={(e) => patch({ englishName: e.target.value })} placeholder="CJ CheilJedang Corp." />
+          </Field>
+          <Field label="Country">
+            <Select value={draft.country ?? ""} onChange={(e) => patch({ country: e.target.value })}>
+              <option value="">Select country…</option>
+              {countryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Trade Nature" hint="Company Master attribute — operational role is set per formula.">
+            <Select value={draft.nature} onChange={(e) => patch({ nature: e.target.value })}>
               {natureOptions.map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -340,17 +448,131 @@ function CompanyFormModal({
             </Select>
           </Field>
           <Field label="Status">
-            <Select
-              value={draft.status}
-              onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as RegisteredCompany["status"] }))}
-            >
+            <Select value={draft.status} onChange={(e) => patch({ status: e.target.value as RegisteredCompany["status"] })}>
               <option value="active">Active</option>
               <option value="inactive">Archived</option>
             </Select>
           </Field>
-        </div>
+        </FormSection>
+
+        {/* Registration */}
+        <FormSection title="Registration">
+          <Field label="Business Registration Number">
+            <Input value={draft.businessRegNo ?? ""} onChange={(e) => patch({ businessRegNo: e.target.value })} placeholder="104-86-00121" />
+          </Field>
+          <Field label="Corporate Registration Number">
+            <Input value={draft.corporateRegNo ?? ""} onChange={(e) => patch({ corporateRegNo: e.target.value })} placeholder="110111-0012345" />
+          </Field>
+          <Field label="Tax Type">
+            <Select value={draft.taxType ?? ""} onChange={(e) => patch({ taxType: e.target.value })}>
+              <option value="">Select…</option>
+              {taxTypeOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </FormSection>
+
+        {/* Contact */}
+        <FormSection title="Contact">
+          <Field label="Contact Person">
+            <Input value={draft.contactPerson ?? ""} onChange={(e) => patch({ contactPerson: e.target.value })} />
+          </Field>
+          <Field label="Department">
+            <Input value={draft.department ?? ""} onChange={(e) => patch({ department: e.target.value })} />
+          </Field>
+          <Field label="Position">
+            <Input value={draft.position ?? ""} onChange={(e) => patch({ position: e.target.value })} />
+          </Field>
+          <Field label="Phone">
+            <Input value={draft.phone ?? ""} onChange={(e) => patch({ phone: e.target.value })} placeholder="02-0000-0000" />
+          </Field>
+          <Field label="Mobile">
+            <Input value={draft.mobile ?? ""} onChange={(e) => patch({ mobile: e.target.value })} placeholder="010-0000-0000" />
+          </Field>
+          <Field label="Email">
+            <Input type="email" value={draft.email ?? ""} onChange={(e) => patch({ email: e.target.value })} placeholder="name@company.com" />
+          </Field>
+        </FormSection>
+
+        {/* Address */}
+        <FormSection title="Address">
+          <Field label="ZIP Code">
+            <Input value={draft.zipCode ?? ""} onChange={(e) => patch({ zipCode: e.target.value })} placeholder="04560" />
+          </Field>
+          <Field label="Address" className="sm:col-span-2">
+            <Input value={draft.address ?? ""} onChange={(e) => patch({ address: e.target.value })} placeholder="330 Dongho-ro, Jung-gu, Seoul" />
+          </Field>
+          <Field label="Detailed Address" className="sm:col-span-2">
+            <Input value={draft.addressDetail ?? ""} onChange={(e) => patch({ addressDetail: e.target.value })} placeholder="Building, floor, suite" />
+          </Field>
+        </FormSection>
+
+        {/* Additional */}
+        <FormSection title="Additional">
+          <Field label="Default Currency">
+            <Select value={draft.defaultCurrency ?? ""} onChange={(e) => patch({ defaultCurrency: e.target.value })}>
+              {currencyOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Tags" hint="Comma-separated." className="sm:col-span-2">
+            <Input
+              value={(draft.tags ?? []).join(", ")}
+              onChange={(e) => patch({ tags: e.target.value.split(",").map((t) => t.trim()).filter(Boolean) })}
+              placeholder="ISCC, Priority"
+            />
+          </Field>
+          <Field label="Memo" className="sm:col-span-2">
+            <textarea
+              value={draft.memo ?? ""}
+              onChange={(e) => patch({ memo: e.target.value })}
+              rows={2}
+              className="w-full rounded-[var(--radius-md)] border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/40"
+              placeholder="Internal notes about this company…"
+            />
+          </Field>
+        </FormSection>
       </div>
     </Modal>
+  )
+}
+
+function DetailGroup({ title, rows }: { title: string; rows: [string, string | undefined][] }) {
+  const present = rows.filter(([, v]) => v && v.trim().length > 0)
+  if (present.length === 0) return null
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+      <div className="rounded-lg border border-border bg-card px-3">
+        {present.map(([label, value], i) => (
+          <div
+            key={label}
+            className={
+              "flex items-center justify-between gap-3 py-2.5 text-sm" +
+              (i < present.length - 1 ? " border-b border-border" : "")
+            }
+          >
+            <span className="text-muted-foreground">{label}</span>
+            <span className="min-w-0 truncate text-right font-medium text-foreground">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function FormSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+    </div>
   )
 }
 
