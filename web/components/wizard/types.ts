@@ -74,7 +74,8 @@ export type WizardState = {
   fx: WizardFx
   participants: WizardParticipant[]
   costs: WizardCost[]
-  sharePct: number
+  /** Formula Share — a subtracted KRW amount (deal-level), not a percentage. */
+  shareAmount: number
   schedule: WizardScheduleItem[]
   logistics: WizardLogisticsLeg[]
 }
@@ -104,8 +105,10 @@ export function deriveFormula(state: WizardState) {
       : 0
   const costs = state.costs.reduce((s, c) => s + (c.amount || 0), 0)
   const grossMargin = expectedRevenue - expectedCost - costs
-  const retainedShare = (grossMargin * state.sharePct) / 100
-  const expectedProfit = retainedShare
+  // Canonical model (DL-009): share is a subtracted KRW amount, not a percentage.
+  // 예상순이익 = 총매출 − 총매입 − 비용 − 셰어
+  const share = state.shareAmount || 0
+  const expectedProfit = grossMargin - share
   const totalQuantity = state.participants.reduce((s, p) => s + (p.quantity || 0), 0)
   const participantCount = state.participants.filter((p) => p.company.trim().length > 0).length
   return {
@@ -113,7 +116,7 @@ export function deriveFormula(state: WizardState) {
     expectedCost,
     costs,
     grossMargin,
-    retainedShare,
+    share,
     expectedProfit,
     totalQuantity,
     participantCount,
@@ -154,7 +157,7 @@ export const emptyWizardState: WizardState = {
     },
   ],
   costs: [{ id: "co1", label: "Freight", amount: 0 }],
-  sharePct: 100,
+  shareAmount: 0,
   schedule: [],
   logistics: [],
 }

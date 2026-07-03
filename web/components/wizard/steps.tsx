@@ -534,7 +534,7 @@ function MoneyFlow({ state }: { state: WizardState }) {
         <div className="border-t border-dashed border-border pt-2.5">
           <MoneyRow label="Gross Margin" value={d.grossMargin} tone={d.grossMargin >= 0 ? "pos" : "neg"} bold />
         </div>
-        <MoneyRow label={`Share (${state.sharePct}%)`} value={d.retainedShare} tone={d.retainedShare >= 0 ? "pos" : "neg"} />
+        <MoneyRow label="Formula Share" value={d.share} minus />
       </div>
       <div className="mt-3 rounded-lg bg-card p-3">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Expected Profit</p>
@@ -634,15 +634,18 @@ export function StepSettlement({ state, set }: { state: WizardState; set: Setter
         </Button>
       </div>
 
-      {/* Retained share */}
-      <Field label={`Retained share — ${state.sharePct}%`} hint="Your entitled portion of the margin. The remainder is treated as optional share.">
+      {/* Formula Share (subtracted KRW amount, not a percentage) */}
+      <Field
+        label="Formula Share (KRW)"
+        hint="Deal-level share amount deducted from margin: 예상순이익 = 총매출 − 총매입 − 비용 − 셰어. This is an amount, not a percentage."
+      >
         <input
-          type="range"
+          type="number"
           min={0}
-          max={100}
-          value={state.sharePct}
-          onChange={(e) => set((s) => ({ ...s, sharePct: Number(e.target.value) }))}
-          className="w-full accent-[var(--accent)]"
+          value={state.shareAmount || ""}
+          placeholder="0"
+          onChange={(e) => set((s) => ({ ...s, shareAmount: Number(e.target.value) }))}
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-sm tabular-nums text-foreground outline-none focus:border-accent"
         />
       </Field>
 
@@ -916,7 +919,7 @@ export function StepReview({
           <ReviewItem label="Expected Receipts" value={formatCurrency(d.expectedReceipts)} />
           <ReviewItem label="Expected Payments" value={formatCurrency(d.expectedPayments)} />
           <ReviewItem label="Costs" value={formatCurrency(d.costs)} />
-          <ReviewItem label={`Share (${state.sharePct}%)`} value={formatCurrency(d.retainedShare)} />
+          <ReviewItem label="Formula Share" value={formatCurrency(d.share)} />
         </div>
         <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
           <span className="text-sm font-medium text-foreground">Expected Profit</span>

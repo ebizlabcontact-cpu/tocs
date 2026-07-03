@@ -57,7 +57,7 @@ function SectionCard({
 
 export default function DashboardPage() {
   const { selected } = useCompany()
-  const { range } = useDateRange()
+  const { range, customStart, customEnd } = useDateRange()
   const operatingId = selected.id
 
   // Analytical company filter — separate from the operating scope switcher.
@@ -70,8 +70,8 @@ export default function DashboardPage() {
   const companyId = analyticsId
   const perspective = companyId !== operatingId
 
-  const kpis = getKpis(companyId, range)
-  const profitData = getProfitSeries(companyId, range)
+  const kpis = getKpis(companyId, range, customStart, customEnd)
+  const profitData = getProfitSeries(companyId, range, customStart, customEnd)
   const lossRanking = getLossRanking(companyId)
   const receipts = getCashflowTimeline(companyId, "receipt")
   const payments = getCashflowTimeline(companyId, "payment")

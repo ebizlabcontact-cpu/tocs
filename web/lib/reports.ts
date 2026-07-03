@@ -9,9 +9,9 @@
 import type { DateRange, Formula } from "./types"
 import {
   companies,
+  filterFormulasByRange,
   getFormulasByCompany,
   getProfitSeries,
-  getRangeFactor,
 } from "./mock-data"
 import { statusConfig, tradeTypeConfig } from "./status"
 
@@ -75,8 +75,7 @@ export function buildGroupedReport(
   dimension: DimensionKey,
   range: DateRange,
 ): { rows: ReportRow[]; total: number } {
-  const list = getFormulasByCompany(companyId)
-  const factor = getRangeFactor(range)
+  const list = filterFormulasByRange(getFormulasByCompany(companyId), range)
   const map = new Map<string, { value: number; count: number }>()
 
   for (const f of list) {
@@ -88,7 +87,7 @@ export function buildGroupedReport(
   }
 
   const rows: ReportRow[] = [...map.entries()]
-    .map(([label, v]) => ({ label, value: Math.round(v.value * factor), count: v.count }))
+    .map(([label, v]) => ({ label, value: Math.round(v.value), count: v.count }))
     .sort((a, b) => b.value - a.value)
 
   const total = rows.reduce((s, r) => s + r.value, 0)
@@ -107,22 +106,20 @@ export type ExecutiveSummary = {
 }
 
 export function getExecutiveSummary(companyId: string, range: DateRange): ExecutiveSummary {
-  const list = getFormulasByCompany(companyId)
-  const factor = getRangeFactor(range)
-  const scale = (v: number) => Math.round(v * factor)
+  const list = filterFormulasByRange(getFormulasByCompany(companyId), range)
 
   return {
-    realizedProfit: scale(list.reduce((s, f) => s + f.realizedProfit, 0)),
-    expectedProfit: scale(list.reduce((s, f) => s + f.expectedProfit, 0)),
-    receivable: scale(list.reduce((s, f) => s + f.receivable, 0)),
-    payable: scale(list.reduce((s, f) => s + f.payable, 0)),
-    revenue: scale(list.reduce((s, f) => s + f.totalSell, 0)),
+    realizedProfit: list.reduce((s, f) => s + f.realizedProfit, 0),
+    expectedProfit: list.reduce((s, f) => s + f.expectedProfit, 0),
+    receivable: list.reduce((s, f) => s + f.receivable, 0),
+    payable: list.reduce((s, f) => s + f.payable, 0),
+    revenue: list.reduce((s, f) => s + f.totalSell, 0),
     formulaCount: list.length,
     profitSeries: getProfitSeries(companyId, range),
     topFormulas: [...list]
       .sort((a, b) => b.realizedProfit - a.realizedProfit)
       .slice(0, 6)
-      .map((f) => ({ number: f.number, item: f.item, realized: scale(f.realizedProfit) })),
+      .map((f) => ({ number: f.number, item: f.item, realized: f.realizedProfit })),
   }
 }
 
@@ -166,10 +163,10 @@ export type TrendPoint = { month: string; realized: number; expected: number }
  * distributed proportionally to the realized series shape (illustrative).
  */
 export function getTrendSummary(companyId: string, range: DateRange): TrendPoint[] {
-  const list = getFormulasByCompany(companyId)
+  const list = filterFormulasByRange(getFormulasByCompany(companyId), range)
   const realizedSeries = getProfitSeries(companyId, range)
   const totalRealized = realizedSeries.reduce((s, p) => s + p.profit, 0) || 1
-  const totalExpected = list.reduce((s, f) => s + f.expectedProfit, 0) * getRangeFactor(range)
+  const totalExpected = list.reduce((s, f) => s + f.expectedProfit, 0)
 
   return realizedSeries.map((p) => ({
     month: p.month,

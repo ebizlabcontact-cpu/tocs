@@ -307,12 +307,14 @@ function buildFormula(i: number): Formula {
     shares.push({ id: "sh2", companyName: originCp, amount: share - Math.round(share * 0.6), note: "Sourcing share" })
   }
 
-  // ---- Dates (P0-2).
-  const createdDaysAgo = daysAgo + 20 + Math.floor(rand() * 60)
-  const createdAt = new Date(Date.now() - createdDaysAgo * DAY).toISOString()
-  const updatedAt = new Date(Date.now() - daysAgo * DAY).toISOString()
-  const tradeDate = new Date(Date.now() - (createdDaysAgo + 2) * DAY).toISOString()
-  const contractDate = new Date(Date.now() - (createdDaysAgo + 1) * DAY).toISOString()
+  // ---- Dates (P0-2). Anchor on the recent trade so default ranges have data:
+  // the trade happened `daysAgo` (0–40) ago; contract precedes it, the record is
+  // created around the trade, and the last update is the most recent event.
+  const tradeDaysAgo = daysAgo
+  const tradeDate = new Date(Date.now() - tradeDaysAgo * DAY).toISOString()
+  const contractDate = new Date(Date.now() - (tradeDaysAgo + 3 + Math.floor(rand() * 5)) * DAY).toISOString()
+  const createdAt = new Date(Date.now() - (tradeDaysAgo + 1) * DAY).toISOString()
+  const updatedAt = new Date(Date.now() - Math.floor(tradeDaysAgo / 2) * DAY).toISOString()
 
   // ---- FX (P0-7): domestic is KRW-only; cross-border carries a preview rate.
   const crossBorder = tradeType !== "domestic"
@@ -564,49 +566,74 @@ export const DATE_RANGES: DateRange[] = [
 ]
 
 /**
- * Illustrative share of full-period totals attributable to each range. Used to
- * make dashboard figures visibly react to the selected period. This is a mock
- * scaling factor — clearly not real date filtering (P0-2).
+ * Real date-window resolution (P0-2). Every range maps to an actual [start, end)
+ * interval, and formulas are filtered by their `tradeDate`. This mirrors how the
+ * backend will bound aggregates by date — no scalar approximation.
  */
-const rangeFactor: Record<DateRange, number> = {
-  "Last 7 Days": 0.14,
-  "Last 30 Days": 0.42,
-  "This Month": 0.55,
-  "Last Month": 0.47,
-  "This Year": 1,
-  "Custom Range": 0.42,
+export function getRangeWindow(range: DateRange, customStart?: string, customEnd?: string): { start: number; end: number } {
+  const now = new Date()
+  const end = now.getTime()
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+
+  switch (range) {
+    case "Last 7 Days":
+      return { start: end - 7 * DAY, end }
+    case "Last 30 Days":
+      return { start: end - 30 * DAY, end }
+    case "This Month":
+      return { start: new Date(now.getFullYear(), now.getMonth(), 1).getTime(), end }
+    case "Last Month": {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime()
+      const monthEnd = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+      return { start, end: monthEnd }
+    }
+    case "This Year":
+      return { start: new Date(now.getFullYear(), 0, 1).getTime(), end }
+    case "Custom Range": {
+      const s = customStart ? startOfDay(new Date(customStart)) : end - 30 * DAY
+      const e = customEnd ? startOfDay(new Date(customEnd)) + DAY : end
+      return { start: s, end: e }
+    }
+  }
 }
 
-/** Illustrative share of full-period totals for a range (mock, matches dashboard). */
-export function getRangeFactor(range: DateRange): number {
-  return rangeFactor[range]
+/** Filter a formula list to those whose trade date falls inside the range window. */
+export function filterFormulasByRange(
+  list: Formula[],
+  range: DateRange,
+  customStart?: string,
+  customEnd?: string,
+): Formula[] {
+  const { start, end } = getRangeWindow(range, customStart, customEnd)
+  return list.filter((f) => {
+    const t = Date.parse(f.tradeDate ?? f.createdAt)
+    return t >= start && t <= end
+  })
 }
 
-/** Dashboard KPIs — REALIZED profit only, never estimated. Reacts to date range (mock). */
-export function getKpis(companyId: string, range: DateRange = "This Year"): Kpi[] {
-  const list = getFormulasByCompany(companyId)
-  const f = rangeFactor[range]
-  const scale = (v: number) => Math.round(v * f)
-  const scaleCount = (n: number) => (n === 0 ? 0 : Math.max(1, Math.round(n * f)))
+/** Dashboard KPIs — REALIZED profit only, never estimated. Filtered by real date window (P0-2). */
+export function getKpis(
+  companyId: string,
+  range: DateRange = "This Year",
+  customStart?: string,
+  customEnd?: string,
+): Kpi[] {
+  const list = filterFormulasByRange(getFormulasByCompany(companyId), range, customStart, customEnd)
 
-  const realizedProfit = scale(list.filter((x) => x.realizedProfit > 0).reduce((s, x) => s + x.realizedProfit, 0))
-  const totalLoss = scale(list.filter((x) => x.realizedProfit < 0).reduce((s, x) => s + x.realizedProfit, 0))
-  const receivable = scale(list.reduce((s, x) => s + x.receivable, 0))
-  const payable = scale(list.reduce((s, x) => s + x.payable, 0))
-  const upcomingReceipts = scale(
-    list
-      .flatMap((x) => x.schedule)
-      .filter((s) => s.type === "receipt" && s.status !== "settled")
-      .reduce((s, x) => s + (x.amount - x.settledAmount), 0),
-  )
-  const upcomingPayments = scale(
-    list
-      .flatMap((x) => x.schedule)
-      .filter((s) => s.type === "payment" && s.status !== "settled")
-      .reduce((s, x) => s + (x.amount - x.settledAmount), 0),
-  )
-  const closeable = scaleCount(list.filter((x) => x.closeable).length)
-  const unmatched = scaleCount(list.filter((x) => x.invoiceStatus === "unmatched").length)
+  const realizedProfit = list.filter((x) => x.realizedProfit > 0).reduce((s, x) => s + x.realizedProfit, 0)
+  const totalLoss = list.filter((x) => x.realizedProfit < 0).reduce((s, x) => s + x.realizedProfit, 0)
+  const receivable = list.reduce((s, x) => s + x.receivable, 0)
+  const payable = list.reduce((s, x) => s + x.payable, 0)
+  const upcomingReceipts = list
+    .flatMap((x) => x.schedule)
+    .filter((s) => s.type === "receipt" && s.status !== "settled")
+    .reduce((s, x) => s + (x.amount - x.settledAmount), 0)
+  const upcomingPayments = list
+    .flatMap((x) => x.schedule)
+    .filter((s) => s.type === "payment" && s.status !== "settled")
+    .reduce((s, x) => s + (x.amount - x.settledAmount), 0)
+  const closeable = list.filter((x) => x.closeable).length
+  const unmatched = list.filter((x) => x.invoiceStatus === "unmatched").length
 
   return [
     { key: "realized", label: "Realized Profit", value: realizedProfit, currency: true, delta: 12.4, intent: "success", drillTo: "/formulas?filter=profit" },
@@ -621,28 +648,49 @@ export function getKpis(companyId: string, range: DateRange = "This Year"): Kpi[
 }
 
 /**
- * Realized-profit trend series. The number of buckets and their labels change
- * with the selected range so the chart visibly reacts (mock only).
+ * Realized-profit trend series bucketed by the formula's actual trade date
+ * within the selected window (P0-2). Buckets are real sub-intervals of the
+ * window, so figures reconcile with the KPIs above.
  */
-export function getProfitSeries(companyId: string, range: DateRange = "This Year") {
-  const list = getFormulasByCompany(companyId)
-  const total = list.reduce((s, f) => s + f.realizedProfit, 0)
-  const seed = companyId.length * 17 + 3
+export function getProfitSeries(
+  companyId: string,
+  range: DateRange = "This Year",
+  customStart?: string,
+  customEnd?: string,
+) {
+  const list = filterFormulasByRange(getFormulasByCompany(companyId), range, customStart, customEnd)
+  const { start, end } = getRangeWindow(range, customStart, customEnd)
 
-  const buckets: Record<DateRange, string[]> = {
-    "Last 7 Days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    "Last 30 Days": ["Week 1", "Week 2", "Week 3", "Week 4"],
-    "This Month": ["Week 1", "Week 2", "Week 3", "Week 4"],
-    "Last Month": ["Week 1", "Week 2", "Week 3", "Week 4"],
-    "This Year": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-    "Custom Range": ["Week 1", "Week 2", "Week 3", "Week 4"],
+  // Choose bucket granularity by window length.
+  const spanDays = Math.max(1, Math.round((end - start) / DAY))
+  let bucketCount: number
+  let labelFor: (from: number, to: number) => string
+  if (spanDays <= 10) {
+    bucketCount = Math.min(spanDays, 7)
+    labelFor = (from) => new Date(from).toLocaleDateString("en-US", { weekday: "short" })
+  } else if (spanDays <= 45) {
+    bucketCount = 4
+    labelFor = (_from, _to, ) => ""
+  } else {
+    bucketCount = Math.min(12, Math.max(3, Math.round(spanDays / 30)))
+    labelFor = (from) => new Date(from).toLocaleDateString("en-US", { month: "short" })
   }
-  const labels = buckets[range]
-  const base = (total * rangeFactor[range]) / labels.length
-  return labels.map((label, i) => {
-    const wobble = 0.55 + (((i * 131 + seed) % 100) / 100) * 0.9
-    return { month: label, profit: Math.round(base * wobble) }
-  })
+
+  const step = (end - start) / bucketCount
+  const series: { month: string; profit: number }[] = []
+  for (let i = 0; i < bucketCount; i++) {
+    const from = start + i * step
+    const to = start + (i + 1) * step
+    const profit = list
+      .filter((f) => {
+        const t = Date.parse(f.tradeDate ?? f.createdAt)
+        return t >= from && t < to
+      })
+      .reduce((s, f) => s + f.realizedProfit, 0)
+    const label = labelFor(from, to) || `Week ${i + 1}`
+    series.push({ month: label, profit: Math.round(profit) })
+  }
+  return series
 }
 
 /** All scheduled receipts/payments across formulas, for the calendar grid. */

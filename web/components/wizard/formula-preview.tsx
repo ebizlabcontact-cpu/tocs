@@ -37,7 +37,7 @@ export function FormulaPreview({ state }: { state: WizardState }) {
         <div className="border-t border-dashed border-border pt-2.5">
           <Row label="Gross Margin" value={d.grossMargin} tone={d.grossMargin >= 0 ? "pos" : "neg"} bold />
         </div>
-        <Row label={`Share (${state.sharePct}%)`} value={d.retainedShare} tone={d.retainedShare >= 0 ? "pos" : "neg"} />
+        <Row label="Formula Share" value={d.share} minus />
       </div>
 
       <div className="mt-4 rounded-lg bg-secondary/60 p-3">

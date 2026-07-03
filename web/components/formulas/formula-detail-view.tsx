@@ -173,7 +173,7 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
               <Ship className="size-4" />
               Logistics
             </TabsTrigger>
-            <TabsTrigger value="shares" count={formula.participants.filter((p) => (p.sharePct ?? 0) > 0).length}>
+            <TabsTrigger value="shares" count={(formula.shares ?? []).length}>
               <PieChart className="size-4" />
               Shares
             </TabsTrigger>
