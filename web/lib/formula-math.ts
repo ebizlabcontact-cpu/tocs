@@ -191,6 +191,7 @@ export type TimelineEventType =
   | "contract"
   | "trade"
   | "schedule"
+  | "status"
   | "receipt"
   | "payment"
   | "invoice"
@@ -200,6 +201,28 @@ export type TimelineEventType =
   | "version"
   | "settlement"
   | "closed"
+
+/** Human labels for status-log values, keyed by status type (P0-2). */
+const statusLogValueLabels: Record<string, Record<string, string>> = {
+  trade: { draft: "Draft", confirmed: "Confirmed", completed: "Completed" },
+  cashIn: { pending: "Pending", partial: "Partial", completed: "Completed" },
+  cashOut: { pending: "Pending", partial: "Partial", completed: "Completed" },
+  invoice: { unmatched: "Unmatched", partial: "Partial", complete: "Complete" },
+  logistics: { not_started: "Not Started", in_transit: "In Transit", delivered: "Delivered" },
+  delivery: { pending: "Pending", in_transit: "In Transit", delivered: "Delivered" },
+}
+const statusLogTypeLabels: Record<string, string> = {
+  trade: "Trade",
+  cashIn: "Cash In",
+  cashOut: "Cash Out",
+  invoice: "Invoice",
+  logistics: "Logistics",
+  delivery: "Delivery",
+}
+function statusLogValue(type: string, value: string | null): string {
+  if (value == null) return "—"
+  return statusLogValueLabels[type]?.[value] ?? value
+}
 
 export type DerivedTimelineEvent = {
   id: string
@@ -251,6 +274,21 @@ export function buildTimeline(f: Formula, versions: VersionEntry[] = []): Derive
       actor: "System",
       linkTab: "overview",
     })
+
+  // Status history is PROJECTED from canonical Status Logs (P0-2) — never
+  // fabricated. Each entry corresponds to a real formula_status_logs row.
+  for (const log of f.statusLogs ?? []) {
+    const typeLabel = statusLogTypeLabels[log.statusType] ?? log.statusType
+    ev.push({
+      id: `tl-status-${log.id}`,
+      type: "status",
+      title: `${typeLabel} Status Changed`,
+      description: `${statusLogValue(log.statusType, log.previousStatus)} → ${statusLogValue(log.statusType, log.newStatus)}${log.memo ? ` · ${log.memo}` : ""}`,
+      date: log.changedAt,
+      actor: log.changedBy,
+      linkTab: log.statusType === "logistics" || log.statusType === "delivery" ? "logistics" : "overview",
+    })
+  }
 
   for (const s of f.schedule ?? []) {
     ev.push({

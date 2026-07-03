@@ -68,6 +68,27 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
   const versions = useMemo(() => getVersionHistory(formula), [formula])
   const [active, setActive] = useState<SnapshotVersion | null>(null)
   const { company, chain, base, endpointsResolved } = useSnapshotSections(formula)
+  // The newest version is the live/current state; older versions render their
+  // frozen immutable snapshot instead of a live recomputation (P0-3).
+  const latestVersionNo = versions[0]?.versionNo
+  const isLatestActive = active?.versionNo === latestVersionNo
+  const snap = active?.snapshot ?? null
+  // Historical versions read their frozen snapshot; the latest reads live figures.
+  const useSnap = snap != null && !isLatestActive
+  const fin = {
+    totalSell: useSnap ? snap!.totalSell : base.totalSell,
+    totalBuy: useSnap ? snap!.totalBuy : base.totalBuy,
+    cost: useSnap ? snap!.totalCost : base.cost,
+    share: useSnap ? snap!.totalShare : base.share,
+    expectedProfit: useSnap ? snap!.expectedProfit : base.expectedProfit,
+    realizedProfit: useSnap ? snap!.realizedProfit : base.realizedProfit,
+    actualReceipts: useSnap ? snap!.actualReceipts : base.actualReceipts,
+    actualPayments: useSnap ? snap!.actualPayments : base.actualPayments,
+    receivable: useSnap ? snap!.receivable : base.receivable,
+    payable: useSnap ? snap!.payable : base.payable,
+    scheduledReceipts: base.scheduledReceipts,
+    scheduledPayments: base.scheduledPayments,
+  }
 
   return (
     <div className="space-y-5">
@@ -121,9 +142,19 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
       >
         {active && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-lg border border-info/30 bg-info-soft px-3 py-2 text-xs text-info">
-              <Info className="size-3.5 shrink-0" />
-              Preview of how a backend snapshot could appear after integration. Not persisted here.
+            <div className="flex items-start gap-2 rounded-lg border border-info/30 bg-info-soft px-3 py-2 text-xs text-info">
+              <Info className="mt-0.5 size-3.5 shrink-0" />
+              {isLatestActive ? (
+                <span>
+                  <span className="font-semibold">Current live preview.</span> The latest version&apos;s figures are
+                  recomputed from the current Formula. Authoritative snapshots are captured by backend services.
+                </span>
+              ) : (
+                <span>
+                  <span className="font-semibold">Historical immutable snapshot.</span> These figures are frozen from
+                  when this version was created — not recomputed from the current Formula.
+                </span>
+              )}
             </div>
 
             <div className="rounded-lg border border-border bg-card px-4">
@@ -158,13 +189,13 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
                 </SnapshotSection>
 
                 <SnapshotSection title="Settlement Terms">
-                  <SnapItem label="Scheduled Receipts" value={formatCurrency(base.scheduledReceipts)} />
-                  <SnapItem label="Actual Receipts" value={formatCurrency(base.actualReceipts)} />
-                  <SnapItem label="Receivable" value={formatCurrency(base.receivable)} />
-                  <SnapItem label="Scheduled Payments" value={formatCurrency(base.scheduledPayments)} />
-                  <SnapItem label="Actual Payments" value={formatCurrency(base.actualPayments)} />
-                  <SnapItem label="Payable" value={formatCurrency(base.payable)} />
-                  <SnapItem label="Share" value={formatCurrency(base.share)} />
+                  <SnapItem label="Scheduled Receipts" value={formatCurrency(fin.scheduledReceipts)} />
+                  <SnapItem label="Actual Receipts" value={formatCurrency(fin.actualReceipts)} />
+                  <SnapItem label="Receivable" value={formatCurrency(fin.receivable)} />
+                  <SnapItem label="Scheduled Payments" value={formatCurrency(fin.scheduledPayments)} />
+                  <SnapItem label="Actual Payments" value={formatCurrency(fin.actualPayments)} />
+                  <SnapItem label="Payable" value={formatCurrency(fin.payable)} />
+                  <SnapItem label="Share" value={formatCurrency(fin.share)} />
                 </SnapshotSection>
 
                 <SnapshotSection title="Logistics">
@@ -176,14 +207,19 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
                   )}
                 </SnapshotSection>
 
-                <SnapshotSection title="Derived Financial Summary">
-                  <SnapItem label="Total Sell" value={formatCurrency(base.totalSell)} />
-                  <SnapItem label="Total Buy" value={formatCurrency(base.totalBuy)} />
-                  <SnapItem label="Costs" value={formatCurrency(base.cost)} />
-                  <SnapItem label="Share" value={formatCurrency(base.share)} />
-                  <SnapItem label="Expected Net Profit" value={formatCurrency(base.expectedProfit)} strong />
-                  <SnapItem label="Realized Net Profit" value={formatCurrency(base.realizedProfit)} strong />
-                  {!endpointsResolved && (
+                <SnapshotSection title={useSnap ? "Snapshot Financial Summary (Frozen)" : "Derived Financial Summary (Live)"}>
+                  <SnapItem label="Total Sell" value={formatCurrency(fin.totalSell)} />
+                  <SnapItem label="Total Buy" value={formatCurrency(fin.totalBuy)} />
+                  <SnapItem label="Costs" value={formatCurrency(fin.cost)} />
+                  <SnapItem label="Share" value={formatCurrency(fin.share)} />
+                  <SnapItem label="Expected Net Profit" value={formatCurrency(fin.expectedProfit)} strong />
+                  <SnapItem label="Realized Net Profit" value={formatCurrency(fin.realizedProfit)} strong />
+                  {useSnap && (
+                    <p className="pt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      Frozen at version creation (formula_calculation_snapshots). Current live figures may differ.
+                    </p>
+                  )}
+                  {!useSnap && !endpointsResolved && (
                     <p className="flex items-start gap-1.5 pt-1 text-[11px] leading-relaxed text-warning">
                       <AlertTriangle className="mt-0.5 size-3 shrink-0" />
                       Chain endpoints (Start / End) not fully defined — figures fall back to stored totals rather than

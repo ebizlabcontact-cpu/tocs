@@ -55,18 +55,23 @@ export type CompanyContact = {
 }
 
 /**
- * Lifecycle status used for list filtering / at-a-glance state. This is a
- * derived summary of the canonical six-status model (see Formula) — it is not
- * an authoritative independent status.
+ * Lifecycle status used for list filtering / at-a-glance state (P1-2).
+ *
+ * This is a derived summary of the canonical six-status model (see Formula) —
+ * it is NOT an authoritative independent status. It intentionally carries ONLY
+ * lifecycle stages. Two conditions that used to live here have been removed
+ * because they are not lifecycle stages:
+ *   - `loss` is a derived FINANCIAL condition (realized profit < 0) — surfaced
+ *     via profit metrics / the "loss" list filter, never the lifecycle badge.
+ *   - `in_transit` is a LOGISTICS state — it belongs to `LogisticsState`
+ *     (Formula.logisticsStatus), not the lifecycle summary.
  */
 export type FormulaStatus =
   | "draft"
   | "active"
-  | "in_transit"
   | "invoicing"
   | "closeable"
   | "closed"
-  | "loss"
 
 export type TradeType = "import" | "export" | "domestic" | "triangular"
 
@@ -170,6 +175,32 @@ export type VersionChange = {
   versionTriggering: boolean
 }
 
+/**
+ * Immutable calculation snapshot captured for a Formula version (mirrors
+ * `formula_calculation_snapshots`) (P0-3).
+ *
+ * A snapshot is the FROZEN financial state at the moment a version was created —
+ * it is NOT recomputed live from the current Formula. The frontend only
+ * previews snapshots; it never creates or persists them. Backend services
+ * capture the authoritative snapshot on each version.
+ */
+export type CalculationSnapshot = {
+  /** FK to the formula version this snapshot belongs to. */
+  formulaVersionId: string
+  totalSell: number
+  totalBuy: number
+  totalCost: number
+  totalShare: number
+  expectedProfit: number
+  actualReceipts: number
+  actualPayments: number
+  realizedProfit: number
+  receivable: number
+  payable: number
+  /** Opaque captured payload (full frozen state) as stored server-side. */
+  snapshotJson?: Record<string, unknown>
+}
+
 /** One entry in a formula's mock version history. */
 export type VersionEntry = {
   versionNo: number
@@ -177,6 +208,11 @@ export type VersionEntry = {
   createdBy: string
   summary: string
   changes: VersionChange[]
+  /**
+   * Immutable snapshot captured with this version (P0-3). Present for historical
+   * versions; the current/live version is previewed by recomputing instead.
+   */
+  snapshot?: CalculationSnapshot
 }
 
 /** A scheduled receipt/payment surfaced on the calendar. */
@@ -278,6 +314,26 @@ export type LogisticsLeg = {
   costBearer: string
 }
 
+/**
+ * A vehicle assigned to a logistics leg (mirrors `formula_logistics_vehicles`).
+ *
+ * Vehicles are a SEPARATE canonical collection linked to a logistics record by
+ * `logisticsId` — they are never embedded as flat fields on LogisticsLeg. The
+ * UI renders them as linked records under their leg. No vehicle engine: this is
+ * a display shape only; authoritative vehicle data comes from backend services.
+ */
+export type LogisticsVehicle = {
+  id: string
+  /** FK to the LogisticsLeg (formula_logistics) this vehicle serves. */
+  logisticsId: string
+  /** Vehicle / container / vessel identifier (plate no., container no., vessel name). */
+  vehicleIdentifier: string
+  /** Vehicle type (truck, container, vessel, aircraft, …). */
+  vehicleType: string
+  /** Optional memo / reference note. */
+  memo?: string
+}
+
 export type TimelineEvent = {
   id: string
   type: "created" | "receipt" | "payment" | "invoice" | "logistics" | "version" | "note" | "share"
@@ -286,6 +342,27 @@ export type TimelineEvent = {
   date: string
   actor: string
   linkTab?: string
+}
+
+/** Which of the six canonical statuses a Status Log entry records a change for. */
+export type StatusLogType = "trade" | "cashIn" | "cashOut" | "invoice" | "logistics" | "delivery"
+
+/**
+ * One status-change record (mirrors `formula_status_logs`) — the canonical
+ * SOURCE of status history (P0-2). The Timeline PROJECTS these entries; it never
+ * fabricates status history. Authoritative logs are written by backend services
+ * after integration; these are illustrative previews only.
+ */
+export type StatusLog = {
+  id: string
+  formulaId: string
+  statusType: StatusLogType
+  /** Prior status value; null for the first entry of a status type. */
+  previousStatus: string | null
+  newStatus: string
+  changedAt: string
+  changedBy: string
+  memo?: string
 }
 
 /**
@@ -358,6 +435,10 @@ export type Formula = {
   version: number
   invoices: InvoiceRecord[]
   logistics: LogisticsLeg[]
+  /** Logistics Vehicles, linked to legs by `logisticsId` (P0-1). */
+  vehicles: LogisticsVehicle[]
+  /** Canonical status-change history — the Timeline projects these (P0-2). */
+  statusLogs: StatusLog[]
   timeline: TimelineEvent[]
 }
 

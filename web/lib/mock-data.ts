@@ -13,10 +13,14 @@ import type {
   DateRange,
   CalendarEvent,
   VersionEntry,
+  LogisticsVehicle,
+  StatusLog,
+  CalculationSnapshot,
 } from "./types"
 import { deriveChainFinancials } from "./derive"
 import {
   isCloseable,
+  deriveExpected,
   deriveRealized,
   deriveSettlement,
   isPerspective,
@@ -209,6 +213,88 @@ function buildSettlement(
     cashInStatus: cashProgress(actualReceipts, totalSell),
     cashOutStatus: cashProgress(actualPayments, totalBuy),
   }
+}
+
+/**
+ * Vehicles linked to a logistics leg (P0-1). Separate canonical records keyed by
+ * `logisticsId` — never flat fields on the leg. Identifier/type vary by mode.
+ */
+function buildVehicles(logisticsId: string, mode: "sea" | "air" | "land", seed: number): LogisticsVehicle[] {
+  if (mode === "sea")
+    return [
+      {
+        id: `${logisticsId}-v1`,
+        logisticsId,
+        vehicleIdentifier: `MSKU${7000000 + seed}`,
+        vehicleType: "Container",
+        memo: "40ft HC · seal verified",
+      },
+      {
+        id: `${logisticsId}-v2`,
+        logisticsId,
+        vehicleIdentifier: `Vessel Ever Grace ${100 + (seed % 40)}E`,
+        vehicleType: "Vessel",
+      },
+    ]
+  if (mode === "air")
+    return [
+      {
+        id: `${logisticsId}-v1`,
+        logisticsId,
+        vehicleIdentifier: `AWB-180-${4000 + seed}`,
+        vehicleType: "Air ULD",
+        memo: "Perishable handling",
+      },
+    ]
+  return [
+    {
+      id: `${logisticsId}-v1`,
+      logisticsId,
+      vehicleIdentifier: `${12 + (seed % 80)}가 ${1000 + seed}`,
+      vehicleType: "Truck",
+      memo: "5t cargo truck",
+    },
+  ]
+}
+
+/**
+ * Status-change history (P0-2), the canonical SOURCE the Timeline projects.
+ * Entries are emitted only for statuses that have actually progressed past their
+ * initial value, so no history is fabricated.
+ */
+function buildStatusLogs(
+  formulaId: string,
+  s: {
+    tradeStatus: string
+    cashInStatus: string
+    cashOutStatus: string
+    logisticsStatus: string
+    deliveryStatus: string
+  },
+  dates: { createdAt: string; tradeDate: string; updatedAt: string },
+): StatusLog[] {
+  const logs: StatusLog[] = []
+  const push = (
+    statusType: StatusLog["statusType"],
+    previousStatus: string | null,
+    newStatus: string,
+    changedAt: string,
+    changedBy: string,
+    memo?: string,
+  ) => logs.push({ id: `${formulaId}-sl${logs.length + 1}`, formulaId, statusType, previousStatus, newStatus, changedAt, changedBy, memo })
+
+  if (s.tradeStatus !== "draft")
+    push("trade", "draft", s.tradeStatus, dates.tradeDate, "Sarah Kim", "Trade confirmed from draft")
+  if (s.logisticsStatus !== "not_started")
+    push("logistics", "not_started", s.logisticsStatus, dates.tradeDate, "Logistics Bot")
+  if (s.deliveryStatus !== "pending")
+    push("delivery", "pending", s.deliveryStatus, dates.updatedAt, "Ops Desk")
+  if (s.cashInStatus !== "pending")
+    push("cashIn", "pending", s.cashInStatus, dates.updatedAt, "Finance Team")
+  if (s.cashOutStatus !== "pending")
+    push("cashOut", "pending", s.cashOutStatus, dates.updatedAt, "Finance Team")
+
+  return logs.sort((a, b) => Date.parse(a.changedAt) - Date.parse(b.changedAt))
 }
 
 function buildFormula(i: number): Formula {
@@ -452,6 +538,18 @@ function buildFormula(i: number): Formula {
         costBearer: tradeType === "export" ? "Seller (FOB)" : "Buyer (CIF)",
       },
     ],
+    vehicles: buildVehicles("lg1", tradeType === "domestic" ? "land" : "sea", i),
+    statusLogs: buildStatusLogs(
+      `f${i}`,
+      {
+        tradeStatus,
+        cashInStatus: settle.cashInStatus,
+        cashOutStatus: settle.cashOutStatus,
+        logisticsStatus,
+        deliveryStatus,
+      },
+      { createdAt, tradeDate, updatedAt },
+    ),
     timeline: [
       { id: "t1", type: "created", title: "Formula created", description: `${number} initialized for ${item}`, date: createdAt, actor: "Sarah Kim" },
       {
@@ -488,11 +586,12 @@ function finalizeFormula(f: Formula, ctx: { isLoss: boolean; daysAgo: number }):
   const closeable = isCloseable(f) // all six statuses matched
   const isClosed = closeable && f.receivable === 0 && f.payable === 0
 
+  // Lifecycle stage ONLY (P1-2). Financial loss and logistics in-transit are
+  // deliberately excluded — loss is surfaced via profit metrics/filters and
+  // in-transit via `logisticsStatus`, so the lifecycle summary stays pure.
   let status: FormulaStatus
-  if (ctx.isLoss) status = "loss"
-  else if (isClosed) status = "closed"
+  if (isClosed) status = "closed"
   else if (closeable) status = "closeable"
-  else if (f.logisticsStatus === "in_transit") status = "in_transit"
   else if (f.invoiceStatus !== "complete") status = "invoicing"
   else status = "active"
 
@@ -944,16 +1043,39 @@ export function getVersionHistory(formula: Formula): VersionEntry[] {
   ]
   const summaries = ["Pricing revised", "Participants & quantity updated", "Sourcing terms adjusted", "Initial draft created"]
 
+  // Live-derived figures for the CURRENT formula state. Historical snapshots are
+  // frozen values that drift from this by a deterministic per-version factor, so
+  // the UI can show that a snapshot is NOT a live recomputation (P0-3).
+  const exp = deriveExpected(formula)
+  const settle = deriveSettlement(formula)
+  const realized = deriveRealized(formula)
+
   return Array.from({ length: count }, (_, i) => {
     const versionNo = count - i
     const dayOffset = i === 0 ? 2 : 8 + i * 12
     const idx = Math.min(i, changeSets.length - 1)
+    // i === 0 is the latest version (factor 1); older versions are scaled down.
+    const factor = 1 - i * 0.06
+    const snapshot: CalculationSnapshot = {
+      formulaVersionId: `${formula.id}-v${versionNo}`,
+      totalSell: Math.round(exp.totalSell * factor),
+      totalBuy: Math.round(exp.totalBuy * factor),
+      totalCost: Math.round(exp.cost * factor),
+      totalShare: Math.round(exp.share * factor),
+      expectedProfit: Math.round(exp.expectedProfit * factor),
+      actualReceipts: Math.round(settle.actualReceipts * factor),
+      actualPayments: Math.round(settle.actualPayments * factor),
+      realizedProfit: Math.round(realized.realizedProfit * factor),
+      receivable: Math.round(settle.remainingReceivable * factor),
+      payable: Math.round(settle.remainingPayable * factor),
+    }
     return {
       versionNo,
       createdAt: new Date(Date.now() - dayOffset * DAY).toISOString(),
       createdBy: versionAuthors[(versionNo + formula.id.length) % versionAuthors.length],
       summary: summaries[idx],
       changes: changeSets[idx],
+      snapshot,
     }
   })
 }

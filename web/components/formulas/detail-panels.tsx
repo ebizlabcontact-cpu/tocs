@@ -54,6 +54,8 @@ import {
   CalendarClock,
   Repeat,
   ChevronRight,
+  Container,
+  Activity,
 } from "lucide-react"
 
 function SectionEmpty({ label }: { label: string }) {
@@ -552,6 +554,7 @@ export function LogisticsPanel({ formula }: { formula: Formula }) {
           {formula.logistics.map((leg) => {
             const Icon = modeIcons[leg.mode]
             const cfg = logisticsStatusConfig[leg.status]
+            const vehicles = (formula.vehicles ?? []).filter((v) => v.logisticsId === leg.id)
             return (
               <div key={leg.id} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-4">
@@ -577,6 +580,33 @@ export function LogisticsPanel({ formula }: { formula: Formula }) {
                   />
                   <LegField label="Logistics Cost" value={formatCurrency(leg.cost)} mono />
                 </dl>
+
+                {/* Linked Logistics Vehicles (canonical formula_logistics_vehicles) */}
+                <div className="mt-3 border-t border-border pt-3">
+                  <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Container className="size-3.5" />
+                    Vehicles
+                    <span className="font-normal normal-case text-muted-foreground">({vehicles.length})</span>
+                  </p>
+                  {vehicles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No vehicles assigned to this leg.</p>
+                  ) : (
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {vehicles.map((v) => (
+                        <li
+                          key={v.id}
+                          className="flex items-start justify-between gap-3 rounded-lg border border-border bg-secondary/40 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-mono text-xs font-medium text-foreground">{v.vehicleIdentifier}</p>
+                            {v.memo && <p className="truncate text-[11px] text-muted-foreground">{v.memo}</p>}
+                          </div>
+                          <StatusBadge tone="outline">{v.vehicleType}</StatusBadge>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             )
           })}
@@ -618,6 +648,7 @@ const timelineIcons: Record<string, React.ComponentType<{ className?: string }>>
   created: Plus,
   contract: FileText,
   trade: Repeat,
+  status: Activity,
   schedule: CalendarClock,
   receipt: ArrowDownLeft,
   payment: ArrowUpRight,
@@ -655,8 +686,9 @@ export function TimelinePanel({
   return (
     <div className="space-y-3">
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Derived from this Formula&apos;s dates, payments, invoices, logistics, and versions. The authoritative activity
-        log is produced by backend services after integration.
+        Status changes are projected from this Formula&apos;s canonical Status Logs; other entries trace to their own
+        records (payments, invoices, logistics, versions). Nothing is fabricated — the authoritative activity log is
+        produced by backend services after integration.
       </p>
       <ol className="relative space-y-5 pl-8">
         <span className="absolute left-[15px] top-1 bottom-1 w-px bg-border" aria-hidden />

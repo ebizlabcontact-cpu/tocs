@@ -2,14 +2,14 @@ import type { FormulaStatus, InvoiceStatus, TradeType } from "./types"
 
 type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "accent" | "outline"
 
+// Lifecycle-only summary tones (P1-2). `loss` (financial) and `in_transit`
+// (logistics) are intentionally NOT here — they are not lifecycle stages.
 export const statusConfig: Record<FormulaStatus, { label: string; tone: Tone }> = {
   draft: { label: "Draft", tone: "neutral" },
   active: { label: "Active", tone: "info" },
-  in_transit: { label: "In Transit", tone: "accent" },
   invoicing: { label: "Invoicing", tone: "warning" },
   closeable: { label: "Closeable", tone: "success" },
   closed: { label: "Closed", tone: "neutral" },
-  loss: { label: "Loss", tone: "danger" },
 }
 
 export const tradeTypeConfig: Record<TradeType, { label: string }> = {
