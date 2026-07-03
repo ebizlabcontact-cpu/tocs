@@ -13,7 +13,10 @@ import {
   isCloseable,
   deriveInvoiceVerification,
   deriveInvoiceClose,
+  buildTimeline,
+  chainOrderOf,
 } from "@/lib/formula-math"
+import { getVersionHistory } from "@/lib/mock-data"
 import {
   cashStatusConfig,
   deliveryStatusConfig,
@@ -48,6 +51,9 @@ import {
   Link2,
   AlertTriangle,
   Info,
+  CalendarClock,
+  Repeat,
+  ChevronRight,
 } from "lucide-react"
 
 function SectionEmpty({ label }: { label: string }) {
@@ -67,40 +73,148 @@ const roleLabels: Record<string, string> = {
   financier: "Financier",
 }
 
+function participantMargin(p: Formula["participants"][number]): number | null {
+  const buy = p.buyUnitPrice ?? p.buyPrice
+  const sell = p.sellUnitPrice ?? p.sellPrice
+  // Endpoints (origin buy = 0, final sell = 0) carry no spread, so no margin.
+  if (buy == null || sell == null || buy === 0 || sell === 0) return null
+  return (sell - buy) * (p.quantity ?? 1)
+}
+
+/**
+ * Primary chain-understanding screen (P1-2). Surfaces per-hop economics
+ * (quantity, buy/sell unit price, margin) that used to live only in Overview,
+ * ordered by the single canonical `sequenceOrder` concept (P1-3).
+ */
 export function ParticipantsPanel({ formula }: { formula: Formula }) {
-  const chain = [...formula.participants].sort(
-    (a, b) => (a.sequenceOrder ?? a.chainOrder ?? 0) - (b.sequenceOrder ?? b.chainOrder ?? 0),
-  )
+  const chain = [...formula.participants].sort((a, b) => chainOrderOf(a) - chainOrderOf(b))
   return (
     <div className="space-y-3">
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Operational roles belong to Formula Participants (not the Company Master). The same company may appear more than
-        once with different roles.
+        The full participant chain in sequence. Operational roles belong to Formula Participants (not the Company
+        Master); the same company may appear more than once with different roles. Prices and margins are illustrative
+        previews — authoritative figures come from backend services after integration.
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {chain.map((p, i) => (
-          <div key={p.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft font-mono text-xs font-semibold text-accent">
-              {(p.sequenceOrder ?? p.chainOrder ?? i) + 1}
+
+      {/* Card view (mobile) */}
+      <div className="grid gap-3 sm:hidden">
+        {chain.map((p) => {
+          const buy = p.buyUnitPrice ?? p.buyPrice
+          const sell = p.sellUnitPrice ?? p.sellPrice
+          const margin = participantMargin(p)
+          return (
+            <div key={p.id} className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft font-mono text-xs font-semibold text-accent">
+                  {chainOrderOf(p) + 1}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{p.company}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {p.natureGroup ? capitalize(p.natureGroup) : p.nature ?? "—"}
+                    {p.paymentGroup ? ` · ${capitalize(p.paymentGroup)}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <StatusBadge tone="outline">{roleGroupLabel(p.roleGroup) ?? roleLabels[p.role]}</StatusBadge>
+                  {(p.isStart || p.isEnd) && (
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {p.isStart ? "Start" : "End"}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <ParticipantStat label="Quantity" value={p.quantity != null ? formatNumber(p.quantity) : "—"} />
+                <ParticipantStat label="Margin" value={margin != null ? formatCurrency(margin) : "—"} tone={margin != null && margin > 0 ? "pos" : undefined} />
+                <ParticipantStat label="Buy Unit Price" value={buy ? formatCurrency(buy) : "—"} />
+                <ParticipantStat label="Sell Unit Price" value={sell ? formatCurrency(sell) : "—"} />
+              </dl>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">{p.company}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {p.natureGroup ? capitalize(p.natureGroup) : p.nature ?? "—"}
-                {p.paymentGroup ? ` · ${capitalize(p.paymentGroup)}` : ""}
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <StatusBadge tone="outline">{roleGroupLabel(p.roleGroup) ?? roleLabels[p.role]}</StatusBadge>
-              {(p.isStart || p.isEnd) && (
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {p.isStart ? "Start" : "End"}
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
+
+      {/* Table view (sm+) */}
+      <div className="hidden overflow-x-auto rounded-lg border border-border sm:block">
+        <table className="w-full min-w-[820px] text-sm">
+          <caption className="sr-only">Participant chain with roles and per-hop economics</caption>
+          <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th scope="col" className="px-3 py-2.5 font-medium">Seq</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">Company</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">Role Group</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">Nature Group</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">Payment Group</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-medium">Quantity</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-medium">Buy Unit Price</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-medium">Sell Unit Price</th>
+              <th scope="col" className="px-3 py-2.5 text-right font-medium">Margin</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {chain.map((p) => {
+              const buy = p.buyUnitPrice ?? p.buyPrice
+              const sell = p.sellUnitPrice ?? p.sellPrice
+              const margin = participantMargin(p)
+              return (
+                <tr key={p.id} className="bg-card">
+                  <td className="px-3 py-3">
+                    <span className="inline-flex size-6 items-center justify-center rounded-md bg-secondary font-mono text-xs font-semibold text-muted-foreground">
+                      {chainOrderOf(p) + 1}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className="font-medium text-foreground">{p.company}</span>
+                    {(p.isStart || p.isEnd) && (
+                      <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {p.isStart ? "Start" : "End"}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3">
+                    <StatusBadge tone="outline">{roleGroupLabel(p.roleGroup) ?? roleLabels[p.role]}</StatusBadge>
+                  </td>
+                  <td className="px-3 py-3 text-muted-foreground">
+                    {p.natureGroup ? capitalize(p.natureGroup) : p.nature ?? "—"}
+                  </td>
+                  <td className="px-3 py-3 text-muted-foreground">
+                    {p.paymentGroup ? capitalize(p.paymentGroup) : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">
+                    {p.quantity != null ? formatNumber(p.quantity) : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">
+                    {buy ? formatCurrency(buy) : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">
+                    {sell ? formatCurrency(sell) : "—"}
+                  </td>
+                  <td
+                    className={cn(
+                      "px-3 py-3 text-right font-mono tabular-nums",
+                      margin != null && margin > 0 ? "text-success" : "text-muted-foreground",
+                    )}
+                  >
+                    {margin != null ? formatCurrency(margin) : "—"}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function ParticipantStat({ label, value, tone }: { label: string; value: string; tone?: "pos" }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={cn("mt-0.5 font-mono tabular-nums", tone === "pos" ? "text-success" : "text-foreground")}>
+        {value}
+      </dd>
     </div>
   )
 }
@@ -499,42 +613,86 @@ function LegField({
   )
 }
 
-/* ---------------- Timeline ---------------- */
+/* ---------------- Timeline (P1-1 / P1-4) ---------------- */
 const timelineIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   created: Plus,
+  contract: FileText,
+  trade: Repeat,
+  schedule: CalendarClock,
   receipt: ArrowDownLeft,
   payment: ArrowUpRight,
   invoice: FileText,
+  invoice_matched: CheckCircle2,
   logistics: Ship,
+  delivery: PackageCheck,
   version: GitCommitVertical,
+  settlement: Scale,
+  closed: Lock,
   note: StickyNote,
   share: Handshake,
 }
 
-export function TimelinePanel({ formula }: { formula: Formula }) {
-  if (formula.timeline.length === 0) return <SectionEmpty label="No activity yet." />
+const tabLabels: Record<string, string> = {
+  overview: "Overview",
+  payments: "Payments",
+  invoices: "Invoices",
+  logistics: "Logistics",
+  versions: "Versions",
+  settlement: "Settlement",
+}
+
+export function TimelinePanel({
+  formula,
+  onNavigate,
+}: {
+  formula: Formula
+  onNavigate?: (tab: string) => void
+}) {
+  // P1-1: derive events from Formula data (no static template). Version events
+  // come from the mock version-history helper.
+  const events = buildTimeline(formula, getVersionHistory(formula))
+  if (events.length === 0) return <SectionEmpty label="No activity yet." />
   return (
-    <ol className="relative space-y-5 pl-8">
-      <span className="absolute left-[15px] top-1 bottom-1 w-px bg-border" aria-hidden />
-      {formula.timeline.map((ev) => {
-        const Icon = timelineIcons[ev.type] ?? Clock
-        return (
-          <li key={ev.id} className="relative">
-            <span className="absolute -left-8 flex size-8 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
-              <Icon className="size-4" />
-            </span>
-            <div className="rounded-lg border border-border bg-card p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-foreground">{ev.title}</p>
-                <time className="shrink-0 text-xs text-muted-foreground">{formatDate(ev.date)}</time>
+    <div className="space-y-3">
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Derived from this Formula&apos;s dates, payments, invoices, logistics, and versions. The authoritative activity
+        log is produced by backend services after integration.
+      </p>
+      <ol className="relative space-y-5 pl-8">
+        <span className="absolute left-[15px] top-1 bottom-1 w-px bg-border" aria-hidden />
+        {events.map((ev) => {
+          const Icon = timelineIcons[ev.type] ?? Clock
+          const linkLabel = ev.linkTab ? tabLabels[ev.linkTab] : undefined
+          return (
+            <li key={ev.id} className="relative">
+              <span className="absolute -left-8 flex size-8 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
+                <Icon className="size-4" />
+              </span>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-foreground">{ev.title}</p>
+                  <time className="shrink-0 text-xs text-muted-foreground">{formatDate(ev.date)}</time>
+                </div>
+                <p className="mt-0.5 text-sm text-muted-foreground">{ev.description}</p>
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">by {ev.actor}</p>
+                  {ev.linkTab && linkLabel && onNavigate && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate(ev.linkTab!)}
+                      className="inline-flex items-center gap-0.5 rounded-md text-xs font-medium text-accent transition-colors hover:text-accent/80"
+                    >
+                      View in {linkLabel}
+                      <ChevronRight className="size-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
-              <p className="mt-0.5 text-sm text-muted-foreground">{ev.description}</p>
-              <p className="mt-1.5 text-xs text-muted-foreground">by {ev.actor}</p>
-            </div>
-          </li>
-        )
-      })}
-    </ol>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
   )
 }
 

@@ -194,7 +194,7 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
               <OverviewPanel formula={formula} />
             </TabsContent>
             <TabsContent value="timeline">
-              <TimelinePanel formula={formula} />
+              <TimelinePanel formula={formula} onNavigate={setTab} />
             </TabsContent>
             <TabsContent value="participants">
               <ParticipantsPanel formula={formula} />

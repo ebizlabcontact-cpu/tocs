@@ -1,4 +1,5 @@
-import type { Formula, InvoiceRecord, InvoiceStatus } from "./types"
+import type { Formula, InvoiceRecord, InvoiceStatus, VersionEntry } from "./types"
+import { formatCurrency } from "./utils"
 
 /**
  * Canonical Formula derivation adapter (P0-4).
@@ -169,6 +170,195 @@ export function deriveInvoiceClose(f: Formula) {
     blocking,
     canceledCount: (f.invoices ?? []).length - active.length,
   }
+}
+
+/* ---------------- Chain ordering (P1-3) ---------------- */
+
+/**
+ * Single canonical chain-order accessor. `sequenceOrder` is the canonical key;
+ * legacy `chainOrder` is only an internal fallback so older data keeps working.
+ * Every chain surface (Participants tab, Overview chain) sorts by this so users
+ * only ever see one ordering concept.
+ */
+export function chainOrderOf(p: { sequenceOrder?: number; chainOrder?: number }): number {
+  return p.sequenceOrder ?? p.chainOrder ?? 0
+}
+
+/* ---------------- Timeline (P1-1) ---------------- */
+
+export type TimelineEventType =
+  | "created"
+  | "contract"
+  | "trade"
+  | "schedule"
+  | "receipt"
+  | "payment"
+  | "invoice"
+  | "invoice_matched"
+  | "logistics"
+  | "delivery"
+  | "version"
+  | "settlement"
+  | "closed"
+
+export type DerivedTimelineEvent = {
+  id: string
+  type: TimelineEventType
+  title: string
+  description: string
+  date: string
+  actor: string
+  /** Detail tab this event links to (P1-4). */
+  linkTab?: string
+}
+
+/**
+ * Builds the Formula timeline purely from Formula-derived data (P1-1). No event
+ * is fabricated: each entry is emitted only when its underlying date/record
+ * exists. Version events come from the mock version history helper (passed in to
+ * avoid a mock-data import cycle). Events are returned in chronological order.
+ */
+export function buildTimeline(f: Formula, versions: VersionEntry[] = []): DerivedTimelineEvent[] {
+  const ev: DerivedTimelineEvent[] = []
+
+  if (f.createdAt)
+    ev.push({
+      id: "tl-created",
+      type: "created",
+      title: "Formula Created",
+      description: `${f.number} · ${f.item}`,
+      date: f.createdAt,
+      actor: "System",
+      linkTab: "overview",
+    })
+  if (f.contractDate)
+    ev.push({
+      id: "tl-contract",
+      type: "contract",
+      title: "Contract Date",
+      description: "Contract date recorded for this Formula.",
+      date: f.contractDate,
+      actor: "System",
+      linkTab: "overview",
+    })
+  if (f.tradeDate)
+    ev.push({
+      id: "tl-trade",
+      type: "trade",
+      title: "Trade Date",
+      description: "Trade executed / goods transacted.",
+      date: f.tradeDate,
+      actor: "System",
+      linkTab: "overview",
+    })
+
+  for (const s of f.schedule ?? []) {
+    ev.push({
+      id: `tl-sch-${s.id}`,
+      type: "schedule",
+      title: s.type === "receipt" ? "Receipt Scheduled" : "Payment Scheduled",
+      description: `${s.counterparty} · ${formatCurrency(s.amount)}`,
+      date: s.scheduledDate ?? s.dueDate,
+      actor: "System",
+      linkTab: "payments",
+    })
+  }
+
+  for (const r of f.records ?? []) {
+    if (r.canceled) {
+      ev.push({
+        id: `tl-rec-${r.id}`,
+        type: "settlement",
+        title: "Settlement Adjustment",
+        description: `Canceled ${r.type} · ${r.counterparty}${r.cancelReason ? ` — ${r.cancelReason}` : ""}`,
+        date: r.paidDate,
+        actor: "System",
+        linkTab: "settlement",
+      })
+    } else {
+      ev.push({
+        id: `tl-rec-${r.id}`,
+        type: r.type,
+        title: r.type === "receipt" ? "Actual Receipt" : "Actual Payment",
+        description: `${r.counterparty} · ${formatCurrency(r.amount)}`,
+        date: r.paidDate,
+        actor: "System",
+        linkTab: "payments",
+      })
+    }
+  }
+
+  for (const inv of f.invoices ?? []) {
+    if (inv.canceled) continue
+    ev.push({
+      id: `tl-inv-${inv.id}`,
+      type: "invoice",
+      title: "Invoice Issued",
+      description: `${inv.number} · ${inv.counterparty}`,
+      date: inv.date,
+      actor: "System",
+      linkTab: "invoices",
+    })
+    if (deriveInvoiceStatus(inv) === "amount_matched")
+      ev.push({
+        id: `tl-invm-${inv.id}`,
+        type: "invoice_matched",
+        title: "Invoice Matched",
+        description: `${inv.number} amount verified (${formatCurrency(inv.expectedAmount)})`,
+        date: inv.date,
+        actor: "System",
+        linkTab: "invoices",
+      })
+  }
+
+  for (const leg of f.logistics ?? []) {
+    if (leg.actualArrival)
+      ev.push({
+        id: `tl-log-${leg.id}`,
+        type: "logistics",
+        title: "Logistics Completed",
+        description: `${leg.carrier} · ${leg.origin} → ${leg.destination}`,
+        date: leg.actualArrival,
+        actor: "System",
+        linkTab: "logistics",
+      })
+    if (leg.actualDelivery)
+      ev.push({
+        id: `tl-del-${leg.id}`,
+        type: "delivery",
+        title: "Delivery Completed",
+        description: `${leg.carrier} · delivered to ${leg.destination}`,
+        date: leg.actualDelivery,
+        actor: "System",
+        linkTab: "logistics",
+      })
+  }
+
+  for (const v of versions) {
+    if (v.versionNo <= 1) continue
+    ev.push({
+      id: `tl-ver-${v.versionNo}`,
+      type: "version",
+      title: `Version v${v.versionNo}`,
+      description: v.summary,
+      date: v.createdAt,
+      actor: v.createdBy,
+      linkTab: "versions",
+    })
+  }
+
+  if (f.closedAt)
+    ev.push({
+      id: "tl-closed",
+      type: "closed",
+      title: "Formula Closed",
+      description: "All six close conditions met; Formula closed.",
+      date: f.closedAt,
+      actor: "System",
+      linkTab: "settlement",
+    })
+
+  return ev.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 }
 
 /* ---------------- Six-status model (P0-6) ---------------- */

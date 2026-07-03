@@ -1,6 +1,7 @@
 import type { Formula, Participant } from "@/lib/types"
 import { formatCurrency, formatNumber, cn } from "@/lib/utils"
 import { deriveChainFinancials } from "@/lib/derive"
+import { chainOrderOf } from "@/lib/formula-math"
 import { ArrowRight } from "lucide-react"
 
 const roleTone: Record<Participant["role"], string> = {
@@ -24,8 +25,8 @@ function marginOf(p: Participant): number | null {
  */
 export function FormulaChainView({ formula }: { formula: Formula }) {
   const chain = [...formula.participants]
-    .filter((p) => p.chainOrder != null)
-    .sort((a, b) => (a.chainOrder ?? 0) - (b.chainOrder ?? 0))
+    .filter((p) => p.sequenceOrder != null || p.chainOrder != null)
+    .sort((a, b) => chainOrderOf(a) - chainOrderOf(b))
 
   // Only render the rich chain view when the formula carries ordered chain data.
   if (chain.length < 3) return null
