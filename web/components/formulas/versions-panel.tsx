@@ -1,10 +1,11 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ArrowRight, ChevronRight, Info } from "lucide-react"
-import type { Formula, VersionEntry } from "@/lib/types"
+import { ArrowRight, ChevronRight, Info, GitBranch, FileText, AlertTriangle } from "lucide-react"
+import type { Formula, VersionChange, VersionChangeValueType, VersionEntry } from "@/lib/types"
 import { getVersionHistory, companies } from "@/lib/mock-data"
 import { deriveChainFinancials } from "@/lib/derive"
+import { deriveExpected, deriveRealized, deriveSettlement } from "@/lib/formula-math"
 import { tradeTypeConfig } from "@/lib/status"
 import { formatCurrency, formatDate, formatNumber, cn } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/badge"
@@ -14,24 +15,50 @@ import { FormulaEditSimulation } from "./formula-edit-simulation"
 /** A version entry rendered in the snapshot preview. */
 type SnapshotVersion = VersionEntry
 
+/** Formats a raw diff value at render time based on its declared type (P0-3). */
+function formatChangeValue(value: VersionChange["oldValue"], type: VersionChangeValueType): string {
+  if (value === null || value === undefined) return "—"
+  switch (type) {
+    case "currency":
+      return formatCurrency(Number(value))
+    case "number":
+      return formatNumber(Number(value))
+    case "date":
+      return formatDate(String(value), { month: "short", day: "numeric", year: "numeric" })
+    case "status":
+    case "text":
+    default:
+      return String(value)
+  }
+}
+
 /** The five snapshot sections captured for a Formula version. */
 function useSnapshotSections(formula: Formula) {
   return useMemo(() => {
     const company = companies.find((c) => c.id === formula.companyId)
     const chain = formula.participants
     const derived = deriveChainFinancials(chain, { logisticsCost: formula.cost, share: formula.share })
-    const revenue = derived?.expectedRevenue ?? formula.totalSell
-    const cost = derived?.expectedCost ?? formula.totalBuy
-    const margin = derived?.grossMargin ?? formula.totalSell - formula.totalBuy
+    const expected = deriveExpected(formula)
+    const settlement = deriveSettlement(formula)
+    const realized = deriveRealized(formula)
     return {
       company,
       chain,
+      endpointsResolved: derived !== null,
       base: {
         quantity: formula.quantity,
-        expectedRevenue: revenue,
-        expectedCost: cost,
-        grossMargin: margin,
-        expectedProfit: formula.expectedProfit,
+        totalSell: expected.totalSell,
+        totalBuy: expected.totalBuy,
+        cost: expected.cost,
+        share: expected.share,
+        expectedProfit: expected.expectedProfit,
+        scheduledReceipts: settlement.scheduledReceipts,
+        actualReceipts: settlement.actualReceipts,
+        receivable: settlement.remainingReceivable,
+        scheduledPayments: settlement.scheduledPayments,
+        actualPayments: settlement.actualPayments,
+        payable: settlement.remainingPayable,
+        realizedProfit: realized.realizedProfit,
       },
     }
   }, [formula])
@@ -40,7 +67,7 @@ function useSnapshotSections(formula: Formula) {
 export function VersionsPanel({ formula }: { formula: Formula }) {
   const versions = useMemo(() => getVersionHistory(formula), [formula])
   const [active, setActive] = useState<SnapshotVersion | null>(null)
-  const { company, chain, base } = useSnapshotSections(formula)
+  const { company, chain, base, endpointsResolved } = useSnapshotSections(formula)
 
   return (
     <div className="space-y-5">
@@ -109,26 +136,8 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
               <MetaRow label="Created By" value={active.createdBy} />
             </div>
 
-            {/* Change comparison (before → after) */}
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Change Summary</p>
-              <div className="space-y-2">
-                {active.changes.map((c, idx) => (
-                  <div key={idx} className="rounded-lg border border-border bg-card p-3">
-                    <p className="text-sm font-medium text-foreground">{c.label}</p>
-                    {c.from !== undefined && c.to !== undefined ? (
-                      <div className="mt-1.5 flex items-center gap-2 font-mono text-sm">
-                        <span className="rounded bg-danger-soft px-1.5 py-0.5 text-danger">{c.from}</span>
-                        <ArrowRight className="size-3.5 text-muted-foreground" />
-                        <span className="rounded bg-success/12 px-1.5 py-0.5 text-success">{c.to}</span>
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-sm text-muted-foreground">{c.note}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Change comparison (before → after), grouped by version-trigger (P0-3) */}
+            <ChangeGroups changes={active.changes} />
 
             {/* Snapshot sections */}
             <div>
@@ -149,9 +158,13 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
                 </SnapshotSection>
 
                 <SnapshotSection title="Settlement Terms">
-                  <SnapItem label="Expected Receipts" value={formatCurrency(formula.totalSell)} />
-                  <SnapItem label="Expected Payments" value={formatCurrency(formula.totalBuy)} />
-                  <SnapItem label="Share" value={formatCurrency(formula.share)} />
+                  <SnapItem label="Scheduled Receipts" value={formatCurrency(base.scheduledReceipts)} />
+                  <SnapItem label="Actual Receipts" value={formatCurrency(base.actualReceipts)} />
+                  <SnapItem label="Receivable" value={formatCurrency(base.receivable)} />
+                  <SnapItem label="Scheduled Payments" value={formatCurrency(base.scheduledPayments)} />
+                  <SnapItem label="Actual Payments" value={formatCurrency(base.actualPayments)} />
+                  <SnapItem label="Payable" value={formatCurrency(base.payable)} />
+                  <SnapItem label="Share" value={formatCurrency(base.share)} />
                 </SnapshotSection>
 
                 <SnapshotSection title="Logistics">
@@ -164,10 +177,19 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
                 </SnapshotSection>
 
                 <SnapshotSection title="Derived Financial Summary">
-                  <SnapItem label="Expected Revenue" value={formatCurrency(base.expectedRevenue)} />
-                  <SnapItem label="Expected Cost" value={formatCurrency(base.expectedCost)} />
-                  <SnapItem label="Gross Margin" value={formatCurrency(base.grossMargin)} />
-                  <SnapItem label="Expected Profit" value={formatCurrency(base.expectedProfit)} strong />
+                  <SnapItem label="Total Sell" value={formatCurrency(base.totalSell)} />
+                  <SnapItem label="Total Buy" value={formatCurrency(base.totalBuy)} />
+                  <SnapItem label="Costs" value={formatCurrency(base.cost)} />
+                  <SnapItem label="Share" value={formatCurrency(base.share)} />
+                  <SnapItem label="Expected Net Profit" value={formatCurrency(base.expectedProfit)} strong />
+                  <SnapItem label="Realized Net Profit" value={formatCurrency(base.realizedProfit)} strong />
+                  {!endpointsResolved && (
+                    <p className="flex items-start gap-1.5 pt-1 text-[11px] leading-relaxed text-warning">
+                      <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                      Chain endpoints (Start / End) not fully defined — figures fall back to stored totals rather than
+                      chain derivation.
+                    </p>
+                  )}
                 </SnapshotSection>
               </div>
             </div>
@@ -179,6 +201,61 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
           </div>
         )}
       </SidePanel>
+    </div>
+  )
+}
+
+function ChangeGroups({ changes }: { changes: VersionChange[] }) {
+  const triggering = changes.filter((c) => c.versionTriggering)
+  const nonVersion = changes.filter((c) => !c.versionTriggering)
+  return (
+    <div className="space-y-3">
+      {triggering.length > 0 && (
+        <div>
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-accent">
+            <GitBranch className="size-3.5" />
+            Version-triggering changes
+          </p>
+          <div className="space-y-2">
+            {triggering.map((c) => (
+              <ChangeCard key={c.field} change={c} />
+            ))}
+          </div>
+        </div>
+      )}
+      {nonVersion.length > 0 && (
+        <div>
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <FileText className="size-3.5" />
+            Non-version notes
+          </p>
+          <div className="space-y-2">
+            {nonVersion.map((c) => (
+              <ChangeCard key={c.field} change={c} muted />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ChangeCard({ change, muted }: { change: VersionChange; muted?: boolean }) {
+  const hasBefore = change.oldValue !== null && change.oldValue !== undefined
+  const before = formatChangeValue(change.oldValue, change.valueType)
+  const after = formatChangeValue(change.newValue, change.valueType)
+  return (
+    <div className={cn("rounded-lg border bg-card p-3", muted ? "border-dashed border-border" : "border-border")}>
+      <p className="text-sm font-medium text-foreground">{change.label}</p>
+      {hasBefore ? (
+        <div className="mt-1.5 flex items-center gap-2 font-mono text-sm">
+          <span className="rounded bg-danger-soft px-1.5 py-0.5 text-danger">{before}</span>
+          <ArrowRight className="size-3.5 text-muted-foreground" />
+          <span className="rounded bg-success/12 px-1.5 py-0.5 text-success">{after}</span>
+        </div>
+      ) : (
+        <p className="mt-1 text-sm text-muted-foreground">{after}</p>
+      )}
     </div>
   )
 }

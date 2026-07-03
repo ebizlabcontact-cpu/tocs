@@ -135,12 +135,23 @@ export type FormulaShare = {
   note?: string
 }
 
-/** A single field change within a formula version. */
+/**
+ * A single field change within a formula version.
+ *
+ * Values are stored RAW (numbers/strings/booleans) and formatted only at
+ * render time via `valueType` — never pre-formatted strings. `versionTriggering`
+ * marks whether the field creates a new Formula Version + Snapshot after
+ * backend integration; non-triggering fields render under "Non-version notes".
+ */
+export type VersionChangeValueType = "currency" | "number" | "date" | "text" | "status"
+
 export type VersionChange = {
+  field: string
   label: string
-  from?: string
-  to?: string
-  note?: string
+  oldValue: number | string | boolean | null
+  newValue: number | string | boolean | null
+  valueType: VersionChangeValueType
+  versionTriggering: boolean
 }
 
 /** One entry in a formula's mock version history. */

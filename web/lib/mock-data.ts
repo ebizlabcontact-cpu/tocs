@@ -726,20 +726,82 @@ const versionAuthors = ["Sarah Kim", "David Park", "Finance Team", "Jenny Lee", 
  */
 export function getVersionHistory(formula: Formula): VersionEntry[] {
   const count = Math.max(1, formula.version)
+  // Typed diffs: raw values + valueType (formatted at render time) and an
+  // explicit versionTriggering flag. Non-triggering entries (payment schedule
+  // date, logistics mode) are grouped separately in the UI.
   const changeSets: VersionEntry["changes"][] = [
     [
-      { label: "Sell Unit Price", from: "₩980,000", to: "₩992,000" },
-      { label: "Payment Schedule", note: "Receipt date moved +7 days" },
+      {
+        field: "sellUnitPrice",
+        label: "Sell Unit Price",
+        oldValue: 980000,
+        newValue: 992000,
+        valueType: "currency",
+        versionTriggering: true,
+      },
+      {
+        field: "paymentScheduleDate",
+        label: "Payment Schedule Date",
+        oldValue: "2025-03-01",
+        newValue: "2025-03-08",
+        valueType: "date",
+        versionTriggering: false,
+      },
     ],
     [
-      { label: "Quantity", from: "500 MT", to: "480 MT" },
-      { label: "Participant Added", note: "Nature Insight (Trading Company)" },
+      {
+        field: "quantity",
+        label: "Formula Quantity",
+        oldValue: 500,
+        newValue: 480,
+        valueType: "number",
+        versionTriggering: true,
+      },
+      {
+        field: "participantAdded",
+        label: "Participant Added",
+        oldValue: null,
+        newValue: "Nature Insight (Trading Company)",
+        valueType: "text",
+        versionTriggering: true,
+      },
     ],
     [
-      { label: "Buy Unit Price", from: "₩950,000", to: "₩948,000" },
-      { label: "Logistics", note: "Mode changed to Sea freight" },
+      {
+        field: "buyUnitPrice",
+        label: "Buy Unit Price",
+        oldValue: 950000,
+        newValue: 948000,
+        valueType: "currency",
+        versionTriggering: true,
+      },
+      {
+        field: "logisticsCost",
+        label: "Logistics Cost",
+        oldValue: 3200000,
+        newValue: 3500000,
+        valueType: "currency",
+        versionTriggering: true,
+      },
+      {
+        field: "logisticsMode",
+        label: "Logistics Mode",
+        oldValue: "Air",
+        newValue: "Sea",
+        valueType: "text",
+        versionTriggering: false,
+      },
     ],
-    [{ label: "Formula created", note: "Initial draft" }],
+    [
+      {
+        field: "created",
+        label: "Formula Created",
+        oldValue: null,
+        newValue: "Initial draft",
+        valueType: "text",
+        versionTriggering: false,
+      },
+    ],
   ]
   const summaries = ["Pricing revised", "Participants & quantity updated", "Sourcing terms adjusted", "Initial draft created"]
 
