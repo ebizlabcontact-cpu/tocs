@@ -66,6 +66,9 @@ export type WizardState = {
   tradeType: TradeType
   quantity: number
   unit: string
+  /** Formula timeline basis (Step 1). Trade Date and Contract Date. */
+  tradeDate: string
+  contractDate: string
   /** Free-text spec / quality memo (Step 1). No structured spec fields. */
   specMemo: string
   /** Internal memo (Step 1). */
@@ -125,6 +128,12 @@ export function deriveFormula(state: WizardState) {
   }
 }
 
+/** Local calendar date (YYYY-MM-DD) for date input defaults. */
+function todayISODate() {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toLocaleDateString("en-CA")
+}
+
 export const emptyWizardState: WizardState = {
   companyId: "c1",
   itemId: "",
@@ -132,6 +141,8 @@ export const emptyWizardState: WizardState = {
   tradeType: "import",
   quantity: 0,
   unit: "MT",
+  tradeDate: todayISODate(),
+  contractDate: todayISODate(),
   specMemo: "",
   internalMemo: "",
   fx: {

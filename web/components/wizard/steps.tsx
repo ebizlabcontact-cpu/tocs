@@ -8,7 +8,7 @@ import { tradeTypeConfig } from "@/lib/status"
 import type { TradeType } from "@/lib/types"
 import { Field, Input, Select, Label } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
-import { formatCurrency, uid } from "@/lib/utils"
+import { formatCurrency, formatDate, uid } from "@/lib/utils"
 import {
   roleGroupOptions,
   natureGroupOptions,
@@ -234,6 +234,29 @@ export function StepBasics({ state, set }: { state: WizardState; set: Setter }) 
           ))}
         </div>
       </Field>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Trade Date">
+          <input
+            type="date"
+            value={state.tradeDate}
+            onChange={(e) => set((s) => ({ ...s, tradeDate: e.target.value }))}
+            className="w-full rounded-[var(--radius-md)] border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/40"
+          />
+        </Field>
+        <Field label="Contract Date">
+          <input
+            type="date"
+            value={state.contractDate}
+            onChange={(e) => set((s) => ({ ...s, contractDate: e.target.value }))}
+            className="w-full rounded-[var(--radius-md)] border border-border bg-card px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-ring/40"
+          />
+        </Field>
+      </div>
+      <p className="-mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        Trade Date and Contract Date define the Formula&apos;s timeline basis. Authoritative date filtering will be
+        handled by backend services after integration.
+      </p>
 
       {isCrossBorder(state.tradeType) ? (
         <FxSection state={state} set={set} />
@@ -870,6 +893,8 @@ export function StepReview({
           <ReviewItem label="Item" value={state.item || "—"} />
           <ReviewItem label="Quantity" value={state.quantity ? `${state.quantity} ${state.unit}` : "—"} />
           <ReviewItem label="Trade Type" value={tradeTypeConfig[state.tradeType].label} />
+          <ReviewItem label="Trade Date" value={state.tradeDate ? formatDate(state.tradeDate) : "—"} />
+          <ReviewItem label="Contract Date" value={state.contractDate ? formatDate(state.contractDate) : "—"} />
           {isCrossBorder(state.tradeType) ? (
             <>
               <ReviewItem label="Route" value={`${state.fx.purchaseCountry || "—"} → ${state.fx.salesCountry || "—"}`} />

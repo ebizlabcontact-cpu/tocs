@@ -1,4 +1,4 @@
-import { formatCurrency, formatNumber, cn } from "@/lib/utils"
+import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils"
 import { deriveFormula, type WizardState } from "./types"
 import { Sparkles } from "lucide-react"
 
@@ -21,6 +21,8 @@ export function FormulaPreview({ state }: { state: WizardState }) {
           value={state.quantity ? `${formatNumber(state.quantity)} ${state.unit}` : `0 ${state.unit}`}
         />
         <Counter label="Participants" value={String(d.participantCount)} />
+        <Counter label="Trade Date" value={state.tradeDate ? formatDate(state.tradeDate) : "—"} />
+        <Counter label="Contract Date" value={state.contractDate ? formatDate(state.contractDate) : "—"} />
       </div>
       {d.totalQuantity !== state.quantity && d.totalQuantity > 0 && (
         <p className="mb-3 -mt-2 text-[11px] leading-relaxed text-muted-foreground">
