@@ -7,7 +7,7 @@ import { useCompany } from "@/components/company-context"
 import { Button } from "@/components/ui/button"
 import { Stepper, StepperMobile, type Step } from "./stepper"
 import { FormulaPreview } from "./formula-preview"
-import { emptyWizardState, type WizardState } from "./types"
+import { emptyWizardState, getWizardIssues, type WizardState } from "./types"
 import { StepBasics, StepTradeChain, StepSettlement, StepLogistics, StepReview } from "./steps"
 
 const steps: Step[] = [
@@ -48,10 +48,14 @@ export function FormulaWizard() {
 
   const set = (updater: (s: WizardState) => WizardState) => setState(updater)
   const isLast = current === steps.length
+  const issues = getWizardIssues(state)
   const canProceed = current !== 1 || state.item.trim().length > 0
+  // Final gate: creation is blocked until every validation issue is resolved.
+  const canCreate = issues.length === 0
 
   function next() {
     if (isLast) {
+      if (!canCreate) return
       setSubmitting(true)
       setTimeout(() => router.push("/formulas"), 900)
       return
@@ -113,7 +117,7 @@ export function FormulaWizard() {
               <ArrowLeft className="size-4" />
               Back
             </Button>
-            <Button variant="accent" onClick={next} disabled={!canProceed || submitting}>
+            <Button variant="accent" onClick={next} disabled={(isLast ? !canCreate : !canProceed) || submitting}>
               {isLast ? (
                 <>
                   <Check className="size-4" />

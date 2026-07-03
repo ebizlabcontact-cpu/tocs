@@ -1,7 +1,7 @@
 "use client"
 
 import { Fragment } from "react"
-import { Plus, Trash2, ArrowDown, ArrowRight, Link2, Pencil, Flag, FlagOff, Wallet } from "lucide-react"
+import { Plus, Trash2, ArrowDown, ArrowRight, Link2, Pencil, Flag, FlagOff, Wallet, AlertTriangle } from "lucide-react"
 import { companies, registeredCompanies } from "@/lib/mock-data"
 import { getItem, items, unitOptions } from "@/lib/items"
 import { tradeTypeConfig } from "@/lib/status"
@@ -18,6 +18,7 @@ import {
   isCrossBorder,
   deriveFormula,
   deriveFx,
+  getWizardIssues,
   type WizardState,
 } from "./types"
 import { SettlementScenarios } from "./settlement-scenarios"
@@ -118,15 +119,17 @@ function FxSection({ state, set }: { state: WizardState; set: Setter }) {
             ))}
           </Select>
         </Field>
-        <NumField label={`Exchange Rate (1 ${fx.txnCurrency} → ${fx.baseCurrency})`} value={fx.exchangeRate} onChange={(v) => setFx({ exchangeRate: v })} />
+        <NumField label={`Contract Exchange Rate (1 ${fx.txnCurrency} → ${fx.baseCurrency})`} value={fx.contractExchangeRate} onChange={(v) => setFx({ contractExchangeRate: v })} />
+        <NumField label={`Adjusted Exchange Rate (1 ${fx.txnCurrency} → ${fx.baseCurrency})`} value={fx.adjustedExchangeRate} onChange={(v) => setFx({ adjustedExchangeRate: v })} />
         <NumField label={`Foreign Unit Price (${fx.txnCurrency})`} value={fx.foreignUnitPrice} onChange={(v) => setFx({ foreignUnitPrice: v })} />
       </div>
 
       {/* Derived KRW preview — no FX engine, no persistence. */}
-      <div className="grid gap-2 rounded-lg border border-border bg-card p-3 sm:grid-cols-3">
+      <div className="grid gap-2 rounded-lg border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-4">
         <FxPreview label={`Foreign Total (${fx.txnCurrency})`} value={d.foreignTotal} currency={fx.txnCurrency} />
         <FxPreview label={`${fx.baseCurrency} Unit Price`} value={d.krwUnitPrice} currency={fx.baseCurrency} />
-        <FxPreview label={`${fx.baseCurrency} Total`} value={d.krwTotal} currency={fx.baseCurrency} strong />
+        <FxPreview label={`${fx.baseCurrency} Total (Contract)`} value={d.krwTotal} currency={fx.baseCurrency} strong />
+        <FxPreview label={`${fx.baseCurrency} Total (Adjusted)`} value={d.adjustedKrwTotal} currency={fx.baseCurrency} strong />
       </div>
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -430,8 +433,8 @@ export function StepTradeChain({ state, set }: { state: WizardState; set: Setter
                       <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         Role
                       </span>
-                      <Select value={p.natureGroup} onChange={(e) => update(p.id, { natureGroup: e.target.value })}>
-                        {natureGroupOptions.map((o) => (
+                      <Select value={p.roleGroup} onChange={(e) => update(p.id, { roleGroup: e.target.value })}>
+                        {roleGroupOptions.map((o) => (
                           <option key={o.value} value={o.value}>
                             {o.label}
                           </option>
@@ -440,10 +443,10 @@ export function StepTradeChain({ state, set }: { state: WizardState; set: Setter
                     </label>
                     <label className="block">
                       <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Role Group
+                        Nature
                       </span>
-                      <Select value={p.roleGroup} onChange={(e) => update(p.id, { roleGroup: e.target.value })}>
-                        {roleGroupOptions.map((o) => (
+                      <Select value={p.natureGroup} onChange={(e) => update(p.id, { natureGroup: e.target.value })}>
+                        {natureGroupOptions.map((o) => (
                           <option key={o.value} value={o.value}>
                             {o.label}
                           </option>
@@ -467,8 +470,8 @@ export function StepTradeChain({ state, set }: { state: WizardState; set: Setter
                   {/* Row 3: quantity / buy / sell prices */}
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <NumField label="Quantity" value={p.quantity} onChange={(v) => update(p.id, { quantity: v })} />
-                    <NumField label="Buy Price" value={p.buyPrice} onChange={(v) => update(p.id, { buyPrice: v })} />
-                    <NumField label="Sell Price" value={p.sellPrice} onChange={(v) => update(p.id, { sellPrice: v })} />
+                    <NumField label="Buy Unit Price" value={p.buyPrice} onChange={(v) => update(p.id, { buyPrice: v })} />
+                    <NumField label="Sell Unit Price" value={p.sellPrice} onChange={(v) => update(p.id, { sellPrice: v })} />
                   </div>
 
                   {/* Node margin + endpoints */}
@@ -883,9 +886,29 @@ export function StepReview({
 }) {
   const company = companies.find((c) => c.id === state.companyId)
   const d = deriveFormula(state)
+  const issues = getWizardIssues(state)
 
   return (
     <div className="space-y-4">
+      {/* Validation gates — Create Formula stays disabled until these clear. */}
+      {issues.length > 0 ? (
+        <div className="rounded-xl border border-danger/40 bg-danger-soft/60 p-4">
+          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-danger">
+            <AlertTriangle className="size-4" />
+            Resolve {issues.length} {issues.length === 1 ? "item" : "items"} before creating this Formula
+          </div>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
+            {issues.map((issue) => (
+              <li key={issue}>{issue}</li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-success/40 bg-success-soft/60 p-4 text-sm font-medium text-success">
+          All required inputs are complete — this Formula is ready to create.
+        </div>
+      )}
+
       {/* Basic information */}
       <ReviewSection title="Basic Information" step={1} goTo={goTo}>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -900,7 +923,11 @@ export function StepReview({
               <ReviewItem label="Route" value={`${state.fx.purchaseCountry || "—"} → ${state.fx.salesCountry || "—"}`} />
               <ReviewItem
                 label="Currency"
-                value={`${state.fx.txnCurrency} → ${state.fx.baseCurrency}${state.fx.exchangeRate ? ` @ ${state.fx.exchangeRate}` : ""}`}
+                value={`${state.fx.txnCurrency} → ${state.fx.baseCurrency}${state.fx.contractExchangeRate ? ` @ ${state.fx.contractExchangeRate}` : ""}`}
+              />
+              <ReviewItem
+                label="Adjusted Rate"
+                value={state.fx.adjustedExchangeRate ? `${state.fx.adjustedExchangeRate}` : "—"}
               />
             </>
           ) : (
@@ -918,7 +945,8 @@ export function StepReview({
         ) : (
           <ol className="space-y-1.5">
             {state.participants.map((p, i) => {
-              const role = natureGroupOptions.find((o) => o.value === p.natureGroup)?.label ?? p.natureGroup
+              const role = roleGroupOptions.find((o) => o.value === p.roleGroup)?.label ?? p.roleGroup
+              const nature = natureGroupOptions.find((o) => o.value === p.natureGroup)?.label ?? p.natureGroup
               const totalSell = (p.sellPrice || 0) * (p.quantity || 0)
               const totalBuy = (p.buyPrice || 0) * (p.quantity || 0)
               return (
@@ -928,6 +956,17 @@ export function StepReview({
                   </span>
                   <span className="font-medium text-foreground">{p.company || "—"}</span>
                   <span className="text-muted-foreground">· {role}</span>
+                  <span className="text-muted-foreground/70">· {nature}</span>
+                  {p.startPoint && (
+                    <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent">
+                      Start
+                    </span>
+                  )}
+                  {p.endPoint && (
+                    <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent">
+                      End
+                    </span>
+                  )}
                   <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">
                     Buy {formatCurrency(totalBuy)} · Sell {formatCurrency(totalSell)}
                   </span>

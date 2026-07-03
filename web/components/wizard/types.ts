@@ -39,7 +39,10 @@ export type WizardFx = {
   salesCountry: string
   baseCurrency: string
   txnCurrency: string
-  exchangeRate: number
+  /** Rate agreed at contract time. */
+  contractExchangeRate: number
+  /** Revalued rate for settlement preview (e.g. at fixing/adjustment). */
+  adjustedExchangeRate: number
   foreignUnitPrice: number
 }
 
@@ -90,22 +93,16 @@ export type WizardState = {
  */
 export function deriveFormula(state: WizardState) {
   const nodes = state.participants
-  const priced = nodes.filter((p) => (p.buyPrice || 0) > 0 || (p.sellPrice || 0) > 0)
-  const endBuyers = priced.filter((p) => (p.sellPrice || 0) === 0 && (p.buyPrice || 0) > 0)
-  const origins = priced.filter((p) => (p.buyPrice || 0) === 0 && (p.sellPrice || 0) > 0)
-  const buyers = priced.filter((p) => (p.buyPrice || 0) > 0)
-  // Revenue = end buyer's payment; Cost = origin's proceeds. Both trace to
-  // chain quantity × price so a closed chain reflects the captured spread.
-  const expectedRevenue = endBuyers.length
-    ? endBuyers.reduce((s, p) => s + (p.buyPrice || 0) * (p.quantity || 0), 0)
-    : priced.length
-      ? Math.max(...priced.map((p) => (p.sellPrice || 0) * (p.quantity || 0)))
-      : 0
-  const expectedCost = origins.length
-    ? origins.reduce((s, p) => s + (p.sellPrice || 0) * (p.quantity || 0), 0)
-    : buyers.length
-      ? Math.min(...buyers.map((p) => (p.buyPrice || 0) * (p.quantity || 0)))
-      : 0
+  const starts = nodes.filter((p) => p.startPoint)
+  const ends = nodes.filter((p) => p.endPoint)
+  // Endpoints are authoritative — no price-pattern inference.
+  // Cost derives from the chain start (buying-cost side): the price at which
+  // goods enter the chain (start node's sell unit price × quantity).
+  // Revenue derives from the chain end (selling-revenue side): what the final
+  // buyer pays (end node's buy unit price × quantity).
+  // If no start/end is designated the figure is 0 (validation surfaces this).
+  const expectedRevenue = ends.reduce((s, p) => s + (p.buyPrice || 0) * (p.quantity || 0), 0)
+  const expectedCost = starts.reduce((s, p) => s + (p.sellPrice || 0) * (p.quantity || 0), 0)
   const costs = state.costs.reduce((s, c) => s + (c.amount || 0), 0)
   const grossMargin = expectedRevenue - expectedCost - costs
   // Canonical model (DL-009): share is a subtracted KRW amount, not a percentage.
@@ -150,7 +147,8 @@ export const emptyWizardState: WizardState = {
     salesCountry: "",
     baseCurrency: "KRW",
     txnCurrency: "USD",
-    exchangeRate: 0,
+    contractExchangeRate: 0,
+    adjustedExchangeRate: 0,
     foreignUnitPrice: 0,
   },
   participants: [
@@ -174,20 +172,22 @@ export const emptyWizardState: WizardState = {
 }
 
 /* Formula-specific option groups for the trade chain (Step 2). */
+/** Formula role (what this participant does in the deal). */
 export const roleGroupOptions = [
   { value: "supplier", label: "Supplier" },
   { value: "buyer", label: "Buyer" },
   { value: "carrier", label: "Carrier" },
-  { value: "financial", label: "Financial" },
+  { value: "financial", label: "Financial / Payment" },
   { value: "other", label: "Other" },
 ]
 
+/** Business nature of the participant company. */
 export const natureGroupOptions = [
   { value: "manufacturer", label: "Manufacturer" },
   { value: "distributor", label: "Distributor" },
   { value: "trading", label: "Trading Company" },
   { value: "logistics", label: "Logistics Company" },
-  { value: "buyer", label: "Buyer" },
+  { value: "financial", label: "Financial" },
   { value: "other", label: "Other" },
 ]
 
@@ -221,7 +221,55 @@ export function isCrossBorder(tradeType: TradeType) {
 /** Derived KRW-converted figures from the FX inputs (preview only). */
 export function deriveFx(fx: WizardFx, quantity: number) {
   const foreignTotal = (fx.foreignUnitPrice || 0) * (quantity || 0)
-  const krwUnitPrice = (fx.foreignUnitPrice || 0) * (fx.exchangeRate || 0)
-  const krwTotal = foreignTotal * (fx.exchangeRate || 0)
-  return { foreignTotal, krwUnitPrice, krwTotal }
+  const krwUnitPrice = (fx.foreignUnitPrice || 0) * (fx.contractExchangeRate || 0)
+  const krwTotal = foreignTotal * (fx.contractExchangeRate || 0)
+  const adjustedKrwTotal = foreignTotal * (fx.adjustedExchangeRate || 0)
+  return { foreignTotal, krwUnitPrice, krwTotal, adjustedKrwTotal }
+}
+
+/**
+ * Creation validation gates (P0-4). Returns a list of human-readable issues;
+ * an empty array means the Formula draft is ready to create. Pure/UI-only —
+ * no persistence, no backend enforcement.
+ */
+export function getWizardIssues(state: WizardState): string[] {
+  const issues: string[] = []
+
+  if (!state.item.trim()) issues.push("Select an item.")
+  if (!(state.quantity > 0)) issues.push("Formula quantity must be greater than zero.")
+  if (!state.tradeDate) issues.push("Trade Date is required.")
+  if (!state.contractDate) issues.push("Contract Date is required.")
+
+  const participants = state.participants
+  if (participants.length < 1) {
+    issues.push("Add at least one participant to the trade chain.")
+  }
+  participants.forEach((p, i) => {
+    if (!p.company.trim()) issues.push(`Participant ${String.fromCharCode(65 + i)}: select a company.`)
+  })
+
+  const starts = participants.filter((p) => p.startPoint)
+  const ends = participants.filter((p) => p.endPoint)
+  if (starts.length < 1) issues.push("Designate one chain start (buying-cost side).")
+  if (starts.length > 1) issues.push("Only one chain start participant is allowed.")
+  if (ends.length < 1) issues.push("Designate one chain end (selling-revenue side).")
+  if (ends.length > 1) issues.push("Only one chain end participant is allowed.")
+
+  if (starts.some((p) => !((p.sellPrice || 0) > 0))) {
+    issues.push("Chain start needs a Sell Unit Price for cost derivation.")
+  }
+  if (ends.some((p) => !((p.buyPrice || 0) > 0))) {
+    issues.push("Chain end needs a Buy Unit Price for revenue derivation.")
+  }
+
+  if (isCrossBorder(state.tradeType)) {
+    const fx = state.fx
+    if (!fx.purchaseCountry) issues.push("Purchase Country is required for cross-border trades.")
+    if (!fx.salesCountry) issues.push("Sales Country is required for cross-border trades.")
+    if (!fx.txnCurrency) issues.push("Transaction Currency is required for cross-border trades.")
+    if (!(fx.contractExchangeRate > 0)) issues.push("Contract Exchange Rate must be greater than zero.")
+    if (!(fx.adjustedExchangeRate > 0)) issues.push("Adjusted Exchange Rate must be greater than zero.")
+  }
+
+  return issues
 }
