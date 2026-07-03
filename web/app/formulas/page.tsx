@@ -10,28 +10,30 @@ import { CreateFormulaButton } from "@/components/formulas/create-formula-button
 import { FormulaCard } from "@/components/formulas/formula-card"
 import { FormulaTable } from "@/components/formulas/formula-table"
 import { FormulaFilters, filterLabels, type StatusFilter } from "@/components/formulas/formula-filters"
-import { getFormulasByCompany } from "@/lib/mock-data"
-import { deriveExpected, deriveRealized, deriveSettlement } from "@/lib/formula-math"
+import { getAnalyticsFormulas, filterFormulasByRange, analyticsCompanyName } from "@/lib/mock-data"
+import { viewFormula, type FormulaMetricsView } from "@/lib/formula-math"
 import { cn, formatCurrency } from "@/lib/utils"
-import type { Formula } from "@/lib/types"
+import type { DateRange, Formula } from "@/lib/types"
 
 type SortKey = "recent" | "profit" | "value"
 type ViewMode = "table" | "cards"
 
-function matchesStatus(f: Formula, status: StatusFilter) {
+/** Status matching uses the perspective-aware metrics view (P0-3), so filtering
+ *  reconciles with the Dashboard/Reports figure the user drilled from. */
+function matchesStatus(f: Formula, status: StatusFilter, v: FormulaMetricsView) {
   switch (status) {
     case "all":
       return true
     case "loss":
-      return deriveRealized(f).realizedProfit < 0
+      return v.realizedProfit < 0
     case "profit":
-      return deriveRealized(f).realizedProfit > 0
+      return v.realizedProfit > 0
     case "closeable":
       return f.closeable
     case "receivable":
-      return deriveSettlement(f).remainingReceivable > 0
+      return v.receivable > 0
     case "payable":
-      return deriveSettlement(f).remainingPayable > 0
+      return v.payable > 0
     case "unmatched":
       return f.invoiceStatus === "unmatched"
     case "attention":
@@ -40,6 +42,15 @@ function matchesStatus(f: Formula, status: StatusFilter) {
       return f.status === status
   }
 }
+
+const VALID_RANGES: DateRange[] = [
+  "Last 7 Days",
+  "Last 30 Days",
+  "This Month",
+  "Last Month",
+  "This Year",
+  "Custom Range",
+]
 
 const VALID_FILTERS: StatusFilter[] = [
   "all",
@@ -73,6 +84,18 @@ const EMPTY_STATES: Record<StatusFilter, { title: string; description: string }>
 function FormulasContent() {
   const { selected } = useCompany()
   const params = useSearchParams()
+
+  // Full drill-down context (P0-1). Operating scope prefers the URL `company`
+  // param, else the header operating scope. Analytical company comes from
+  // `analytics` (ignored when it equals the operating scope).
+  const operatingId = params.get("company") ?? selected.id
+  const analyticsParam = params.get("analytics")
+  const analyticsId = analyticsParam && analyticsParam !== operatingId ? analyticsParam : undefined
+  const perspective = Boolean(analyticsId)
+  const rangeParam = params.get("range") as DateRange | null
+  const range = rangeParam && VALID_RANGES.includes(rangeParam) ? rangeParam : undefined
+  const metric = params.get("metric") ?? undefined
+
   const initialFilter = params.get("filter") as StatusFilter | null
   const [query, setQuery] = useState("")
   const [status, setStatus] = useState<StatusFilter>(
@@ -81,11 +104,29 @@ function FormulasContent() {
   const [sort, setSort] = useState<SortKey>("recent")
   const [view, setView] = useState<ViewMode>("table")
 
-  const all = useMemo(() => getFormulasByCompany(selected.id), [selected.id])
+  // Scope + perspective aware set (P0-2), narrowed by the drilled date window
+  // (P0-4). Each row carries its perspective metrics view (P0-3).
+  const rows = useMemo(() => {
+    let list = getAnalyticsFormulas(operatingId, analyticsId)
+    if (range) list = filterFormulasByRange(list, range)
+    return list.map((f) => ({ f, v: viewFormula(f, operatingId, analyticsId) }))
+  }, [operatingId, analyticsId, range])
+
+  // Query string that carries the active context into Formula Detail (P0-5).
+  const detailQuery = useMemo(() => {
+    const p = new URLSearchParams()
+    p.set("company", operatingId)
+    if (analyticsId) p.set("analytics", analyticsId)
+    if (range) p.set("range", range)
+    if (status !== "all") p.set("filter", status)
+    if (metric) p.set("metric", metric)
+    const s = p.toString()
+    return s ? `?${s}` : ""
+  }, [operatingId, analyticsId, range, status, metric])
 
   const counts = useMemo(() => {
     const c: Record<StatusFilter, number> = {
-      all: all.length,
+      all: rows.length,
       active: 0,
       invoicing: 0,
       closeable: 0,
@@ -97,43 +138,41 @@ function FormulasContent() {
       unmatched: 0,
       attention: 0,
     }
-    for (const f of all) {
-      const realized = deriveRealized(f).realizedProfit
-      const settlement = deriveSettlement(f)
+    for (const { f, v } of rows) {
       if (f.status === "active") c.active++
       if (f.status === "invoicing") c.invoicing++
       if (f.closeable) c.closeable++
       if (f.status === "closed") c.closed++
-      if (realized < 0) c.loss++
-      if (realized > 0) c.profit++
-      if (settlement.remainingReceivable > 0) c.receivable++
-      if (settlement.remainingPayable > 0) c.payable++
+      if (v.realizedProfit < 0) c.loss++
+      if (v.realizedProfit > 0) c.profit++
+      if (v.receivable > 0) c.receivable++
+      if (v.payable > 0) c.payable++
       if (f.invoiceStatus === "unmatched") c.unmatched++
       if (f.attention) c.attention++
     }
     return c
-  }, [all])
+  }, [rows])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    let list = all.filter((f) => matchesStatus(f, status))
+    let list = rows.filter(({ f, v }) => matchesStatus(f, status, v))
     if (q) {
       list = list.filter(
-        (f) =>
+        ({ f }) =>
           f.number.toLowerCase().includes(q) ||
           f.item.toLowerCase().includes(q) ||
           f.participants.some((p) => p.name.toLowerCase().includes(q)),
       )
     }
     list = [...list].sort((a, b) => {
-      if (sort === "recent") return Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
-      if (sort === "profit") return deriveRealized(b).realizedProfit - deriveRealized(a).realizedProfit
-      return deriveExpected(b).totalSell - deriveExpected(a).totalSell
+      if (sort === "recent") return Date.parse(b.f.updatedAt) - Date.parse(a.f.updatedAt)
+      if (sort === "profit") return b.v.realizedProfit - a.v.realizedProfit
+      return b.v.totalSell - a.v.totalSell
     })
     return list
-  }, [all, status, query, sort])
+  }, [rows, status, query, sort])
 
-  const totalValue = filtered.reduce((s, f) => s + deriveExpected(f).totalSell, 0)
+  const totalValue = filtered.reduce((s, { v }) => s + v.totalSell, 0)
 
   return (
     <div className="animate-fade-in">
@@ -145,9 +184,13 @@ function FormulasContent() {
 
       <FormulaFilters query={query} onQuery={setQuery} status={status} onStatus={setStatus} counts={counts} />
 
-      {status !== "all" && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Filtered by</span>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">Context</span>
+        <ContextChip label="Scope" value={analyticsCompanyName(operatingId)} />
+        {perspective && <ContextChip label="Perspective" value={analyticsCompanyName(analyticsId as string)} />}
+        {range && <ContextChip label="Range" value={range} />}
+        {metric && <ContextChip label="Metric" value={metric} />}
+        {status !== "all" && (
           <button
             type="button"
             onClick={() => setStatus("all")}
@@ -157,8 +200,8 @@ function FormulasContent() {
             <span className="tabular-nums text-accent/70">{counts[status] ?? 0}</span>
             <X className="size-3" />
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="mt-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
@@ -210,12 +253,23 @@ function FormulasContent() {
       {filtered.length > 0 ? (
         view === "table" ? (
           <div className="mt-4">
-            <FormulaTable formulas={filtered} />
+            <FormulaTable
+              formulas={filtered.map((r) => r.f)}
+              operatingId={operatingId}
+              analyticsId={analyticsId}
+              detailQuery={detailQuery}
+            />
           </div>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((f) => (
-              <FormulaCard key={f.id} formula={f} />
+            {filtered.map(({ f }) => (
+              <FormulaCard
+                key={f.id}
+                formula={f}
+                operatingId={operatingId}
+                analyticsId={analyticsId}
+                detailQuery={detailQuery}
+              />
             ))}
           </div>
         )
@@ -247,6 +301,16 @@ function FormulasContent() {
         </div>
       )}
     </div>
+  )
+}
+
+/** Compact read-only context badge (P0-6). */
+function ContextChip({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
+      <span className="font-medium text-foreground/70">{label}</span>
+      <span className="text-foreground">{value}</span>
+    </span>
   )
 }
 

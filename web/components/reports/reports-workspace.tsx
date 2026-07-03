@@ -13,10 +13,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { Info, Activity, LayoutDashboard, SlidersHorizontal } from "lucide-react"
+import Link from "next/link"
+import { Info, Activity, LayoutDashboard, SlidersHorizontal, ListFilter } from "lucide-react"
 import { useCompany } from "@/components/company-context"
 import { useDateRange } from "@/components/date-range-context"
 import { AnalyticsCompanyFilter } from "@/components/shell/analytics-company-filter"
+import { analyticsDrillContext } from "@/lib/mock-data"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -99,6 +101,14 @@ export function ReportsWorkspace() {
               ))}
             </Select>
           </label>
+          {/* Drill into the Formula List carrying the same scope/perspective/range (P1). */}
+          <Link
+            href={`/formulas?${analyticsDrillContext(operatingId, period, analyticsArg).slice(1)}`}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+          >
+            <ListFilter className="size-4" />
+            Formula List
+          </Link>
         </div>
       </div>
 

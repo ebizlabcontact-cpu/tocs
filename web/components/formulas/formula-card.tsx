@@ -4,7 +4,7 @@ import type { Formula } from "@/lib/types"
 import { statusConfig, tradeTypeConfig } from "@/lib/status"
 import { StatusBadge } from "@/components/ui/badge"
 import { cn, formatCurrency, formatRelative } from "@/lib/utils"
-import { deriveExpected, deriveRealized, deriveSettlement } from "@/lib/formula-math"
+import { viewFormula } from "@/lib/formula-math"
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: "profit" | "loss" | "muted" }) {
   return (
@@ -24,18 +24,27 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: "
   )
 }
 
-export function FormulaCard({ formula }: { formula: Formula }) {
+export function FormulaCard({
+  formula,
+  operatingId,
+  analyticsId,
+  detailQuery = "",
+}: {
+  formula: Formula
+  operatingId: string
+  analyticsId?: string
+  /** Query string carrying drill-down context into Formula Detail (P0-5). */
+  detailQuery?: string
+}) {
   const status = statusConfig[formula.status]
-  const expected = deriveExpected(formula)
-  const realized = deriveRealized(formula)
-  const settlement = deriveSettlement(formula)
-  const isLoss = realized.realizedProfit < 0
-  const profitIsRealized = realized.realizedProfit !== 0 || formula.status === "closed"
-  const profitValue = profitIsRealized ? realized.realizedProfit : expected.expectedProfit
+  const v = viewFormula(formula, operatingId, analyticsId)
+  const isLoss = v.realizedProfit < 0
+  const profitIsRealized = v.realizedProfit !== 0 || formula.status === "closed"
+  const profitValue = profitIsRealized ? v.realizedProfit : v.expectedProfit
 
   return (
     <Link
-      href={`/formulas/${formula.id}`}
+      href={`/formulas/${formula.id}${detailQuery}`}
       className="group relative flex flex-col rounded-xl border border-border bg-card p-4 shadow-[var(--shadow-card)] transition-all hover:border-accent/40 hover:shadow-[var(--shadow-lifted)]"
     >
       <div className="flex items-start justify-between gap-3">
@@ -59,8 +68,8 @@ export function FormulaCard({ formula }: { formula: Formula }) {
       )}
 
       <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-3">
-        <Metric label="Sell" value={formatCurrency(expected.totalSell, { compact: true })} />
-        <Metric label="Buy" value={formatCurrency(expected.totalBuy, { compact: true })} />
+        <Metric label="Sell" value={formatCurrency(v.totalSell, { compact: true })} />
+        <Metric label="Buy" value={formatCurrency(v.totalBuy, { compact: true })} />
         <Metric
           label={profitIsRealized ? "Realized" : "Expected"}
           value={formatCurrency(profitValue, { compact: true })}
@@ -71,7 +80,7 @@ export function FormulaCard({ formula }: { formula: Formula }) {
       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           {isLoss ? <TrendingDown className="size-3.5 text-danger" /> : <TrendingUp className="size-3.5 text-success" />}
-          Receivable {formatCurrency(settlement.remainingReceivable, { compact: true })}
+          Receivable {formatCurrency(v.receivable, { compact: true })}
         </span>
         <span>{formatRelative(formula.updatedAt)}</span>
       </div>
