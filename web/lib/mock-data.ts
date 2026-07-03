@@ -1137,6 +1137,6 @@ export function getCashflowTimeline(
       return rows.map((s) => ({ ...s, formula: f.number, item: f.item }))
     })
     .filter((s) => s.perspectiveType === type && s.status !== "settled")
-    .sort((a, b) => Date.parse(a.dueDate) - Date.parse(b.dueDate))
+    .sort((a, b) => Date.parse(a.scheduledDate) - Date.parse(b.scheduledDate))
     .slice(0, 6)
 }

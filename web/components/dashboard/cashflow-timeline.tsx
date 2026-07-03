@@ -8,7 +8,8 @@ type Item = {
   counterparty: string
   amount: number
   settledAmount: number
-  dueDate: string
+  /** Canonical PaymentSchedule.scheduledDate (P0-5). */
+  scheduledDate: string
   status: string
   formula: string
   item: string
@@ -51,7 +52,7 @@ export function CashflowTimeline({ items, type }: { items: Item[]; type: "receip
               <p className="text-sm font-semibold tabular-nums text-foreground">
                 {formatCurrency(it.amount - it.settledAmount, { compact: true })}
               </p>
-              <p className="text-xs text-muted-foreground">{formatDate(it.dueDate, { month: "short", day: "numeric" })}</p>
+              <p className="text-xs text-muted-foreground">{formatDate(it.scheduledDate, { month: "short", day: "numeric" })}</p>
             </div>
             <Badge tone={cfg.tone as never} className="hidden shrink-0 sm:inline-flex">
               {cfg.label}
