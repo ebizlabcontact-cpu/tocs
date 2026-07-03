@@ -17,12 +17,13 @@ import { QuickActions } from "@/components/dashboard/quick-actions"
 import { DateRangeSelector } from "@/components/shell/date-range-selector"
 import { AnalyticsCompanyFilter } from "@/components/shell/analytics-company-filter"
 import {
-  companies,
+  analyticsCompanyName,
   getKpis,
   getProfitSeries,
   getLossRanking,
   getCashflowTimeline,
-  getFormulasByCompany,
+  getAnalyticsFormulas,
+  analyticsDrillContext,
 } from "@/lib/mock-data"
 
 function SectionCard({
@@ -69,13 +70,16 @@ export default function DashboardPage() {
 
   const companyId = analyticsId
   const perspective = companyId !== operatingId
+  // Undefined in "all in scope" mode so downstream adapters use owner totals.
+  const analyticsArg = perspective ? analyticsId : undefined
+  const ctx = analyticsDrillContext(operatingId, range, analyticsArg)
 
-  const kpis = getKpis(companyId, range, customStart, customEnd)
-  const profitData = getProfitSeries(companyId, range, customStart, customEnd)
-  const lossRanking = getLossRanking(companyId)
-  const receipts = getCashflowTimeline(companyId, "receipt")
-  const payments = getCashflowTimeline(companyId, "payment")
-  const all = getFormulasByCompany(companyId)
+  const kpis = getKpis(operatingId, range, customStart, customEnd, analyticsArg)
+  const profitData = getProfitSeries(operatingId, range, customStart, customEnd, analyticsArg)
+  const lossRanking = getLossRanking(operatingId, analyticsArg)
+  const receipts = getCashflowTimeline(operatingId, "receipt", analyticsArg)
+  const payments = getCashflowTimeline(operatingId, "payment", analyticsArg)
+  const all = getAnalyticsFormulas(operatingId, analyticsArg)
   const recent = [...all].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, 5)
   const attention = all.filter((f) => f.attention).slice(0, 5)
 
@@ -85,7 +89,7 @@ export default function DashboardPage() {
         title="Command Center"
         description={
           perspective
-            ? `Dashboard figures are derived from formulas — analyzing ${selected.name} from ${companies.find((c) => c.id === companyId)?.name ?? ""}'s perspective · ${range}.`
+            ? `Dashboard figures are derived from formulas — ${selected.name} scope, analyzed from ${analyticsCompanyName(companyId)}'s perspective · ${range}.`
             : `Dashboard figures are derived from formulas — ${selected.name} · ${range}.`
         }
         actions={
@@ -111,28 +115,28 @@ export default function DashboardPage() {
         <SectionCard
           title={`Realized Profit · ${range}`}
           className="lg:col-span-2"
-          action={{ label: "Reports", href: "/reports" }}
+          action={{ label: "Reports", href: `/reports?${ctx.slice(1)}` }}
         >
           <ProfitChart data={profitData} />
         </SectionCard>
-        <SectionCard title="Loss Formula Ranking" action={{ label: "View losses", href: "/formulas?filter=loss" }}>
+        <SectionCard title="Loss Formula Ranking" action={{ label: "View losses", href: `/formulas?filter=loss${ctx}` }}>
           <LossRanking formulas={lossRanking} />
         </SectionCard>
       </div>
 
       {/* 3. Cashflow area */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Upcoming Receipts" action={{ label: "All receipts", href: "/calendar?type=receipt" }}>
+        <SectionCard title="Upcoming Receipts" action={{ label: "All receipts", href: `/calendar?type=receipt${ctx}` }}>
           <CashflowTimeline items={receipts} type="receipt" />
         </SectionCard>
-        <SectionCard title="Upcoming Payments" action={{ label: "All payments", href: "/calendar?type=payment" }}>
+        <SectionCard title="Upcoming Payments" action={{ label: "All payments", href: `/calendar?type=payment${ctx}` }}>
           <CashflowTimeline items={payments} type="payment" />
         </SectionCard>
       </div>
 
       {/* 4. Formula area */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Recent Formulas" action={{ label: "All formulas", href: "/formulas" }}>
+        <SectionCard title="Recent Formulas" action={{ label: "All formulas", href: `/formulas?${ctx.slice(1)}` }}>
           <div className="flex flex-col gap-0.5">
             {recent.map((f) => (
               <FormulaMiniRow key={f.id} formula={f} />
@@ -141,7 +145,7 @@ export default function DashboardPage() {
         </SectionCard>
         <SectionCard
           title="Attention Required"
-          action={{ label: "Review", href: "/formulas?filter=attention" }}
+          action={{ label: "Review", href: `/formulas?filter=attention${ctx}` }}
         >
           {attention.length > 0 ? (
             <div className="flex flex-col gap-0.5">

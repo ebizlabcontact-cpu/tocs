@@ -109,23 +109,27 @@ export type ExecutiveSummary = {
   topFormulas: { number: string; item: string; realized: number }[]
 }
 
-export function getExecutiveSummary(companyId: string, range: DateRange): ExecutiveSummary {
-  const list = filterFormulasByRange(getFormulasByCompany(companyId), range)
-  const withRealized = list
-    .map((f) => ({ f, realized: deriveRealized(f).realizedProfit }))
-    .sort((a, b) => b.realized - a.realized)
+export function getExecutiveSummary(
+  companyId: string,
+  range: DateRange,
+  analyticsCompanyId?: string,
+): ExecutiveSummary {
+  const list = filterFormulasByRange(getAnalyticsFormulas(companyId, analyticsCompanyId), range)
+  const withView = list
+    .map((f) => ({ f, v: viewFormula(f, companyId, analyticsCompanyId) }))
+    .sort((a, b) => b.v.realizedProfit - a.v.realizedProfit)
 
   return {
-    realizedProfit: list.reduce((s, f) => s + deriveRealized(f).realizedProfit, 0),
-    expectedProfit: list.reduce((s, f) => s + deriveExpected(f).expectedProfit, 0),
-    receivable: list.reduce((s, f) => s + deriveSettlement(f).remainingReceivable, 0),
-    payable: list.reduce((s, f) => s + deriveSettlement(f).remainingPayable, 0),
-    revenue: list.reduce((s, f) => s + deriveExpected(f).totalSell, 0),
+    realizedProfit: withView.reduce((s, { v }) => s + v.realizedProfit, 0),
+    expectedProfit: withView.reduce((s, { v }) => s + v.expectedProfit, 0),
+    receivable: withView.reduce((s, { v }) => s + v.receivable, 0),
+    payable: withView.reduce((s, { v }) => s + v.payable, 0),
+    revenue: withView.reduce((s, { v }) => s + v.totalSell, 0),
     formulaCount: list.length,
-    profitSeries: getProfitSeries(companyId, range),
-    topFormulas: withRealized
+    profitSeries: getProfitSeries(companyId, range, undefined, undefined, analyticsCompanyId),
+    topFormulas: withView
       .slice(0, 6)
-      .map(({ f, realized }) => ({ number: f.number, item: f.item, realized })),
+      .map(({ f, v }) => ({ number: f.number, item: f.item, realized: v.realizedProfit })),
   }
 }
 
@@ -138,8 +142,8 @@ export type OperationalSummary = {
   attention: { number: string; item: string; note: string }[]
 }
 
-export function getOperationalSummary(companyId: string): OperationalSummary {
-  const list = getFormulasByCompany(companyId)
+export function getOperationalSummary(companyId: string, analyticsCompanyId?: string): OperationalSummary {
+  const list = getAnalyticsFormulas(companyId, analyticsCompanyId)
 
   const countBy = (fn: (f: Formula) => string): ReportRow[] => {
     const map = new Map<string, number>()
@@ -168,11 +172,11 @@ export type TrendPoint = { month: string; realized: number; expected: number }
  * Realized vs expected profit trend across the period's buckets. Expected is
  * distributed proportionally to the realized series shape (illustrative).
  */
-export function getTrendSummary(companyId: string, range: DateRange): TrendPoint[] {
-  const list = filterFormulasByRange(getFormulasByCompany(companyId), range)
-  const realizedSeries = getProfitSeries(companyId, range)
+export function getTrendSummary(companyId: string, range: DateRange, analyticsCompanyId?: string): TrendPoint[] {
+  const list = filterFormulasByRange(getAnalyticsFormulas(companyId, analyticsCompanyId), range)
+  const realizedSeries = getProfitSeries(companyId, range, undefined, undefined, analyticsCompanyId)
   const totalRealized = realizedSeries.reduce((s, p) => s + p.profit, 0) || 1
-  const totalExpected = list.reduce((s, f) => s + deriveExpected(f).expectedProfit, 0)
+  const totalExpected = list.reduce((s, f) => s + viewFormula(f, companyId, analyticsCompanyId).expectedProfit, 0)
 
   return realizedSeries.map((p) => ({
     month: p.month,

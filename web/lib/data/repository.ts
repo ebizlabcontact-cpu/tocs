@@ -41,6 +41,8 @@ export type RangeArgs = {
   range?: DateRange
   customStart?: string
   customEnd?: string
+  /** Selected analytical company perspective (maps to `?analytics=`). */
+  analyticsCompanyId?: string
 }
 
 export const repository = {
@@ -72,12 +74,14 @@ export const repository = {
 
   /* ---- Dashboard KPIs (GET /analytics/kpis) ---- */
   getKpis(scope: string, args: RangeArgs = {}): Promise<Kpi[]> {
-    return ok(mockKpis(scope, args.range ?? "This Year", args.customStart, args.customEnd))
+    return ok(mockKpis(scope, args.range ?? "This Year", args.customStart, args.customEnd, args.analyticsCompanyId))
   },
 
   /* ---- Realized profit series (GET /analytics/profit-series) ---- */
   getProfitSeries(scope: string, args: RangeArgs = {}) {
-    return ok(mockProfitSeries(scope, args.range ?? "This Year", args.customStart, args.customEnd))
+    return ok(
+      mockProfitSeries(scope, args.range ?? "This Year", args.customStart, args.customEnd, args.analyticsCompanyId),
+    )
   },
 
   /* ---- Calendar (GET /calendar) ---- */

@@ -59,7 +59,8 @@ export function ReportsWorkspace() {
   useEffect(() => {
     setAnalyticsId(operatingId)
   }, [operatingId])
-  const companyId = analyticsId
+  // Undefined in "all in scope" mode so adapters fall back to owner totals.
+  const analyticsArg = analyticsId !== operatingId ? analyticsId : undefined
 
   const [view, setView] = useState<"default" | "custom">("default")
   const [period, setPeriod] = useState<DateRange>(globalRange === "Custom Range" ? "Last 30 Days" : globalRange)
@@ -102,9 +103,9 @@ export function ReportsWorkspace() {
       </div>
 
       {view === "default" ? (
-        <DefaultView companyId={companyId} period={period} />
+        <DefaultView operatingId={operatingId} analyticsId={analyticsArg} period={period} />
       ) : (
-        <CustomView companyId={companyId} period={period} setPeriod={setPeriod} />
+        <CustomView operatingId={operatingId} analyticsId={analyticsArg} period={period} setPeriod={setPeriod} />
       )}
     </>
   )
@@ -112,7 +113,15 @@ export function ReportsWorkspace() {
 
 /* ---------------------------------- Default ---------------------------------- */
 
-function DefaultView({ companyId, period }: { companyId: string; period: DateRange }) {
+function DefaultView({
+  operatingId,
+  analyticsId,
+  period,
+}: {
+  operatingId: string
+  analyticsId?: string
+  period: DateRange
+}) {
   const [tab, setTab] = useState("executive")
   return (
     <Tabs value={tab} onValueChange={setTab}>
@@ -123,20 +132,31 @@ function DefaultView({ companyId, period }: { companyId: string; period: DateRan
       </TabsList>
 
       <TabsContent value="executive">
-        <ExecutiveSummaryView companyId={companyId} period={period} />
+        <ExecutiveSummaryView operatingId={operatingId} analyticsId={analyticsId} period={period} />
       </TabsContent>
       <TabsContent value="operational">
-        <OperationalSummaryView companyId={companyId} />
+        <OperationalSummaryView operatingId={operatingId} analyticsId={analyticsId} />
       </TabsContent>
       <TabsContent value="trend">
-        <TrendSummaryView companyId={companyId} period={period} />
+        <TrendSummaryView operatingId={operatingId} analyticsId={analyticsId} period={period} />
       </TabsContent>
     </Tabs>
   )
 }
 
-function ExecutiveSummaryView({ companyId, period }: { companyId: string; period: DateRange }) {
-  const s = useMemo(() => getExecutiveSummary(companyId, period), [companyId, period])
+function ExecutiveSummaryView({
+  operatingId,
+  analyticsId,
+  period,
+}: {
+  operatingId: string
+  analyticsId?: string
+  period: DateRange
+}) {
+  const s = useMemo(
+    () => getExecutiveSummary(operatingId, period, analyticsId),
+    [operatingId, analyticsId, period],
+  )
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -199,8 +219,8 @@ function ExecutiveSummaryView({ companyId, period }: { companyId: string; period
   )
 }
 
-function OperationalSummaryView({ companyId }: { companyId: string }) {
-  const s = useMemo(() => getOperationalSummary(companyId), [companyId])
+function OperationalSummaryView({ operatingId, analyticsId }: { operatingId: string; analyticsId?: string }) {
+  const s = useMemo(() => getOperationalSummary(operatingId, analyticsId), [operatingId, analyticsId])
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-3">
@@ -241,8 +261,19 @@ function OperationalSummaryView({ companyId }: { companyId: string }) {
   )
 }
 
-function TrendSummaryView({ companyId, period }: { companyId: string; period: DateRange }) {
-  const data = useMemo(() => getTrendSummary(companyId, period), [companyId, period])
+function TrendSummaryView({
+  operatingId,
+  analyticsId,
+  period,
+}: {
+  operatingId: string
+  analyticsId?: string
+  period: DateRange
+}) {
+  const data = useMemo(
+    () => getTrendSummary(operatingId, period, analyticsId),
+    [operatingId, analyticsId, period],
+  )
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -307,11 +338,13 @@ function TrendSummaryView({ companyId, period }: { companyId: string; period: Da
 /* ---------------------------------- Custom ---------------------------------- */
 
 function CustomView({
-  companyId,
+  operatingId,
+  analyticsId,
   period,
   setPeriod,
 }: {
-  companyId: string
+  operatingId: string
+  analyticsId?: string
   period: DateRange
   setPeriod: (r: DateRange) => void
 }) {
@@ -319,8 +352,8 @@ function CustomView({
   const [dimension, setDimension] = useState<DimensionKey>("company")
 
   const { rows, total } = useMemo(
-    () => buildGroupedReport(companyId, metric, dimension, period),
-    [companyId, metric, dimension, period],
+    () => buildGroupedReport(operatingId, metric, dimension, period, analyticsId),
+    [operatingId, analyticsId, metric, dimension, period],
   )
   const metricMeta = METRICS.find((m) => m.key === metric)!
 

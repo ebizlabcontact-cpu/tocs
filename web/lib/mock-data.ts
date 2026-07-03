@@ -624,6 +624,18 @@ export function getAccessibleCompanies(operatingId: string): Company[] {
 }
 
 /**
+ * Display name for an analytical company id (owner company OR participant
+ * company). Owner ids resolve against the company master; participant ids
+ * against the registered-company list.
+ */
+export function analyticsCompanyName(id: string): string {
+  const owner = companies.find((c) => c.id === id)
+  if (owner) return owner.name
+  const rc = registeredCompanies.find((c) => c.id === id)
+  return rc?.name ?? id
+}
+
+/**
  * The formula set an analytics view operates on (P0-4).
  *
  * "All in scope" (no analytical company, or it equals the operating scope) →
