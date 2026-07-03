@@ -4,7 +4,14 @@ import { StatusBadge } from "@/components/ui/badge"
 import { CalculationBreakdown } from "./calculation-breakdown"
 import { FormulaChainView } from "./formula-chain"
 import { SettlementScenarios } from "@/components/wizard/settlement-scenarios"
-import { deriveSettlement, sixStatuses, isCloseable } from "@/lib/formula-math"
+import {
+  deriveSettlement,
+  deriveExpected,
+  deriveRealized,
+  scheduleFulfillment,
+  sixStatuses,
+  isCloseable,
+} from "@/lib/formula-math"
 import {
   cashStatusConfig,
   deliveryStatusConfig,
@@ -31,6 +38,11 @@ import {
   Scale,
   CheckCircle2,
   Circle,
+  Ban,
+  Lock,
+  MessageSquare,
+  Link2,
+  AlertTriangle,
 } from "lucide-react"
 
 function SectionEmpty({ label }: { label: string }) {
@@ -104,7 +116,7 @@ function roleGroupLabel(rg?: string) {
   return map[rg] ?? capitalize(rg)
 }
 
-/* ---------------- Schedule ---------------- */
+/* ---------------- Payment Schedules (Tier 1 / planned) ---------------- */
 export function SchedulePanel({ formula }: { formula: Formula }) {
   if (formula.schedule.length === 0) return <SectionEmpty label="No payment schedule yet." />
   return (
@@ -113,17 +125,18 @@ export function SchedulePanel({ formula }: { formula: Formula }) {
         <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5 font-medium">Type</th>
-            <th className="px-4 py-2.5 font-medium">Counterparty</th>
-            <th className="px-4 py-2.5 font-medium">Due</th>
-            <th className="px-4 py-2.5 text-right font-medium">Amount</th>
-            <th className="px-4 py-2.5 text-right font-medium">Progress</th>
+            <th className="px-4 py-2.5 font-medium">Company</th>
+            <th className="px-4 py-2.5 font-medium">Scheduled Date</th>
+            <th className="px-4 py-2.5 text-right font-medium">Planned</th>
+            <th className="px-4 py-2.5 text-right font-medium">Linked Actual</th>
+            <th className="px-4 py-2.5 text-right font-medium">Remaining</th>
             <th className="px-4 py-2.5 font-medium">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {formula.schedule.map((s) => {
             const cfg = scheduleStatusConfig[s.status]
-            const pct = Math.round((s.settledAmount / s.amount) * 100)
+            const fulfil = scheduleFulfillment(formula, s.id, s.amount)
             return (
               <tr key={s.id} className="bg-card">
                 <td className="px-4 py-3">
@@ -142,20 +155,15 @@ export function SchedulePanel({ formula }: { formula: Formula }) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-foreground">{s.counterparty}</td>
-                <td className="px-4 py-3 text-muted-foreground">{formatDate(s.dueDate)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{formatDate(s.scheduledDate ?? s.dueDate)}</td>
                 <td className="px-4 py-3 text-right font-mono tabular-nums text-foreground">
                   {formatCurrency(s.amount)}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-2">
-                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-secondary">
-                      <div
-                        className={cn("h-full rounded-full", s.type === "receipt" ? "bg-success" : "bg-warning")}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="w-9 text-right font-mono text-xs text-muted-foreground">{pct}%</span>
-                  </div>
+                <td className="px-4 py-3 text-right font-mono tabular-nums text-info">
+                  {formatCurrency(fulfil.matchedTotal)}
+                </td>
+                <td className="px-4 py-3 text-right font-mono tabular-nums text-warning">
+                  {formatCurrency(fulfil.remaining)}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge tone={cfg.tone}>{cfg.label}</StatusBadge>
@@ -165,6 +173,106 @@ export function SchedulePanel({ formula }: { formula: Formula }) {
           })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/* ---------------- Payment Records (Tier 2 / actual) ---------------- */
+export function PaymentRecordsPanel({ formula }: { formula: Formula }) {
+  const records = formula.records ?? []
+  if (records.length === 0) return <SectionEmpty label="No actual payment records yet." />
+  const active = records.filter((r) => !r.canceled)
+  const canceled = records.filter((r) => r.canceled)
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <table className="w-full text-sm">
+        <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-4 py-2.5 font-medium">Type</th>
+            <th className="px-4 py-2.5 font-medium">Company</th>
+            <th className="px-4 py-2.5 font-medium">Actual Date</th>
+            <th className="px-4 py-2.5 font-medium">Linked Schedule</th>
+            <th className="px-4 py-2.5 text-right font-medium">Actual Amount</th>
+            <th className="px-4 py-2.5 font-medium">State</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {[...active, ...canceled].map((r) => (
+            <tr key={r.id} className={cn("bg-card", r.canceled && "opacity-60")}>
+              <td className="px-4 py-3">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 font-medium",
+                    r.type === "receipt" ? "text-success" : "text-warning",
+                  )}
+                >
+                  {r.type === "receipt" ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}
+                  {r.type === "receipt" ? "Receipt" : "Payment"}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-foreground">{r.counterparty}</td>
+              <td className="px-4 py-3 text-muted-foreground">{formatDate(r.paidDate)}</td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {r.scheduleId ? (
+                  <span className="inline-flex items-center gap-1 font-mono text-xs">
+                    <Link2 className="size-3.5" />
+                    {r.scheduleId}
+                  </span>
+                ) : (
+                  <span className="text-xs text-warning">Unmatched</span>
+                )}
+              </td>
+              <td
+                className={cn(
+                  "px-4 py-3 text-right font-mono tabular-nums",
+                  r.canceled ? "text-muted-foreground line-through" : "text-foreground",
+                )}
+              >
+                {formatCurrency(r.amount)}
+              </td>
+              <td className="px-4 py-3">
+                {r.canceled ? (
+                  <div className="flex flex-col gap-0.5">
+                    <StatusBadge tone="danger">Canceled</StatusBadge>
+                    {r.cancelReason && <span className="text-[11px] text-muted-foreground">{r.cancelReason}</span>}
+                  </div>
+                ) : (
+                  <StatusBadge tone="success">Confirmed</StatusBadge>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/* ---------------- Payments Tab (P2) ---------------- */
+export function PaymentsPanel({ formula }: { formula: Formula }) {
+  return (
+    <div className="space-y-5">
+      <section>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment Summary</p>
+        <PaymentSummary formula={formula} showRates />
+      </section>
+
+      <section>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Payment Schedules · Planned
+        </p>
+        <SchedulePanel formula={formula} />
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Payment Records · Actual
+          </p>
+          <span className="text-[11px] text-muted-foreground">Canceled records are shown but excluded from totals.</span>
+        </div>
+        <PaymentRecordsPanel formula={formula} />
+      </section>
     </div>
   )
 }
@@ -294,6 +402,132 @@ function OverviewStat({ label, value, tone }: { label: string; value: string; to
   )
 }
 
+/* ---------------- Payment Summary (P1 / P2) ---------------- */
+function FlowRow({
+  tag,
+  label,
+  value,
+  tone,
+}: {
+  tag: "Planned" | "Actual" | "Remaining"
+  label: string
+  value: number
+  tone?: "pos" | "neg" | "muted"
+}) {
+  const tagClass =
+    tag === "Planned"
+      ? "bg-secondary text-muted-foreground"
+      : tag === "Actual"
+        ? "bg-info-soft text-info"
+        : "bg-warning-soft text-warning"
+  return (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", tagClass)}>
+          {tag}
+        </span>
+        <span className="text-sm text-muted-foreground">{label}</span>
+      </div>
+      <span
+        className={cn(
+          "font-mono text-sm tabular-nums",
+          tone === "pos" && "text-success",
+          tone === "neg" && "text-danger",
+          tone === "muted" && "text-muted-foreground",
+          !tone && "text-foreground",
+        )}
+      >
+        {formatCurrency(value)}
+      </span>
+    </div>
+  )
+}
+
+export function PaymentSummary({
+  formula,
+  showProfit = false,
+  showRates = false,
+}: {
+  formula: Formula
+  showProfit?: boolean
+  showRates?: boolean
+}) {
+  const s = deriveSettlement(formula)
+  const realized = deriveRealized(formula)
+  const expected = deriveExpected(formula)
+  return (
+    <div className="space-y-3">
+      {showProfit && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Expected Net Profit</p>
+            <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-foreground">
+              {formatCurrency(expected.expectedProfit)}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Total Sell − Total Buy − Costs − Share</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Realized Net Profit</p>
+            <p
+              className={cn(
+                "mt-1 font-mono text-lg font-semibold tabular-nums",
+                realized.realizedProfit >= 0 ? "text-success" : "text-danger",
+              )}
+            >
+              {formatCurrency(realized.realizedProfit)}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Actual Receipts − Actual Payments</p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="mb-1 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <ArrowDownLeft className="size-3.5 text-success" />
+              Receipts (In)
+            </p>
+            {showRates && (
+              <span className="font-mono text-xs text-muted-foreground">
+                {Math.round(s.receiptRate * 100)}% collected
+              </span>
+            )}
+          </div>
+          <div className="divide-y divide-border">
+            <FlowRow tag="Planned" label="Scheduled Receipts" value={s.scheduledReceipts} tone="muted" />
+            <FlowRow tag="Actual" label="Actual Receipts" value={s.actualReceipts} tone="pos" />
+            <FlowRow tag="Remaining" label="Receivable" value={s.remainingReceivable} />
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="mb-1 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <ArrowUpRight className="size-3.5 text-warning" />
+              Payments (Out)
+            </p>
+            {showRates && (
+              <span className="font-mono text-xs text-muted-foreground">
+                {Math.round(s.paymentRate * 100)}% paid
+              </span>
+            )}
+          </div>
+          <div className="divide-y divide-border">
+            <FlowRow tag="Planned" label="Scheduled Payments" value={s.scheduledPayments} tone="muted" />
+            <FlowRow tag="Actual" label="Actual Payments" value={s.actualPayments} />
+            <FlowRow tag="Remaining" label="Payable" value={s.remainingPayable} />
+          </div>
+        </div>
+      </div>
+
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Planned = Payment Schedule · Actual = Payment Record · Remaining = Scheduled − Actual. Realized profit is derived
+        from actual payment records.
+      </p>
+    </div>
+  )
+}
+
 /* ---------------- Six-status model (P0-6) ---------------- */
 function SixStatusGrid({ formula }: { formula: Formula }) {
   const statuses = sixStatuses(formula)
@@ -404,6 +638,14 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
       <FormulaChainView formula={formula} />
 
       <div>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment Summary</p>
+        <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+          Planned receipts/payments versus actual records, and what remains outstanding.
+        </p>
+        <PaymentSummary formula={formula} showProfit showRates />
+      </div>
+
+      <div>
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Profit Transparency
         </p>
@@ -505,136 +747,148 @@ function TierAmount({ label, value, tone }: { label: string; value: number; tone
   )
 }
 
+/* Read-only mock action row for append-only settlement adjustments (P3). */
+function AdjustmentAction({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  description: string
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-card p-4">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+        <Icon className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{description}</p>
+      </div>
+      <span className="shrink-0 rounded-md border border-border px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+        Preview
+      </span>
+    </div>
+  )
+}
+
 export function SettlementPanel({ formula }: { formula: Formula }) {
   const s = deriveSettlement(formula)
-  const activeRecords = (formula.records ?? []).filter((r) => !r.canceled)
-  const canceledRecords = (formula.records ?? []).filter((r) => r.canceled)
-  const receiptPct = formula.totalSell > 0 ? Math.round((s.actualReceipts / formula.totalSell) * 100) : 0
-  const paymentPct = formula.totalBuy > 0 ? Math.round((s.actualPayments / formula.totalBuy) * 100) : 0
+  const closeable = isCloseable(formula)
+  const unmatchedPayments = (formula.records ?? []).filter((r) => !r.canceled && !r.scheduleId)
+  const invoiceUnmatched = formula.invoiceStatus !== "complete"
+  const hasUnresolved = s.remainingReceivable > 0 || s.remainingPayable > 0 || unmatchedPayments.length > 0 || invoiceUnmatched
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
-        <Scale className="size-4 shrink-0 text-accent" />
-        Two-tier settlement: <span className="font-medium text-foreground">Payment Schedule</span> is planned; the{" "}
-        <span className="font-medium text-foreground">Payment Record</span> is actual. Realized profit derives from actual
-        records only.
-      </div>
-
-      {/* Tier 1 (scheduled) vs Tier 2 (actual) */}
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-5">
+      {/* 1. Settlement Status */}
+      <section>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Settlement Status</p>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Scheduled (Plan)
-          </p>
-          <div className="divide-y divide-border">
-            <TierAmount label="Scheduled Receipts" value={s.scheduledReceipts} tone="muted" />
-            <TierAmount label="Scheduled Payments" value={s.scheduledPayments} tone="muted" />
-          </div>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Actual (Record)
-          </p>
-          <div className="divide-y divide-border">
-            <TierAmount label="Actual Receipts" value={s.actualReceipts} tone="pos" />
-            <TierAmount label="Actual Payments" value={s.actualPayments} />
-          </div>
-        </div>
-      </div>
-
-      {/* Settlement progress */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Receipts Settled</p>
-            <span className="font-mono text-xs text-muted-foreground">{receiptPct}%</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-success" style={{ width: `${Math.min(100, receiptPct)}%` }} />
-          </div>
-          <p className="mt-2 font-mono text-xs text-muted-foreground">
-            {formatCurrency(s.actualReceipts)} / {formatCurrency(formula.totalSell)}
-          </p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Payments Settled</p>
-            <span className="font-mono text-xs text-muted-foreground">{paymentPct}%</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-warning" style={{ width: `${Math.min(100, paymentPct)}%` }} />
-          </div>
-          <p className="mt-2 font-mono text-xs text-muted-foreground">
-            {formatCurrency(s.actualPayments)} / {formatCurrency(formula.totalBuy)}
-          </p>
-        </div>
-      </div>
-
-      {/* Payment records (Tier 2) */}
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment Records</p>
-        {activeRecords.length + canceledRecords.length === 0 ? (
-          <SectionEmpty label="No actual payment records yet." />
-        ) : (
-          <div className="space-y-2">
-            {[...activeRecords, ...canceledRecords].map((r) => (
-              <div
-                key={r.id}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3",
-                  r.canceled && "opacity-60",
-                )}
-              >
-                <span className={cn("font-medium", r.type === "receipt" ? "text-success" : "text-warning")}>
-                  {r.type === "receipt" ? (
-                    <ArrowDownLeft className="size-4" />
-                  ) : (
-                    <ArrowUpRight className="size-4" />
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-foreground">{r.counterparty}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(r.paidDate)}</p>
-                </div>
-                {r.canceled && <StatusBadge tone="danger">Canceled</StatusBadge>}
-                <span
-                  className={cn(
-                    "font-mono text-sm tabular-nums",
-                    r.canceled ? "text-muted-foreground line-through" : "text-foreground",
-                  )}
-                >
-                  {formatCurrency(r.amount)}
-                </span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              {formula.isClosed ? (
+                <Lock className="size-5 text-success" />
+              ) : (
+                <Scale className="size-5 text-accent" />
+              )}
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {formula.isClosed ? "Closed" : "Not Closed"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formula.isClosed
+                    ? "Original trade data is immutable. Settlement adjustments are append-only."
+                    : closeable
+                      ? "All six statuses matched — ready to close."
+                      : "Close condition not yet met (6/6 statuses required)."}
+                </p>
               </div>
-            ))}
+            </div>
+            <StatusBadge tone={formula.isClosed ? "success" : closeable ? "success" : "outline"}>
+              {formula.isClosed ? "Closed" : closeable ? "Ready to close" : "Open"}
+            </StatusBadge>
           </div>
-        )}
-      </div>
+          {hasUnresolved && !formula.isClosed && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 text-xs text-warning">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              Unresolved balances remain. Resolve receivable, payable, unmatched, and invoice items before closing.
+            </div>
+          )}
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <SettlementCheck label="All receipts collected" done={s.remainingReceivable === 0} />
+            <SettlementCheck label="All payments cleared" done={s.remainingPayable === 0} />
+            <SettlementCheck label="Invoices matched" done={!invoiceUnmatched} />
+            <SettlementCheck label="Ready to close (6/6)" done={closeable} />
+          </div>
+        </div>
+      </section>
 
-      <div className="rounded-lg border border-border bg-secondary/40 p-4">
-        <div className="flex items-center gap-2">
-          <Scale className="size-4 text-accent" />
-          <p className="text-sm font-semibold text-foreground">Net Position</p>
+      {/* 2. Remaining Balances */}
+      <section>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Remaining Balances</p>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="divide-y divide-border">
+            <TierAmount label="Receivable (Scheduled − Actual Receipts)" value={s.remainingReceivable} tone="muted" />
+            <TierAmount label="Payable (Scheduled − Actual Payments)" value={s.remainingPayable} tone="muted" />
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Unmatched Payments</span>
+              <span className={cn("font-mono", unmatchedPayments.length > 0 ? "text-warning" : "text-muted-foreground")}>
+                {unmatchedPayments.length}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Invoice Unmatched</span>
+              <span className={cn("font-mono", invoiceUnmatched ? "text-warning" : "text-muted-foreground")}>
+                {invoiceUnmatched ? "Yes" : "No"}
+              </span>
+            </div>
+          </div>
+          {s.canceledCount > 0 && (
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              {s.canceledCount} canceled record{s.canceledCount === 1 ? "" : "s"} ({formatCurrency(s.canceledAmount)})
+              excluded from realized totals.
+            </p>
+          )}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <OverviewStat label="Remaining Receivable" value={formatCurrency(s.remainingReceivable)} />
-          <OverviewStat label="Remaining Payable" value={formatCurrency(s.remainingPayable)} />
-        </div>
-      </div>
+      </section>
 
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Settlement Checklist</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <SettlementCheck label="All receipts collected" done={s.remainingReceivable === 0} />
-          <SettlementCheck label="All payments cleared" done={s.remainingPayable === 0} />
-          <SettlementCheck label="Invoices matched" done={formula.invoiceStatus === "complete"} />
-          <SettlementCheck label="Ready to close (6/6)" done={isCloseable(formula)} />
+      {/* 3. Append-only Settlement Adjustments (mock UI) */}
+      <section>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Settlement Adjustments · Append-only
+        </p>
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
+          <Lock className="mt-0.5 size-4 shrink-0 text-accent" />
+          Closed formulas cannot directly modify original trade data. Settlement adjustments are append-only.
         </div>
-      </div>
+        <div className="space-y-2">
+          <AdjustmentAction
+            icon={Plus}
+            title="Add actual payment record"
+            description="Append a new receipt or payment record matched to a schedule. Original trade data is untouched."
+          />
+          <AdjustmentAction
+            icon={Ban}
+            title="Cancel payment record"
+            description="Mark an existing record canceled with a reason. It stays visible but is excluded from realized totals."
+          />
+          <AdjustmentAction
+            icon={MessageSquare}
+            title="Settlement note / issue log"
+            description="Record a settlement note or dispute for audit history without mutating the formula."
+          />
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          These are preview-only affordances. Authoritative mutations run in backend services after integration.
+        </p>
+      </section>
 
       <div className="rounded-lg border border-border bg-card p-4">
-        <SettlementScenarios expectedReceipts={formula.totalSell} expectedPayments={formula.totalBuy} />
+        <SettlementScenarios expectedReceipts={s.scheduledReceipts} expectedPayments={s.scheduledPayments} />
       </div>
     </div>
   )

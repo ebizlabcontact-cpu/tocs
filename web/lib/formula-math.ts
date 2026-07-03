@@ -69,14 +69,28 @@ export type SettlementDerivation = {
   canceledAmount: number
   remainingReceivable: number
   remainingPayable: number
+  /** Actual Receipts ÷ Scheduled Receipts (0–1). */
+  receiptRate: number
+  /** Actual Payments ÷ Scheduled Payments (0–1). */
+  paymentRate: number
 }
 
-/** Two-tier settlement rollup (P0-5): planned schedule vs actual records. */
+/**
+ * Two-tier settlement rollup (P0-5): planned schedule vs actual records.
+ *
+ * Domain definitions (TOCS):
+ *   Receivable = Scheduled Receipts − Actual Receipts
+ *   Payable    = Scheduled Payments − Actual Payments
+ * Scheduled receipts/payments equal Total Sell / Total Buy in a well-formed
+ * Formula, so these reconcile with the canonical Expected figures.
+ */
 export function deriveSettlement(f: Formula): SettlementDerivation {
   const scheduledReceipts = f.schedule.filter((s) => s.type === "receipt").reduce((s, x) => s + x.amount, 0)
   const scheduledPayments = f.schedule.filter((s) => s.type === "payment").reduce((s, x) => s + x.amount, 0)
   const { actualReceipts, actualPayments } = deriveRealized(f)
   const canceled = (f.records ?? []).filter((r) => r.canceled)
+  const receiptBase = scheduledReceipts || f.totalSell
+  const paymentBase = scheduledPayments || f.totalBuy
   return {
     scheduledReceipts,
     scheduledPayments,
@@ -84,9 +98,21 @@ export function deriveSettlement(f: Formula): SettlementDerivation {
     actualPayments,
     canceledCount: canceled.length,
     canceledAmount: canceled.reduce((s, r) => s + r.amount, 0),
-    remainingReceivable: Math.max(0, f.totalSell - actualReceipts),
-    remainingPayable: Math.max(0, f.totalBuy - actualPayments),
+    remainingReceivable: Math.max(0, receiptBase - actualReceipts),
+    remainingPayable: Math.max(0, paymentBase - actualPayments),
+    receiptRate: receiptBase > 0 ? actualReceipts / receiptBase : 0,
+    paymentRate: paymentBase > 0 ? actualPayments / paymentBase : 0,
   }
+}
+
+/**
+ * Rolls up actual (non-canceled) records matched to a schedule item, plus the
+ * remaining amount for that schedule. Canceled records are excluded (P4).
+ */
+export function scheduleFulfillment(f: Formula, scheduleId: string, scheduledAmount: number) {
+  const matched = (f.records ?? []).filter((r) => !r.canceled && r.scheduleId === scheduleId)
+  const matchedTotal = matched.reduce((s, r) => s + r.amount, 0)
+  return { matchedTotal, remaining: Math.max(0, scheduledAmount - matchedTotal), count: matched.length }
 }
 
 /* ---------------- Six-status model (P0-6) ---------------- */

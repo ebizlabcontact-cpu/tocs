@@ -177,7 +177,9 @@ function buildSettlement(
       counterparty: receiptCp,
       amount: Math.round(totalSell * 0.1),
       paidDate: new Date(now - daysAgo * DAY).toISOString(),
+      scheduleId: "s1",
       canceled: true,
+      cancelReason: "Duplicate entry — reversed by finance",
     })
   }
 

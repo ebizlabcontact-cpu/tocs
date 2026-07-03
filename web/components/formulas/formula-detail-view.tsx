@@ -20,6 +20,7 @@ import {
 import type { Formula } from "@/lib/types"
 import { formatCurrency, formatRelative, cn } from "@/lib/utils"
 import { statusConfig, tradeTypeConfig } from "@/lib/status"
+import { deriveSettlement } from "@/lib/formula-math"
 import { useCompany } from "@/components/company-context"
 import { StatusBadge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -28,7 +29,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FormulaEquation } from "./formula-equation"
 import {
   ParticipantsPanel,
-  SchedulePanel,
+  PaymentsPanel,
   InvoicesPanel,
   LogisticsPanel,
   TimelinePanel,
@@ -61,6 +62,7 @@ const WRITE_HINT = "Select a company to perform write actions."
 export function FormulaDetailView({ formula }: { formula: Formula }) {
   const [tab, setTab] = useState("overview")
   const status = statusConfig[formula.status]
+  const settlement = deriveSettlement(formula)
   const { isAllCompanies } = useCompany()
 
   return (
@@ -138,10 +140,10 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <FormulaEquation formula={formula} />
         <div className="grid grid-cols-2 gap-3 self-start">
-          <MetricPill label="Actual Receipts" value={formatCurrency(formula.actualReceipts)} tone="pos" />
-          <MetricPill label="Actual Payments" value={formatCurrency(formula.actualPayments)} />
-          <MetricPill label="Receivable" value={formatCurrency(formula.receivable)} />
-          <MetricPill label="Payable" value={formatCurrency(formula.payable)} />
+          <MetricPill label="Actual Receipts" value={formatCurrency(settlement.actualReceipts)} tone="pos" />
+          <MetricPill label="Actual Payments" value={formatCurrency(settlement.actualPayments)} />
+          <MetricPill label="Receivable" value={formatCurrency(settlement.remainingReceivable)} />
+          <MetricPill label="Payable" value={formatCurrency(settlement.remainingPayable)} />
         </div>
       </div>
 
@@ -198,7 +200,7 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
               <ParticipantsPanel formula={formula} />
             </TabsContent>
             <TabsContent value="payments">
-              <SchedulePanel formula={formula} />
+              <PaymentsPanel formula={formula} />
             </TabsContent>
             <TabsContent value="invoices">
               <InvoicesPanel formula={formula} />

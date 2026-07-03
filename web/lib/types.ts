@@ -211,6 +211,8 @@ export type PaymentRecord = {
   /** Optional link back to the schedule item this record fulfils. */
   scheduleId?: string
   canceled?: boolean
+  /** Reason a record was canceled (shown but excluded from realized totals). */
+  cancelReason?: string
 }
 
 export type InvoiceRecord = {
