@@ -15,7 +15,14 @@ import type {
   VersionEntry,
 } from "./types"
 import { deriveChainFinancials } from "./derive"
-import { isCloseable, deriveRealized, deriveSettlement } from "./formula-math"
+import {
+  isCloseable,
+  deriveRealized,
+  deriveSettlement,
+  isPerspective,
+  viewFormula,
+  perspectiveScheduleItems,
+} from "./formula-math"
 
 export const companies: Company[] = [
   { id: "all", name: "All Companies", shortName: "ALL", color: "#f59e0b" },
@@ -81,6 +88,15 @@ const tradeItems: { name: string; memo: string }[] = [
 ]
 
 const counterparties = registeredCompanies.map((c) => c.name)
+
+/**
+ * Stable company identity for a participant (P0-1). Every participant used in
+ * Formula analytics resolves to a registered company id via its name, so a
+ * company can be analyzed from its own perspective even when it is only ever a
+ * participant (never a formula owner).
+ */
+const registeredIdByName = new Map(registeredCompanies.map((c) => [c.name, c.id]))
+const companyIdForParticipant = (name: string): string | undefined => registeredIdByName.get(name)
 
 const tradeTypes: TradeType[] = ["import", "export", "domestic", "triangular"]
 
@@ -217,6 +233,7 @@ function buildFormula(i: number): Formula {
     {
       id: "p1",
       sequenceOrder: 0,
+      companyId: companyIdForParticipant(originCp),
       name: originCp,
       company: originCp,
       roleGroup: "supplier",
@@ -236,6 +253,7 @@ function buildFormula(i: number): Formula {
     {
       id: "p2",
       sequenceOrder: 1,
+      companyId: companyIdForParticipant(traderCp),
       name: traderCp,
       company: traderCp,
       roleGroup: "other",
@@ -255,6 +273,7 @@ function buildFormula(i: number): Formula {
     {
       id: "p3",
       sequenceOrder: 2,
+      companyId: companyIdForParticipant(buyerCp),
       name: buyerCp,
       company: buyerCp,
       roleGroup: "buyer",
@@ -504,11 +523,11 @@ function buildChainFormula(): Formula {
 
   const formulaQuantity = 500
   const participants: Participant[] = [
-    { id: "cp1", sequenceOrder: 0, name: "CJ CheilJedang", company: "CJ CheilJedang", roleGroup: "supplier", natureGroup: "manufacturer", paymentGroup: "prepaid", quantity: 500, buyUnitPrice: 0, sellUnitPrice: 920000, isStart: true, isEnd: false, role: "seller", nature: "Manufacturer", chainOrder: 0, buyPrice: 0, sellPrice: 920000 },
-    { id: "cp2", sequenceOrder: 1, name: "GeoWorks", company: "GeoWorks", roleGroup: "other", natureGroup: "distributor", paymentGroup: "credit", quantity: 500, buyUnitPrice: 920000, sellUnitPrice: 948000, isStart: false, isEnd: false, role: "agent", nature: "Distributor", chainOrder: 1, buyPrice: 920000, sellPrice: 948000 },
-    { id: "cp3", sequenceOrder: 2, name: "Nature Insight", company: "Nature Insight", roleGroup: "other", natureGroup: "trading", paymentGroup: "credit", quantity: 300, buyUnitPrice: 948000, sellUnitPrice: 985000, isStart: false, isEnd: false, role: "agent", nature: "Trading Company", chainOrder: 2, buyPrice: 948000, sellPrice: 985000 },
-    { id: "cp4", sequenceOrder: 3, name: "Logistics Partner", company: "Logistics Partner", roleGroup: "carrier", natureGroup: "logistics", paymentGroup: "postpaid", quantity: 500, buyUnitPrice: 985000, sellUnitPrice: 992000, isStart: false, isEnd: false, role: "logistics", nature: "Logistics Company", chainOrder: 3, buyPrice: 985000, sellPrice: 992000 },
-    { id: "cp5", sequenceOrder: 4, name: "Eco & Recycle", company: "Eco & Recycle", roleGroup: "buyer", natureGroup: "buyer", paymentGroup: "credit", quantity: 500, buyUnitPrice: 992000, sellUnitPrice: 0, isStart: false, isEnd: true, role: "buyer", nature: "Buyer", chainOrder: 4, buyPrice: 992000, sellPrice: 0 },
+    { id: "cp1", sequenceOrder: 0, companyId: companyIdForParticipant("CJ CheilJedang"), name: "CJ CheilJedang", company: "CJ CheilJedang", roleGroup: "supplier", natureGroup: "manufacturer", paymentGroup: "prepaid", quantity: 500, buyUnitPrice: 0, sellUnitPrice: 920000, isStart: true, isEnd: false, role: "seller", nature: "Manufacturer", chainOrder: 0, buyPrice: 0, sellPrice: 920000 },
+    { id: "cp2", sequenceOrder: 1, companyId: companyIdForParticipant("GeoWorks"), name: "GeoWorks", company: "GeoWorks", roleGroup: "other", natureGroup: "distributor", paymentGroup: "credit", quantity: 500, buyUnitPrice: 920000, sellUnitPrice: 948000, isStart: false, isEnd: false, role: "agent", nature: "Distributor", chainOrder: 1, buyPrice: 920000, sellPrice: 948000 },
+    { id: "cp3", sequenceOrder: 2, companyId: companyIdForParticipant("Nature Insight"), name: "Nature Insight", company: "Nature Insight", roleGroup: "other", natureGroup: "trading", paymentGroup: "credit", quantity: 300, buyUnitPrice: 948000, sellUnitPrice: 985000, isStart: false, isEnd: false, role: "agent", nature: "Trading Company", chainOrder: 2, buyPrice: 948000, sellPrice: 985000 },
+    { id: "cp4", sequenceOrder: 3, companyId: companyIdForParticipant("Logistics Partner"), name: "Logistics Partner", company: "Logistics Partner", roleGroup: "carrier", natureGroup: "logistics", paymentGroup: "postpaid", quantity: 500, buyUnitPrice: 985000, sellUnitPrice: 992000, isStart: false, isEnd: false, role: "logistics", nature: "Logistics Company", chainOrder: 3, buyPrice: 985000, sellPrice: 992000 },
+    { id: "cp5", sequenceOrder: 4, companyId: companyIdForParticipant("Eco & Recycle"), name: "Eco & Recycle", company: "Eco & Recycle", roleGroup: "buyer", natureGroup: "buyer", paymentGroup: "credit", quantity: 500, buyUnitPrice: 992000, sellUnitPrice: 0, isStart: false, isEnd: true, role: "buyer", nature: "Buyer", chainOrder: 4, buyPrice: 992000, sellPrice: 0 },
   ]
 
   const logisticsCost = 3000000
@@ -578,15 +597,44 @@ export function getFormulasByCompany(companyId: string): Formula[] {
 }
 
 /**
- * Companies that appear at least once inside the currently accessible Formula
- * set (i.e. the formulas visible under the given operating scope). This powers
- * the Dashboard / Reports analytical company filter — never the full company
- * master. Formula First: the option list is derived from Formula data.
+ * Analytical companies derivable from the currently accessible Formula set: the
+ * distinct PARTICIPANT companies appearing inside the formulas visible under the
+ * operating scope (P0-3) — never the owner companies and never the full company
+ * master. A company that only ever participates (never owns a formula) is still
+ * listed here, so it can be analyzed from its own perspective.
  */
 export function getAccessibleCompanies(operatingId: string): Company[] {
   const accessible = getFormulasByCompany(operatingId)
-  const ids = new Set(accessible.map((f) => f.companyId))
-  return companies.filter((c) => c.id !== "all" && ids.has(c.id))
+  const ids = new Set<string>()
+  for (const f of accessible) {
+    for (const p of f.participants) {
+      if (p.companyId) ids.add(p.companyId)
+    }
+  }
+  return [...ids].map((id) => {
+    const rc = registeredCompanies.find((c) => c.id === id)
+    const name = rc?.name ?? id
+    return {
+      id,
+      name,
+      shortName: name.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase() || name.slice(0, 2).toUpperCase(),
+      color: "#64748b",
+    }
+  })
+}
+
+/**
+ * The formula set an analytics view operates on (P0-4).
+ *
+ * "All in scope" (no analytical company, or it equals the operating scope) →
+ * every formula owned under the operating scope. A selected analytical company →
+ * only formulas in which that company actually participates. Perspective figures
+ * are then produced per formula via `viewFormula` / `derivePerspectiveMetrics`.
+ */
+export function getAnalyticsFormulas(operatingId: string, analyticsCompanyId?: string): Formula[] {
+  const base = getFormulasByCompany(operatingId)
+  if (!isPerspective(operatingId, analyticsCompanyId)) return base
+  return base.filter((f) => f.participants.some((p) => p.companyId === analyticsCompanyId))
 }
 
 export function getFormula(id: string): Formula | undefined {
@@ -648,44 +696,82 @@ export function filterFormulasByRange(
   })
 }
 
-/** Dashboard KPIs — REALIZED profit only, never estimated. Filtered by real date window (P0-2). */
+/**
+ * Dashboard KPIs — REALIZED profit only, never estimated. Filtered by real date
+ * window (P0-2). When `analyticsCompanyId` selects a participant company, every
+ * financial figure is that company's perspective (P0-2/P0-4): profit/loss from
+ * its recorded cash, receivable/payable and upcoming flows from the settlement
+ * rows that reference it. Operational counts (closeable, unmatched) stay
+ * formula-level over the participating set. Drill-downs carry the active context
+ * (P0-5).
+ */
 export function getKpis(
   companyId: string,
   range: DateRange = "This Year",
   customStart?: string,
   customEnd?: string,
+  analyticsCompanyId?: string,
 ): Kpi[] {
-  const list = filterFormulasByRange(getFormulasByCompany(companyId), range, customStart, customEnd)
+  const list = filterFormulasByRange(
+    getAnalyticsFormulas(companyId, analyticsCompanyId),
+    range,
+    customStart,
+    customEnd,
+  )
+  const perspective = isPerspective(companyId, analyticsCompanyId)
 
-  // Route aggregates through the canonical adapters so KPIs re-derive from
-  // participant chains and settlement records (never stored profit fields).
-  const realized = list.map(deriveRealized)
-  const settlement = list.map(deriveSettlement)
-  const realizedProfit = realized.filter((r) => r.realizedProfit > 0).reduce((s, r) => s + r.realizedProfit, 0)
-  const totalLoss = realized.filter((r) => r.realizedProfit < 0).reduce((s, r) => s + r.realizedProfit, 0)
-  const receivable = settlement.reduce((s, r) => s + r.remainingReceivable, 0)
-  const payable = settlement.reduce((s, r) => s + r.remainingPayable, 0)
-  const upcomingReceipts = list
-    .flatMap((x) => x.schedule)
-    .filter((s) => s.type === "receipt" && s.status !== "settled")
+  // Route aggregates through the shared adapter so KPIs re-derive from
+  // participant chains and settlement records (never stored profit fields), and
+  // so Dashboard + Reports share one definition.
+  const views = list.map((f) => viewFormula(f, companyId, analyticsCompanyId))
+  const realizedProfit = views.filter((v) => v.realizedProfit > 0).reduce((s, v) => s + v.realizedProfit, 0)
+  const totalLoss = views.filter((v) => v.realizedProfit < 0).reduce((s, v) => s + v.realizedProfit, 0)
+  const receivable = views.reduce((s, v) => s + v.receivable, 0)
+  const payable = views.reduce((s, v) => s + v.payable, 0)
+
+  // Upcoming flows: reinterpreted from the selected company's viewpoint in
+  // perspective mode, otherwise the owning desk's own schedule.
+  const scheduleRows = perspective
+    ? list.flatMap((f) => perspectiveScheduleItems(f, analyticsCompanyId as string))
+    : list.flatMap((f) => f.schedule.map((s) => ({ ...s, perspectiveType: s.type })))
+  const upcomingReceipts = scheduleRows
+    .filter((s) => s.perspectiveType === "receipt" && s.status !== "settled")
     .reduce((s, x) => s + (x.amount - x.settledAmount), 0)
-  const upcomingPayments = list
-    .flatMap((x) => x.schedule)
-    .filter((s) => s.type === "payment" && s.status !== "settled")
+  const upcomingPayments = scheduleRows
+    .filter((s) => s.perspectiveType === "payment" && s.status !== "settled")
     .reduce((s, x) => s + (x.amount - x.settledAmount), 0)
+
   const closeable = list.filter((x) => x.closeable).length
   const unmatched = list.filter((x) => x.invoiceStatus === "unmatched").length
 
+  const ctx = analyticsDrillContext(companyId, range, analyticsCompanyId)
   return [
-    { key: "realized", label: "Realized Profit", value: realizedProfit, currency: true, delta: 12.4, intent: "success", drillTo: "/formulas?filter=profit" },
-    { key: "loss", label: "Total Loss", value: totalLoss, currency: true, delta: -4.1, intent: "danger", drillTo: "/formulas?filter=loss" },
-    { key: "receivable", label: "Accounts Receivable", value: receivable, currency: true, intent: "info", drillTo: "/formulas?filter=receivable" },
-    { key: "payable", label: "Accounts Payable", value: payable, currency: true, intent: "warning", drillTo: "/formulas?filter=payable" },
-    { key: "up-receipts", label: "Upcoming Receipts", value: upcomingReceipts, currency: true, intent: "info", drillTo: "/calendar?type=receipt" },
-    { key: "up-payments", label: "Upcoming Payments", value: upcomingPayments, currency: true, intent: "warning", drillTo: "/calendar?type=payment" },
-    { key: "closeable", label: "Closeable Formulas", value: closeable, count: true, intent: "success", drillTo: "/formulas?filter=closeable" },
-    { key: "unmatched", label: "Invoice Unmatched", value: unmatched, count: true, intent: "danger", drillTo: "/formulas?filter=unmatched" },
+    { key: "realized", label: "Realized Profit", value: realizedProfit, currency: true, delta: 12.4, intent: "success", drillTo: `/formulas?filter=profit${ctx}` },
+    { key: "loss", label: "Total Loss", value: totalLoss, currency: true, delta: -4.1, intent: "danger", drillTo: `/formulas?filter=loss${ctx}` },
+    { key: "receivable", label: "Accounts Receivable", value: receivable, currency: true, intent: "info", drillTo: `/formulas?filter=receivable${ctx}` },
+    { key: "payable", label: "Accounts Payable", value: payable, currency: true, intent: "warning", drillTo: `/formulas?filter=payable${ctx}` },
+    { key: "up-receipts", label: "Upcoming Receipts", value: upcomingReceipts, currency: true, intent: "info", drillTo: `/calendar?type=receipt${ctx}` },
+    { key: "up-payments", label: "Upcoming Payments", value: upcomingPayments, currency: true, intent: "warning", drillTo: `/calendar?type=payment${ctx}` },
+    { key: "closeable", label: "Closeable Formulas", value: closeable, count: true, intent: "success", drillTo: `/formulas?filter=closeable${ctx}` },
+    { key: "unmatched", label: "Invoice Unmatched", value: unmatched, count: true, intent: "danger", drillTo: `/formulas?filter=unmatched${ctx}` },
   ]
+}
+
+/**
+ * Shared drill-down context suffix (P0-5): preserves operating scope, analytical
+ * company and date range so the target screen can restore the same view. Always
+ * begins with `&` since callers append it after an existing query param.
+ */
+export function analyticsDrillContext(
+  operatingId: string,
+  range: DateRange,
+  analyticsCompanyId?: string,
+): string {
+  const params = new URLSearchParams()
+  params.set("company", operatingId)
+  params.set("range", range)
+  if (isPerspective(operatingId, analyticsCompanyId)) params.set("analytics", analyticsCompanyId as string)
+  return `&${params.toString()}`
 }
 
 /**
@@ -698,8 +784,14 @@ export function getProfitSeries(
   range: DateRange = "This Year",
   customStart?: string,
   customEnd?: string,
+  analyticsCompanyId?: string,
 ) {
-  const list = filterFormulasByRange(getFormulasByCompany(companyId), range, customStart, customEnd)
+  const list = filterFormulasByRange(
+    getAnalyticsFormulas(companyId, analyticsCompanyId),
+    range,
+    customStart,
+    customEnd,
+  )
   const { start, end } = getRangeWindow(range, customStart, customEnd)
 
   // Choose bucket granularity by window length.
@@ -727,7 +819,7 @@ export function getProfitSeries(
         const t = Date.parse(f.tradeDate ?? f.createdAt)
         return t >= from && t < to
       })
-      .reduce((s, f) => s + deriveRealized(f).realizedProfit, 0)
+      .reduce((s, f) => s + viewFormula(f, companyId, analyticsCompanyId).realizedProfit, 0)
     const label = labelFor(from, to) || `Week ${i + 1}`
     series.push({ month: label, profit: Math.round(profit) })
   }
@@ -854,17 +946,40 @@ export function getVersionHistory(formula: Formula): VersionEntry[] {
   })
 }
 
-export function getLossRanking(companyId: string) {
-  return getFormulasByCompany(companyId)
+/**
+ * Loss-formula ranking. In perspective mode a formula's loss is judged from the
+ * selected company's recorded cash (P0-2); otherwise from the owning desk's
+ * realized profit. Returns each formula with the perspective-scoped realized
+ * value used for ranking so callers render the right figure.
+ */
+export function getLossRanking(companyId: string, analyticsCompanyId?: string) {
+  return getAnalyticsFormulas(companyId, analyticsCompanyId)
+    .map((f) => ({ ...f, realizedProfit: viewFormula(f, companyId, analyticsCompanyId).realizedProfit }))
     .filter((f) => f.realizedProfit < 0)
     .sort((a, b) => a.realizedProfit - b.realizedProfit)
     .slice(0, 5)
 }
 
-export function getCashflowTimeline(companyId: string, type: "receipt" | "payment") {
-  return getFormulasByCompany(companyId)
-    .flatMap((f) => f.schedule.map((s) => ({ ...s, formula: f.number, item: f.item })))
-    .filter((s) => s.type === type && s.status !== "settled")
+/**
+ * Upcoming settlement rows for the cashflow timeline. In perspective mode the
+ * rows are reinterpreted from the selected company's viewpoint (the desk's
+ * receipt is the counterparty's payment, and vice-versa) and scoped to that
+ * company; otherwise they are the owning desk's own schedule.
+ */
+export function getCashflowTimeline(
+  companyId: string,
+  type: "receipt" | "payment",
+  analyticsCompanyId?: string,
+) {
+  const perspective = isPerspective(companyId, analyticsCompanyId)
+  return getAnalyticsFormulas(companyId, analyticsCompanyId)
+    .flatMap((f) => {
+      const rows = perspective
+        ? perspectiveScheduleItems(f, analyticsCompanyId as string)
+        : f.schedule.map((s) => ({ ...s, perspectiveType: s.type }))
+      return rows.map((s) => ({ ...s, formula: f.number, item: f.item }))
+    })
+    .filter((s) => s.perspectiveType === type && s.status !== "settled")
     .sort((a, b) => Date.parse(a.dueDate) - Date.parse(b.dueDate))
     .slice(0, 6)
 }

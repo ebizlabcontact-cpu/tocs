@@ -1,4 +1,4 @@
-import type { Formula, InvoiceRecord, InvoiceStatus, VersionEntry } from "./types"
+import type { Formula, InvoiceRecord, InvoiceStatus, PaymentScheduleItem, VersionEntry } from "./types"
 import { formatCurrency } from "./utils"
 
 /**
@@ -440,5 +440,174 @@ export function deriveFxPreview(f: Formula): FxPreview | null {
     adjustedRate,
     convertedSellTotal: f.totalSell,
     convertedBuyTotal: f.totalBuy,
+  }
+}
+
+/* ---------------- Analytical company perspective (P0-2) ---------------- */
+
+/**
+ * Per-node accessors (canonical fields, legacy aliases as fallback).
+ */
+const pQty = (p: { quantity?: number }) => p.quantity ?? 0
+const pBuyUnit = (p: { buyUnitPrice?: number; buyPrice?: number }) => p.buyUnitPrice ?? p.buyPrice ?? 0
+const pSellUnit = (p: { sellUnitPrice?: number; sellPrice?: number }) => p.sellUnitPrice ?? p.sellPrice ?? 0
+
+/**
+ * Maps every settlement counterparty NAME appearing in a formula to the
+ * companyId of the participant with that name. Settlement rows (schedules /
+ * records) reference counterparties by name; participants carry the stable
+ * `companyId` (P0-1). This bridges the two so settlement can be scoped to a
+ * selected analytical company.
+ */
+function counterpartyCompanyIndex(f: Formula): Map<string, string> {
+  const index = new Map<string, string>()
+  for (const p of f.participants) {
+    if (p.companyId && !index.has(p.company)) index.set(p.company, p.companyId)
+    if (p.companyId && !index.has(p.name)) index.set(p.name, p.companyId)
+  }
+  return index
+}
+
+/**
+ * A formula's schedule items reinterpreted from a participant company's point of
+ * view. The owning desk's `receipt` (it collects from the buyer) is the buyer's
+ * `payment`; the desk's `payment` (it pays the supplier) is the supplier's
+ * `receipt`. Only rows whose counterparty maps to `companyId` are returned.
+ */
+export function perspectiveScheduleItems(
+  f: Formula,
+  companyId: string,
+): (PaymentScheduleItem & { perspectiveType: "receipt" | "payment" })[] {
+  const index = counterpartyCompanyIndex(f)
+  const out: (PaymentScheduleItem & { perspectiveType: "receipt" | "payment" })[] = []
+  for (const s of f.schedule ?? []) {
+    if (index.get(s.counterparty) !== companyId) continue
+    out.push({ ...s, perspectiveType: s.type === "receipt" ? "payment" : "receipt" })
+  }
+  return out
+}
+
+export type PerspectiveMetrics = {
+  companyId: string
+  /** True when the company appears at least once as a Formula participant. */
+  participates: boolean
+  /** Value the company acquires within the chain (Σ buyUnit × qty over its legs). */
+  totalBuy: number
+  /** Value the company sells within the chain (Σ sellUnit × qty over its legs). */
+  totalSell: number
+  grossMargin: number
+  /** Net trade position of the company's legs (Sell − Buy). */
+  expectedProfit: number
+  /** Recorded net cash for the company (inflows it received − outflows it paid). */
+  realizedProfit: number
+  /** Amount the company is still owed (its counterparty rows, unsettled). */
+  receivable: number
+  /** Amount the company still owes (its counterparty rows, unsettled). */
+  payable: number
+  loss: boolean
+}
+
+/**
+ * Formula metrics from a single participant company's perspective (P0-2).
+ *
+ * Formula First: every figure derives from that company's participant legs and
+ * from the settlement rows that reference it — never from stored owner totals.
+ *
+ *   Buy / Sell      = Σ over the company's legs of buyUnit×qty / sellUnit×qty
+ *   Expected Profit = Sell − Buy  (a supplier shows net proceeds, a pure buyer a
+ *                     net outlay, an intermediary its captured spread)
+ *   Receivable      = unsettled schedule rows where the desk PAYS this company
+ *   Payable         = unsettled schedule rows where the desk COLLECTS from it
+ *   Realized Profit = actual records: payments received − receipts paid out
+ *                     (non-canceled), scoped to this company by counterparty
+ *   Loss            = realized net < 0 (consistent with the app's realized model)
+ */
+export function derivePerspectiveMetrics(f: Formula, companyId: string): PerspectiveMetrics {
+  const legs = f.participants.filter((p) => p.companyId === companyId)
+  const totalBuy = legs.reduce((s, p) => s + pBuyUnit(p) * pQty(p), 0)
+  const totalSell = legs.reduce((s, p) => s + pSellUnit(p) * pQty(p), 0)
+  const grossMargin = totalSell - totalBuy
+
+  const index = counterpartyCompanyIndex(f)
+
+  // Settlement scoped to this company (schedules → remaining amounts).
+  let receivable = 0
+  let payable = 0
+  for (const s of f.schedule ?? []) {
+    if (index.get(s.counterparty) !== companyId) continue
+    const remaining = Math.max(0, s.amount - s.settledAmount)
+    // Desk receipt = this company pays (payable); desk payment = it receives (receivable).
+    if (s.type === "receipt") payable += remaining
+    else receivable += remaining
+  }
+
+  // Realized net from actual (non-canceled) records scoped to this company.
+  let realizedProfit = 0
+  for (const r of f.records ?? []) {
+    if (r.canceled || index.get(r.counterparty) !== companyId) continue
+    // Desk payment to the company = its inflow; desk receipt from it = its outflow.
+    realizedProfit += r.type === "payment" ? r.amount : -r.amount
+  }
+
+  return {
+    companyId,
+    participates: legs.length > 0,
+    totalBuy,
+    totalSell,
+    grossMargin,
+    expectedProfit: grossMargin,
+    realizedProfit,
+    receivable,
+    payable,
+    loss: realizedProfit < 0,
+  }
+}
+
+/**
+ * Normalized per-formula metrics used by BOTH the Dashboard and Reports (P0-4).
+ *
+ * When `analyticsCompanyId` is absent or equal to the operating scope, this is
+ * the owner / whole-formula view (unchanged behavior). Otherwise it is the
+ * selected company's participant perspective. Every analytics aggregate routes
+ * through this single adapter so the two screens can never diverge.
+ */
+export type FormulaMetricsView = {
+  perspective: boolean
+  realizedProfit: number
+  expectedProfit: number
+  totalSell: number
+  totalBuy: number
+  receivable: number
+  payable: number
+}
+
+export function isPerspective(operatingId: string, analyticsCompanyId?: string): boolean {
+  return !!analyticsCompanyId && analyticsCompanyId !== operatingId
+}
+
+export function viewFormula(f: Formula, operatingId: string, analyticsCompanyId?: string): FormulaMetricsView {
+  if (isPerspective(operatingId, analyticsCompanyId)) {
+    const m = derivePerspectiveMetrics(f, analyticsCompanyId as string)
+    return {
+      perspective: true,
+      realizedProfit: m.realizedProfit,
+      expectedProfit: m.expectedProfit,
+      totalSell: m.totalSell,
+      totalBuy: m.totalBuy,
+      receivable: m.receivable,
+      payable: m.payable,
+    }
+  }
+  const e = deriveExpected(f)
+  const r = deriveRealized(f)
+  const s = deriveSettlement(f)
+  return {
+    perspective: false,
+    realizedProfit: r.realizedProfit,
+    expectedProfit: e.expectedProfit,
+    totalSell: e.totalSell,
+    totalBuy: e.totalBuy,
+    receivable: s.remainingReceivable,
+    payable: s.remainingPayable,
   }
 }

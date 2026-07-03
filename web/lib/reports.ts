@@ -10,11 +10,11 @@ import type { DateRange, Formula } from "./types"
 import {
   companies,
   filterFormulasByRange,
-  getFormulasByCompany,
+  getAnalyticsFormulas,
   getProfitSeries,
 } from "./mock-data"
 import { statusConfig, tradeTypeConfig } from "./status"
-import { deriveExpected, deriveRealized, deriveSettlement } from "./formula-math"
+import { type FormulaMetricsView, viewFormula } from "./formula-math"
 
 export type MetricKey = "realized" | "expected" | "revenue" | "cost" | "receivable" | "payable"
 export type DimensionKey = "company" | "tradeType" | "item" | "status"
@@ -35,23 +35,22 @@ export const DIMENSIONS: { key: DimensionKey; label: string }[] = [
   { key: "status", label: "Status" },
 ]
 
-function metricValue(f: Formula, metric: MetricKey): number {
-  // All figures re-derive from the canonical adapters (chain + records), never
-  // from stored profit/settlement fields.
-  const expected = deriveExpected(f)
+function metricValue(v: FormulaMetricsView, metric: MetricKey): number {
+  // All figures re-derive from the shared adapter — owner totals in "all in
+  // scope" mode, participant-perspective figures otherwise.
   switch (metric) {
     case "realized":
-      return deriveRealized(f).realizedProfit
+      return v.realizedProfit
     case "expected":
-      return expected.expectedProfit
+      return v.expectedProfit
     case "revenue":
-      return expected.totalSell
+      return v.totalSell
     case "cost":
-      return expected.totalBuy
+      return v.totalBuy
     case "receivable":
-      return deriveSettlement(f).remainingReceivable
+      return v.receivable
     case "payable":
-      return deriveSettlement(f).remainingPayable
+      return v.payable
   }
 }
 
@@ -74,18 +73,19 @@ export type ReportRow = { label: string; value: number; count: number }
 
 /** Group a metric by a dimension, scaled by the selected period. */
 export function buildGroupedReport(
-  companyId: string,
+  operatingId: string,
   metric: MetricKey,
   dimension: DimensionKey,
   range: DateRange,
+  analyticsCompanyId?: string,
 ): { rows: ReportRow[]; total: number } {
-  const list = filterFormulasByRange(getFormulasByCompany(companyId), range)
+  const list = filterFormulasByRange(getAnalyticsFormulas(operatingId, analyticsCompanyId), range)
   const map = new Map<string, { value: number; count: number }>()
 
   for (const f of list) {
     const label = dimensionLabel(f, dimension)
     const prev = map.get(label) ?? { value: 0, count: 0 }
-    prev.value += metricValue(f, metric)
+    prev.value += metricValue(viewFormula(f, operatingId, analyticsCompanyId), metric)
     prev.count += 1
     map.set(label, prev)
   }
