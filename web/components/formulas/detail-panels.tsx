@@ -276,7 +276,7 @@ export function SchedulePanel({ formula }: { formula: Formula }) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-foreground">{s.counterparty}</td>
-                <td className="px-4 py-3 text-muted-foreground">{formatDate(s.scheduledDate ?? s.dueDate)}</td>
+                <td className="px-4 py-3 text-muted-foreground">{formatDate(s.scheduledDate)}</td>
                 <td className="px-4 py-3 text-right font-mono tabular-nums text-foreground">
                   {formatCurrency(s.amount)}
                 </td>
@@ -598,10 +598,15 @@ export function LogisticsPanel({ formula }: { formula: Formula }) {
                           className="flex items-start justify-between gap-3 rounded-lg border border-border bg-secondary/40 px-3 py-2"
                         >
                           <div className="min-w-0">
-                            <p className="truncate font-mono text-xs font-medium text-foreground">{v.vehicleIdentifier}</p>
+                            <p className="truncate font-mono text-xs font-medium text-foreground">{v.vehicleNo}</p>
+                            {v.driverName && (
+                              <p className="truncate text-[11px] text-muted-foreground">{v.driverName}</p>
+                            )}
                             {v.memo && <p className="truncate text-[11px] text-muted-foreground">{v.memo}</p>}
                           </div>
-                          <StatusBadge tone="outline">{v.vehicleType}</StatusBadge>
+                          {v.transportStatus && (
+                            <StatusBadge tone="outline">{v.transportStatus.replace("_", " ")}</StatusBadge>
+                          )}
                         </li>
                       ))}
                     </ul>

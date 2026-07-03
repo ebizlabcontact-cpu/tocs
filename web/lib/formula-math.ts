@@ -23,14 +23,39 @@ export type ExpectedDerivation = {
   expectedProfit: number
 }
 
+/**
+ * Canonical share total (P0-2): summed from `shares[]` (formula_shares), never the
+ * legacy `Formula.share` scalar. Falls back to the scalar only if no share rows
+ * exist so legacy fixtures still render.
+ */
+export function deriveTotalShare(f: Formula): number {
+  const rows = f.shares ?? []
+  if (rows.length === 0) return f.share ?? 0
+  return rows.reduce((sum, s) => sum + (s.amount ?? 0), 0)
+}
+
+/**
+ * Canonical logistics cost path (P0-6): summed from `logistics[].cost`. Falls back
+ * to the `Formula.cost` scalar only when there are no logistics legs, so the
+ * scalar cost, per-leg costs and snapshot totalCost never diverge silently.
+ */
+export function deriveLogisticsCost(f: Formula): number {
+  const legs = f.logistics ?? []
+  if (legs.length === 0) return f.cost ?? 0
+  return legs.reduce((sum, l) => sum + (l.cost ?? 0), 0)
+}
+
 export function deriveExpected(f: Formula): ExpectedDerivation {
   const grossMargin = f.totalSell - f.totalBuy
-  const expectedProfit = grossMargin - f.cost - f.share
+  // Share comes from shares[] and cost from the logistics path — not the scalars.
+  const share = deriveTotalShare(f)
+  const cost = deriveLogisticsCost(f)
+  const expectedProfit = grossMargin - cost - share
   return {
     totalSell: f.totalSell,
     totalBuy: f.totalBuy,
-    cost: f.cost,
-    share: f.share,
+    cost,
+    share,
     grossMargin,
     expectedProfit,
   }
@@ -296,7 +321,7 @@ export function buildTimeline(f: Formula, versions: VersionEntry[] = []): Derive
       type: "schedule",
       title: s.type === "receipt" ? "Receipt Scheduled" : "Payment Scheduled",
       description: `${s.counterparty} · ${formatCurrency(s.amount)}`,
-      date: s.scheduledDate ?? s.dueDate,
+      date: s.scheduledDate,
       actor: "System",
       linkTab: "payments",
     })

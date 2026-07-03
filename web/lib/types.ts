@@ -176,29 +176,42 @@ export type VersionChange = {
 }
 
 /**
- * Immutable calculation snapshot captured for a Formula version (mirrors
- * `formula_calculation_snapshots`) (P0-3).
+ * Immutable calculation snapshot captured for a Formula version. Field-for-field
+ * mirror of the Prisma `CalculationSnapshot` model / `formula_calculation_snapshots`
+ * table (P0-1). Only calculation fields live here.
  *
  * A snapshot is the FROZEN financial state at the moment a version was created —
- * it is NOT recomputed live from the current Formula. The frontend only
- * previews snapshots; it never creates or persists them. Backend services
- * capture the authoritative snapshot on each version.
+ * it is NOT recomputed live from the current Formula. Historical snapshots carry
+ * a fixed `snapshotData` payload; they are never re-derived from the current
+ * Formula/Formula formula inputs. The frontend only previews snapshots; it never
+ * creates or persists them. Backend services capture the authoritative snapshot.
+ *
+ * NOTE (P0-1): settlement-derived figures (actualReceipts, actualPayments,
+ * realizedProfit, receivable, payable) are intentionally NOT part of the
+ * calculation snapshot — Prisma does not store them here. They are derived live
+ * from PaymentRecords/PaymentSchedules, never frozen into this shape.
  */
 export type CalculationSnapshot = {
-  /** FK to the formula version this snapshot belongs to. */
+  /** FK to the formula version this snapshot belongs to (Prisma formulaVersionId). */
   formulaVersionId: string
-  totalSell: number
-  totalBuy: number
+  /** Prisma quantity — frozen business quantity at capture time. */
+  quantity: number
+  /** Prisma totalBuyAmount. */
+  totalBuyAmount: number
+  /** Prisma totalSellAmount. */
+  totalSellAmount: number
+  /** Prisma totalCost. */
   totalCost: number
+  /** Prisma totalShare (rollup of shares[] at capture time). */
   totalShare: number
-  expectedProfit: number
-  actualReceipts: number
-  actualPayments: number
-  realizedProfit: number
-  receivable: number
-  payable: number
-  /** Opaque captured payload (full frozen state) as stored server-side. */
-  snapshotJson?: Record<string, unknown>
+  /** Prisma netProfit (Expected/net profit at capture time). */
+  netProfit: number
+  /** Prisma profitRate (percentage); null when not computed. */
+  profitRate?: number | null
+  /** Prisma exchangeRateUsed; null for domestic / no-FX formulas. */
+  exchangeRateUsed?: number | null
+  /** Prisma snapshotData — opaque frozen payload (JSON). Fixed, not recomputed. */
+  snapshotData: Record<string, unknown>
 }
 
 /** One entry in a formula's mock version history. */
@@ -236,7 +249,13 @@ export type DateRange =
   | "This Year"
   | "Custom Range"
 
-/** Which Formula date a Dashboard/Reports/Calendar view is anchored to (P0-2). */
+/**
+ * Which Formula date a Dashboard/Reports/Calendar view is anchored to (P0-3).
+ * All options except "Trade Date" map to canonical persisted dates
+ * (PaymentSchedule.scheduledDate, PaymentRecord.actualDate, Formula.closedAt).
+ * "Trade Date" is a PENDING contract field and is not the authoritative
+ * aggregation basis — list/report windows are bounded by Formula.createdAt.
+ */
 export type DateBasis =
   | "Trade Date"
   | "Scheduled Payment Date"
@@ -252,10 +271,13 @@ export type PaymentScheduleItem = {
   type: "receipt" | "payment"
   counterparty: string
   amount: number
-  /** Planned date. */
-  dueDate: string
-  /** Alias of dueDate, named to match the canonical "Scheduled Date". */
-  scheduledDate?: string
+  /**
+   * Planned date — single canonical name matching Prisma
+   * `PaymentSchedule.scheduledDate` (P0-5). The former `dueDate` duplicate was
+   * removed to avoid ambiguous names.
+   */
+  scheduledDate: string
+  /** UI-derived; "overdue" is computed, not a persisted Prisma PaymentStatus. */
   status: "scheduled" | "partial" | "settled" | "overdue"
   settledAmount: number
 }
@@ -326,11 +348,23 @@ export type LogisticsVehicle = {
   id: string
   /** FK to the LogisticsLeg (formula_logistics) this vehicle serves. */
   logisticsId: string
-  /** Vehicle / container / vessel identifier (plate no., container no., vessel name). */
-  vehicleIdentifier: string
-  /** Vehicle type (truck, container, vessel, aircraft, …). */
-  vehicleType: string
-  /** Optional memo / reference note. */
+  /** Prisma vehicleNo — plate no. / container no. / vessel name (free identifier). */
+  vehicleNo: string
+  /** Prisma driverName. */
+  driverName?: string
+  /** Prisma driverPhone. */
+  driverPhone?: string
+  /** Prisma vehicleCost. */
+  vehicleCost?: number
+  /**
+   * Prisma transportStatus (TradeStatus enum, lowercased for UI). Canonical Prisma
+   * values: DRAFT / IN_PROGRESS / COMPLETED / CANCELED. There is NO free-text
+   * "vehicle type" column in Prisma — do not reintroduce one.
+   */
+  transportStatus?: "draft" | "in_progress" | "completed" | "canceled"
+  /** Prisma settlementStatus (PaymentStatus enum, lowercased for UI). */
+  settlementStatus?: "pending" | "partial" | "completed" | "canceled"
+  /** Prisma memo. */
   memo?: string
 }
 
@@ -393,10 +427,20 @@ export type Formula = {
   /* ---- Expected (preview) financials, derived from priced chain inputs ---- */
   totalSell: number
   totalBuy: number
+  /**
+   * DERIVED rollup only (P0-6). Not an independent source of truth. The canonical
+   * logistics cost path is the sum of `logistics[].cost`; this scalar mirrors that
+   * (or a snapshot's totalCost) and must not diverge from it. See deriveExpected.
+   */
   cost: number
+  /**
+   * DERIVED rollup only (P0-2). Canonical share source is `shares[]`
+   * (formula_shares). This scalar is a convenience sum of `shares[].amount` kept
+   * for legacy UI; Expected Profit uses the shares[]-derived total, never this.
+   */
   share: number
   expectedProfit: number
-  /** Formula-level share allocations (P0-4). */
+  /** Canonical Formula-level share allocations — source of truth for share (P0-2). */
   shares: FormulaShare[]
 
   /* ---- Realized financials, derived from actual payment records ---- */
@@ -424,8 +468,15 @@ export type Formula = {
   closeable: boolean
   attention?: string
 
-  /* ---- Dates (P0-2) ---- */
+  /* ---- Dates (P0-3) ---- */
+  /**
+   * PENDING CONTRACT FIELD (P0-3). Prisma Formula has NO tradeDate column. Kept
+   * for the wizard/UI only and NOT used as an authoritative filter/aggregation
+   * basis. Canonical persisted dates are createdAt / updatedAt / closedAt
+   * (plus PaymentSchedule.scheduledDate, PaymentRecord.actualDate, StatusLog.createdAt).
+   */
   tradeDate: string
+  /** PENDING CONTRACT FIELD (P0-3). Prisma Formula has NO contractDate column. */
   contractDate: string
   createdAt: string
   updatedAt: string

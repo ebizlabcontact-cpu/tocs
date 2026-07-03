@@ -21,8 +21,6 @@ import { deriveChainFinancials } from "./derive"
 import {
   isCloseable,
   deriveExpected,
-  deriveRealized,
-  deriveSettlement,
   isPerspective,
   viewFormula,
   perspectiveScheduleItems,
@@ -145,7 +143,6 @@ function buildSettlement(
       counterparty: receiptCp,
       amount: totalSell,
       scheduledDate: new Date(now + 7 * DAY).toISOString(),
-      dueDate: new Date(now + 7 * DAY).toISOString(),
       status: receivable === 0 ? "settled" : actualReceipts > 0 ? "partial" : "scheduled",
       settledAmount: actualReceipts,
     },
@@ -155,7 +152,6 @@ function buildSettlement(
       counterparty: paymentCp,
       amount: totalBuy,
       scheduledDate: new Date(now + 4 * DAY).toISOString(),
-      dueDate: new Date(now + 4 * DAY).toISOString(),
       status:
         payable === 0
           ? "settled"
@@ -216,8 +212,10 @@ function buildSettlement(
 }
 
 /**
- * Vehicles linked to a logistics leg (P0-1). Separate canonical records keyed by
- * `logisticsId` — never flat fields on the leg. Identifier/type vary by mode.
+ * Vehicles linked to a logistics leg (mirrors Prisma LogisticsVehicle). Separate
+ * canonical records keyed by `logisticsId` — never flat fields on the leg. Uses
+ * only Prisma columns (vehicleNo/driverName/transportStatus/settlementStatus/memo);
+ * there is no free-text "vehicle type" column (P0-5).
  */
 function buildVehicles(logisticsId: string, mode: "sea" | "air" | "land", seed: number): LogisticsVehicle[] {
   if (mode === "sea")
@@ -225,15 +223,17 @@ function buildVehicles(logisticsId: string, mode: "sea" | "air" | "land", seed: 
       {
         id: `${logisticsId}-v1`,
         logisticsId,
-        vehicleIdentifier: `MSKU${7000000 + seed}`,
-        vehicleType: "Container",
-        memo: "40ft HC · seal verified",
+        vehicleNo: `MSKU${7000000 + seed}`,
+        transportStatus: "in_progress",
+        settlementStatus: "pending",
+        memo: "40ft HC container · seal verified",
       },
       {
         id: `${logisticsId}-v2`,
         logisticsId,
-        vehicleIdentifier: `Vessel Ever Grace ${100 + (seed % 40)}E`,
-        vehicleType: "Vessel",
+        vehicleNo: `Vessel Ever Grace ${100 + (seed % 40)}E`,
+        transportStatus: "in_progress",
+        settlementStatus: "pending",
       },
     ]
   if (mode === "air")
@@ -241,17 +241,21 @@ function buildVehicles(logisticsId: string, mode: "sea" | "air" | "land", seed: 
       {
         id: `${logisticsId}-v1`,
         logisticsId,
-        vehicleIdentifier: `AWB-180-${4000 + seed}`,
-        vehicleType: "Air ULD",
-        memo: "Perishable handling",
+        vehicleNo: `AWB-180-${4000 + seed}`,
+        transportStatus: "completed",
+        settlementStatus: "completed",
+        memo: "Air ULD · perishable handling",
       },
     ]
   return [
     {
       id: `${logisticsId}-v1`,
       logisticsId,
-      vehicleIdentifier: `${12 + (seed % 80)}가 ${1000 + seed}`,
-      vehicleType: "Truck",
+      vehicleNo: `${12 + (seed % 80)}가 ${1000 + seed}`,
+      driverName: "김기사",
+      driverPhone: "010-0000-0000",
+      transportStatus: "completed",
+      settlementStatus: "completed",
       memo: "5t cargo truck",
     },
   ]
@@ -793,7 +797,11 @@ export function getRangeWindow(range: DateRange, customStart?: string, customEnd
   }
 }
 
-/** Filter a formula list to those whose trade date falls inside the range window. */
+/**
+ * Filter a formula list to those falling inside the range window. Uses the
+ * canonical persisted `createdAt` as the authoritative basis (P0-3) — the
+ * pending `tradeDate` contract field is never used as the filter basis.
+ */
 export function filterFormulasByRange(
   list: Formula[],
   range: DateRange,
@@ -802,7 +810,7 @@ export function filterFormulasByRange(
 ): Formula[] {
   const { start, end } = getRangeWindow(range, customStart, customEnd)
   return list.filter((f) => {
-    const t = Date.parse(f.tradeDate ?? f.createdAt)
+    const t = Date.parse(f.createdAt)
     return t >= start && t <= end
   })
 }
@@ -927,7 +935,8 @@ export function getProfitSeries(
     const to = start + (i + 1) * step
     const profit = list
       .filter((f) => {
-        const t = Date.parse(f.tradeDate ?? f.createdAt)
+        // Canonical persisted basis (P0-3): createdAt, not the pending tradeDate.
+        const t = Date.parse(f.createdAt)
         return t >= from && t < to
       })
       .reduce((s, f) => s + viewFormula(f, companyId, analyticsCompanyId).realizedProfit, 0)
@@ -948,7 +957,7 @@ export function getCalendarEvents(companyId: string, flow?: "receipt" | "payment
         item: f.item,
         flow: s.type,
         amount: s.amount - s.settledAmount,
-        dueDate: s.dueDate,
+        dueDate: s.scheduledDate,
         status: s.status,
       })),
     )
@@ -1043,12 +1052,11 @@ export function getVersionHistory(formula: Formula): VersionEntry[] {
   ]
   const summaries = ["Pricing revised", "Participants & quantity updated", "Sourcing terms adjusted", "Initial draft created"]
 
-  // Live-derived figures for the CURRENT formula state. Historical snapshots are
-  // frozen values that drift from this by a deterministic per-version factor, so
-  // the UI can show that a snapshot is NOT a live recomputation (P0-3).
+  // Live-derived figures used only as a base for FIXED historical snapshots.
+  // Each historical snapshot is a frozen snapshotData object (P0-1) — the UI never
+  // re-derives it from the current Formula. Only calculation fields are captured;
+  // settlement-derived figures are intentionally excluded (Prisma stores none here).
   const exp = deriveExpected(formula)
-  const settle = deriveSettlement(formula)
-  const realized = deriveRealized(formula)
 
   return Array.from({ length: count }, (_, i) => {
     const versionNo = count - i
@@ -1056,18 +1064,33 @@ export function getVersionHistory(formula: Formula): VersionEntry[] {
     const idx = Math.min(i, changeSets.length - 1)
     // i === 0 is the latest version (factor 1); older versions are scaled down.
     const factor = 1 - i * 0.06
+    const totalBuyAmount = Math.round(exp.totalBuy * factor)
+    const totalSellAmount = Math.round(exp.totalSell * factor)
+    const totalCost = Math.round(exp.cost * factor)
+    const totalShare = Math.round(exp.share * factor)
+    const netProfit = Math.round(exp.expectedProfit * factor)
+    const exchangeRateUsed = formula.adjustedExchangeRate ?? formula.contractExchangeRate ?? null
     const snapshot: CalculationSnapshot = {
       formulaVersionId: `${formula.id}-v${versionNo}`,
-      totalSell: Math.round(exp.totalSell * factor),
-      totalBuy: Math.round(exp.totalBuy * factor),
-      totalCost: Math.round(exp.cost * factor),
-      totalShare: Math.round(exp.share * factor),
-      expectedProfit: Math.round(exp.expectedProfit * factor),
-      actualReceipts: Math.round(settle.actualReceipts * factor),
-      actualPayments: Math.round(settle.actualPayments * factor),
-      realizedProfit: Math.round(realized.realizedProfit * factor),
-      receivable: Math.round(settle.remainingReceivable * factor),
-      payable: Math.round(settle.remainingPayable * factor),
+      quantity: formula.quantity,
+      totalBuyAmount,
+      totalSellAmount,
+      totalCost,
+      totalShare,
+      netProfit,
+      profitRate: totalSellAmount ? Number(((netProfit / totalSellAmount) * 100).toFixed(4)) : null,
+      exchangeRateUsed,
+      // Fixed frozen payload — not recomputed from the live Formula (P0-1).
+      snapshotData: {
+        quantity: formula.quantity,
+        totalBuyAmount,
+        totalSellAmount,
+        totalCost,
+        totalShare,
+        netProfit,
+        exchangeRateUsed,
+        capturedForVersion: versionNo,
+      },
     }
     return {
       versionNo,

@@ -5,7 +5,13 @@ import { ArrowRight, ChevronRight, Info, GitBranch, FileText, AlertTriangle } fr
 import type { Formula, VersionChange, VersionChangeValueType, VersionEntry } from "@/lib/types"
 import { getVersionHistory, companies } from "@/lib/mock-data"
 import { deriveChainFinancials } from "@/lib/derive"
-import { deriveExpected, deriveRealized, deriveSettlement } from "@/lib/formula-math"
+import {
+  deriveExpected,
+  deriveRealized,
+  deriveSettlement,
+  deriveLogisticsCost,
+  deriveTotalShare,
+} from "@/lib/formula-math"
 import { tradeTypeConfig } from "@/lib/status"
 import { formatCurrency, formatDate, formatNumber, cn } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/badge"
@@ -37,7 +43,11 @@ function useSnapshotSections(formula: Formula) {
   return useMemo(() => {
     const company = companies.find((c) => c.id === formula.companyId)
     const chain = formula.participants
-    const derived = deriveChainFinancials(chain, { logisticsCost: formula.cost, share: formula.share })
+    // Canonical paths (P0-2/P0-6): logistics cost from logistics[], share from shares[].
+    const derived = deriveChainFinancials(chain, {
+      logisticsCost: deriveLogisticsCost(formula),
+      share: deriveTotalShare(formula),
+    })
     const expected = deriveExpected(formula)
     const settlement = deriveSettlement(formula)
     const realized = deriveRealized(formula)
@@ -75,17 +85,20 @@ export function VersionsPanel({ formula }: { formula: Formula }) {
   const snap = active?.snapshot ?? null
   // Historical versions read their frozen snapshot; the latest reads live figures.
   const useSnap = snap != null && !isLatestActive
+  // Calculation figures for historical versions come from the FROZEN snapshot
+  // (Prisma calculation fields only). Settlement-derived figures are NOT part of
+  // the calculation snapshot (P0-1), so they are always shown live from records.
   const fin = {
-    totalSell: useSnap ? snap!.totalSell : base.totalSell,
-    totalBuy: useSnap ? snap!.totalBuy : base.totalBuy,
+    totalSell: useSnap ? snap!.totalSellAmount : base.totalSell,
+    totalBuy: useSnap ? snap!.totalBuyAmount : base.totalBuy,
     cost: useSnap ? snap!.totalCost : base.cost,
     share: useSnap ? snap!.totalShare : base.share,
-    expectedProfit: useSnap ? snap!.expectedProfit : base.expectedProfit,
-    realizedProfit: useSnap ? snap!.realizedProfit : base.realizedProfit,
-    actualReceipts: useSnap ? snap!.actualReceipts : base.actualReceipts,
-    actualPayments: useSnap ? snap!.actualPayments : base.actualPayments,
-    receivable: useSnap ? snap!.receivable : base.receivable,
-    payable: useSnap ? snap!.payable : base.payable,
+    expectedProfit: useSnap ? snap!.netProfit : base.expectedProfit,
+    realizedProfit: base.realizedProfit,
+    actualReceipts: base.actualReceipts,
+    actualPayments: base.actualPayments,
+    receivable: base.receivable,
+    payable: base.payable,
     scheduledReceipts: base.scheduledReceipts,
     scheduledPayments: base.scheduledPayments,
   }
