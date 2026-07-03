@@ -1,7 +1,20 @@
 "use client"
 
 import { Fragment } from "react"
-import { Plus, Trash2, ArrowDown, ArrowRight, Link2, Pencil, Flag, FlagOff, Wallet, AlertTriangle } from "lucide-react"
+import {
+  Plus,
+  Trash2,
+  ArrowDown,
+  ArrowRight,
+  Link2,
+  Pencil,
+  Flag,
+  FlagOff,
+  Wallet,
+  AlertTriangle,
+  Building2,
+  Lock,
+} from "lucide-react"
 import { companies, registeredCompanies } from "@/lib/mock-data"
 import { getItem, items, unitOptions } from "@/lib/items"
 import { tradeTypeConfig } from "@/lib/status"
@@ -167,21 +180,32 @@ export function StepBasics({ state, set }: { state: WizardState; set: Setter }) 
     }))
   }
 
+  const owningCompany = companies.find((c) => c.id === state.companyId)
+
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Company" className="sm:col-span-2">
-          <Select value={state.companyId} onChange={(e) => set((s) => ({ ...s, companyId: e.target.value }))}>
-            {companies
-              .filter((c) => c.id !== "all")
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </Select>
-        </Field>
+      {/* Owning company is derived from the active operating scope — not editable.
+          V1 does not support cross-entity or delegated ownership. */}
+      <div className="rounded-xl border border-border bg-secondary/40 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+            <Building2 className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Owning Company
+              <Lock className="size-3" />
+            </div>
+            <p className="mt-0.5 truncate text-sm font-semibold text-foreground">{owningCompany?.name ?? "—"}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Set automatically from your operating scope. To create a Formula for a different entity, switch companies
+              in the header.
+            </p>
+          </div>
+        </div>
+      </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Item" hint={item ? item.category : undefined}>
           <Select value={state.itemId} onChange={(e) => selectItem(e.target.value)}>
             <option value="">Select an item…</option>
@@ -912,7 +936,7 @@ export function StepReview({
       {/* Basic information */}
       <ReviewSection title="Basic Information" step={1} goTo={goTo}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <ReviewItem label="Company" value={company?.name ?? "—"} />
+          <ReviewItem label="Owning Company" value={company?.name ?? "—"} />
           <ReviewItem label="Item" value={state.item || "—"} />
           <ReviewItem label="Quantity" value={state.quantity ? `${state.quantity} ${state.unit}` : "—"} />
           <ReviewItem label="Trade Type" value={tradeTypeConfig[state.tradeType].label} />

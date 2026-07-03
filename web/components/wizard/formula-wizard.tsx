@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight, Check, X, Building2 } from "lucide-react"
 import { useCompany } from "@/components/company-context"
@@ -20,10 +20,18 @@ const steps: Step[] = [
 
 export function FormulaWizard() {
   const router = useRouter()
-  const { isAllCompanies } = useCompany()
+  const { isAllCompanies, selected } = useCompany()
   const [current, setCurrent] = useState(1)
-  const [state, setState] = useState<WizardState>(emptyWizardState)
+  // V1: a Formula's owner is always the active operating-scope company. There is
+  // no independent owner selection and no cross-entity / delegated ownership.
+  const [state, setState] = useState<WizardState>(() => ({ ...emptyWizardState, companyId: selected.id }))
   const [submitting, setSubmitting] = useState(false)
+
+  // Keep the owning company locked to the operating scope. If the user switches
+  // the header scope while the wizard is open, ownership follows it automatically.
+  useEffect(() => {
+    setState((s) => (s.companyId === selected.id ? s : { ...s, companyId: selected.id }))
+  }, [selected.id])
 
   if (isAllCompanies) {
     return (
