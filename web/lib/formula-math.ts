@@ -81,16 +81,17 @@ export type SettlementDerivation = {
  * Domain definitions (TOCS):
  *   Receivable = Scheduled Receipts − Actual Receipts
  *   Payable    = Scheduled Payments − Actual Payments
- * Scheduled receipts/payments equal Total Sell / Total Buy in a well-formed
- * Formula, so these reconcile with the canonical Expected figures.
+ *
+ * Settlement is derived ONLY from schedules and records. A Formula may
+ * intentionally schedule only part of its trade value (advances, installments,
+ * credit terms, partial settlements), so schedule totals are NEVER coupled to
+ * Total Sell / Total Buy. When nothing is scheduled, the base is 0.
  */
 export function deriveSettlement(f: Formula): SettlementDerivation {
   const scheduledReceipts = f.schedule.filter((s) => s.type === "receipt").reduce((s, x) => s + x.amount, 0)
   const scheduledPayments = f.schedule.filter((s) => s.type === "payment").reduce((s, x) => s + x.amount, 0)
   const { actualReceipts, actualPayments } = deriveRealized(f)
   const canceled = (f.records ?? []).filter((r) => r.canceled)
-  const receiptBase = scheduledReceipts || f.totalSell
-  const paymentBase = scheduledPayments || f.totalBuy
   return {
     scheduledReceipts,
     scheduledPayments,
@@ -98,10 +99,10 @@ export function deriveSettlement(f: Formula): SettlementDerivation {
     actualPayments,
     canceledCount: canceled.length,
     canceledAmount: canceled.reduce((s, r) => s + r.amount, 0),
-    remainingReceivable: Math.max(0, receiptBase - actualReceipts),
-    remainingPayable: Math.max(0, paymentBase - actualPayments),
-    receiptRate: receiptBase > 0 ? actualReceipts / receiptBase : 0,
-    paymentRate: paymentBase > 0 ? actualPayments / paymentBase : 0,
+    remainingReceivable: Math.max(0, scheduledReceipts - actualReceipts),
+    remainingPayable: Math.max(0, scheduledPayments - actualPayments),
+    receiptRate: scheduledReceipts > 0 ? actualReceipts / scheduledReceipts : 0,
+    paymentRate: scheduledPayments > 0 ? actualPayments / scheduledPayments : 0,
   }
 }
 
