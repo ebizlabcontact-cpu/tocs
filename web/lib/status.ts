@@ -27,6 +27,7 @@ export const invoiceStatusConfig: Record<InvoiceStatus, { label: string; tone: T
   canceled: { label: "Canceled", tone: "outline" },
 }
 
+/** Per-leg transport status (booked → in_transit → arrived → cleared). */
 export const logisticsStatusConfig: Record<string, { label: string; tone: Tone }> = {
   not_started: { label: "Not Started", tone: "neutral" },
   in_transit: { label: "In Transit", tone: "info" },
@@ -34,6 +35,17 @@ export const logisticsStatusConfig: Record<string, { label: string; tone: Tone }
   booked: { label: "Booked", tone: "neutral" },
   arrived: { label: "Arrived", tone: "info" },
   cleared: { label: "Cleared", tone: "success" },
+}
+
+/**
+ * Formula-level LOGISTICS status. Terminal is "Completed" (transport done) —
+ * deliberately distinct from the Delivery terminal "Delivered" (P0-2) so the
+ * transport process is never confused with final hand-off confirmation.
+ */
+export const formulaLogisticsStatusConfig: Record<string, { label: string; tone: Tone }> = {
+  not_started: { label: "Not Started", tone: "neutral" },
+  in_transit: { label: "In Transit", tone: "info" },
+  delivered: { label: "Completed", tone: "success" },
 }
 
 export const scheduleStatusConfig: Record<string, { label: string; tone: Tone }> = {

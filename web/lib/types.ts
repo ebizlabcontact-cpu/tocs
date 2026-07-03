@@ -260,11 +260,22 @@ export type InvoiceRecord = {
 
 export type LogisticsLeg = {
   id: string
+  /** Carrier / freight forwarder handling the leg. */
+  carrier: string
   mode: "sea" | "air" | "land"
   origin: string
   destination: string
   status: "booked" | "in_transit" | "arrived" | "cleared"
+  /** Estimated arrival. */
   eta: string
+  /** Actual arrival at destination; null until arrived. */
+  actualArrival: string | null
+  /** Actual final delivery / hand-off; null until delivered. */
+  actualDelivery: string | null
+  /** Leg logistics cost (contributes to Formula logistics cost). */
+  cost: number
+  /** Party responsible for this leg's cost. */
+  costBearer: string
 }
 
 export type TimelineEvent = {

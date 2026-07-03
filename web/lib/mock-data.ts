@@ -417,11 +417,20 @@ function buildFormula(i: number): Formula {
     logistics: [
       {
         id: "lg1",
+        carrier: tradeType === "domestic" ? "Hanjin Transport" : "Maersk Line",
         mode: tradeType === "domestic" ? "land" : "sea",
         origin: tradeType === "export" ? "Busan, KR" : "Shanghai, CN",
         destination: tradeType === "export" ? "Rotterdam, NL" : "Busan, KR",
         status: logisticsStatus === "delivered" ? "cleared" : logisticsStatus === "in_transit" ? "in_transit" : "booked",
         eta: new Date(Date.now() + (10 + i) * DAY).toISOString(),
+        // Actual dates only exist once the leg has progressed (illustrative).
+        actualArrival:
+          logisticsStatus === "delivered" ? new Date(Date.now() + (8 + i) * DAY).toISOString() : null,
+        actualDelivery:
+          deliveryStatus === "delivered" ? new Date(Date.now() + (9 + i) * DAY).toISOString() : null,
+        // Leg cost derives from the Formula logistics cost.
+        cost,
+        costBearer: tradeType === "export" ? "Seller (FOB)" : "Buyer (CIF)",
       },
     ],
     timeline: [

@@ -19,6 +19,7 @@ import {
   deliveryStatusConfig,
   invoiceStatusConfig,
   logisticsStatusConfig,
+  formulaLogisticsStatusConfig,
   scheduleStatusConfig,
   statusConfig,
   tradeStatusConfig,
@@ -31,6 +32,7 @@ import {
   Ship,
   Plane,
   Truck,
+  PackageCheck,
   Clock,
   GitCommitVertical,
   Handshake,
@@ -401,29 +403,98 @@ function InvoiceCloseRuleNote() {
 const modeIcons = { sea: Ship, air: Plane, land: Truck }
 
 export function LogisticsPanel({ formula }: { formula: Formula }) {
-  if (formula.logistics.length === 0) return <SectionEmpty label="No logistics legs planned." />
+  const logisticsCfg = formulaLogisticsStatusConfig[formula.logisticsStatus]
+  const deliveryCfg = deliveryStatusConfig[formula.deliveryStatus]
   return (
-    <div className="space-y-3">
-      {formula.logistics.map((leg) => {
-        const Icon = modeIcons[leg.mode]
-        const cfg = logisticsStatusConfig[leg.status]
-        return (
-          <div key={leg.id} className="flex items-center gap-4 rounded-lg border border-border bg-card p-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-info-soft text-info">
-              <Icon className="size-5" />
-            </div>
-            <div className="flex flex-1 items-center gap-2 text-sm">
-              <span className="font-medium text-foreground">{leg.origin}</span>
-              <span className="text-muted-foreground">→</span>
-              <span className="font-medium text-foreground">{leg.destination}</span>
-            </div>
-            <div className="text-right">
-              <StatusBadge tone={cfg.tone}>{cfg.label}</StatusBadge>
-              <p className="mt-1 text-xs text-muted-foreground">ETA {formatDate(leg.eta)}</p>
-            </div>
+    <div className="space-y-4">
+      {/* Formula-level statuses — Logistics (transport) vs Delivery (hand-off) (P0-1/P0-2) */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Truck className="size-4" />
+            <p className="text-xs font-semibold uppercase tracking-wide">Logistics Status</p>
           </div>
-        )
-      })}
+          <div className="mt-2 flex items-center justify-between">
+            <StatusBadge tone={logisticsCfg.tone}>{logisticsCfg.label}</StatusBadge>
+            <span className="text-xs text-muted-foreground">Transport / carrier movement</span>
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <PackageCheck className="size-4" />
+            <p className="text-xs font-semibold uppercase tracking-wide">Delivery Status</p>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <StatusBadge tone={deliveryCfg.tone}>{deliveryCfg.label}</StatusBadge>
+            <span className="text-xs text-muted-foreground">Final delivery / hand-off</span>
+          </div>
+        </div>
+      </div>
+
+      {formula.logistics.length === 0 ? (
+        <SectionEmpty label="No logistics legs planned." />
+      ) : (
+        <div className="space-y-3">
+          {formula.logistics.map((leg) => {
+            const Icon = modeIcons[leg.mode]
+            const cfg = logisticsStatusConfig[leg.status]
+            return (
+              <div key={leg.id} className="rounded-lg border border-border bg-card p-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-info-soft text-info">
+                    <Icon className="size-5" />
+                  </div>
+                  <div className="flex flex-1 items-center gap-2 text-sm">
+                    <span className="font-medium text-foreground">{leg.origin}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="font-medium text-foreground">{leg.destination}</span>
+                  </div>
+                  <StatusBadge tone={cfg.tone}>{cfg.label}</StatusBadge>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-3 text-sm sm:grid-cols-3">
+                  <LegField label="Carrier" value={leg.carrier} />
+                  <LegField label="Mode" value={leg.mode} capitalize />
+                  <LegField label="Cost Bearer" value={leg.costBearer} />
+                  <LegField label="ETA" value={formatDate(leg.eta)} />
+                  <LegField label="Actual Arrival" value={leg.actualArrival ? formatDate(leg.actualArrival) : "—"} />
+                  <LegField
+                    label="Actual Delivery"
+                    value={leg.actualDelivery ? formatDate(leg.actualDelivery) : "—"}
+                  />
+                  <LegField label="Logistics Cost" value={formatCurrency(leg.cost)} mono />
+                </dl>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LegField({
+  label,
+  value,
+  mono,
+  capitalize,
+}: {
+  label: string
+  value: string
+  mono?: boolean
+  capitalize?: boolean
+}) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          "text-sm text-foreground",
+          mono && "font-mono tabular-nums",
+          capitalize && "capitalize",
+        )}
+      >
+        {value}
+      </dd>
     </div>
   )
 }
@@ -912,12 +983,21 @@ export function SettlementPanel({ formula }: { formula: Formula }) {
               }
               done={!invoiceUnmatched}
             />
+            <SettlementCheck label="Logistics completed" done={formula.logisticsStatus === "delivered"} />
+            <SettlementCheck label="Delivery completed" done={formula.deliveryStatus === "delivered"} />
             <SettlementCheck label="Ready to close (6/6)" done={closeable} />
           </div>
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-            <Info className="mt-0.5 size-3.5 shrink-0 text-accent" />
-            Invoice is a Formula close condition, not a transaction blocker. A Formula can continue without invoice
-            completion, but cannot close until the invoice amount is matched.
+          <div className="mt-3 space-y-2">
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+              <Info className="mt-0.5 size-3.5 shrink-0 text-accent" />
+              Invoice is a Formula close condition, not a transaction blocker. A Formula can continue without invoice
+              completion, but cannot close until the invoice amount is matched.
+            </div>
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+              <Info className="mt-0.5 size-3.5 shrink-0 text-accent" />
+              Official Formula close is performed by backend services after integration. This screen only previews close
+              readiness.
+            </div>
           </div>
         </div>
       </section>
