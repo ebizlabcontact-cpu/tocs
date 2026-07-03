@@ -165,9 +165,10 @@ export function toPrismaInvoiceStatus(v: UiInvoiceStatus): PrismaInvoiceStatus {
  * previously ambiguous duplicate names.
  *
  *   UI (frontend type.field)          →  Prisma model.field
- *   Formula.number                    →  Formula.formulaNo
- *   Formula.version                   →  (UI current-version counter; the row is
- *                                         FormulaVersion.versionNo)
+ *   Formula.number                    →  Formula.formulaNo  (format FM-YYMM-NNNNN)
+ *   Formula.latestVersionNo           →  MAX(FormulaVersion.versionNo)  (was Formula.version)
+ *   Formula.tradeDate                 →  Formula.tradeDate     (date-only, canonical)
+ *   Formula.contractDate              →  Formula.contractDate  (date-only, canonical)
  *   VersionEntry.versionNo            →  FormulaVersion.versionNo
  *   PaymentScheduleItem.scheduledDate →  PaymentSchedule.scheduledDate  (was dueDate)
  *   PaymentRecord.paidDate            →  PaymentRecord.actualDate
@@ -175,9 +176,13 @@ export function toPrismaInvoiceStatus(v: UiInvoiceStatus): PrismaInvoiceStatus {
  *   CalculationSnapshot.totalBuyAmount→  CalculationSnapshot.totalBuyAmount (was totalBuy)
  *   CalculationSnapshot.totalSellAmount→ CalculationSnapshot.totalSellAmount (was totalSell)
  *   LogisticsVehicle.vehicleNo        →  LogisticsVehicle.vehicleNo (was vehicleIdentifier)
+ *   (removed) Formula.timeline[]       →  derived via buildTimeline(); no column
  */
 export const FIELD_NAME_MAP = {
   "Formula.number": "Formula.formulaNo",
+  "Formula.latestVersionNo": "FormulaVersion.versionNo(max)",
+  "Formula.tradeDate": "Formula.tradeDate",
+  "Formula.contractDate": "Formula.contractDate",
   "VersionEntry.versionNo": "FormulaVersion.versionNo",
   "PaymentScheduleItem.scheduledDate": "PaymentSchedule.scheduledDate",
   "PaymentRecord.paidDate": "PaymentRecord.actualDate",

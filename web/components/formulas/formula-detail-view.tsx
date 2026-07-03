@@ -20,7 +20,8 @@ import {
 import type { Formula } from "@/lib/types"
 import { formatCurrency, formatRelative, cn } from "@/lib/utils"
 import { statusConfig, tradeTypeConfig } from "@/lib/status"
-import { deriveSettlement } from "@/lib/formula-math"
+import { deriveSettlement, buildTimeline } from "@/lib/formula-math"
+import { getVersionHistory } from "@/lib/mock-data"
 import { useCompany } from "@/components/company-context"
 import { StatusBadge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -63,6 +64,8 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
   const [tab, setTab] = useState("overview")
   const status = statusConfig[formula.status]
   const settlement = deriveSettlement(formula)
+  // Timeline is derived (P1-2); the tab count reflects buildTimeline() length.
+  const timelineCount = buildTimeline(formula, getVersionHistory(formula)).length
   const { isAllCompanies } = useCompany()
 
   return (
@@ -82,7 +85,7 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
             <h1 className="font-mono text-2xl font-bold text-foreground">{formula.number}</h1>
             <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
             <span className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground">
-              v{formula.version}
+              v{formula.latestVersionNo}
             </span>
           </div>
           <p className="mt-1.5 text-muted-foreground">
@@ -155,7 +158,7 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
               <LayoutDashboard className="size-4" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="timeline" count={formula.timeline.length}>
+            <TabsTrigger value="timeline" count={timelineCount}>
               <History className="size-4" />
               Timeline
             </TabsTrigger>
@@ -179,7 +182,7 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
               <PieChart className="size-4" />
               Shares
             </TabsTrigger>
-            <TabsTrigger value="versions" count={Math.max(1, formula.version)}>
+            <TabsTrigger value="versions" count={Math.max(1, formula.latestVersionNo)}>
               <GitCommitVertical className="size-4" />
               Versions
             </TabsTrigger>

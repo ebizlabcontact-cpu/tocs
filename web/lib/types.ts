@@ -250,11 +250,11 @@ export type DateRange =
   | "Custom Range"
 
 /**
- * Which Formula date a Dashboard/Reports/Calendar view is anchored to (P0-3).
- * All options except "Trade Date" map to canonical persisted dates
- * (PaymentSchedule.scheduledDate, PaymentRecord.actualDate, Formula.closedAt).
- * "Trade Date" is a PENDING contract field and is not the authoritative
- * aggregation basis — list/report windows are bounded by Formula.createdAt.
+ * Which Formula date a Dashboard/Reports/Calendar view is anchored to (P0-1).
+ * Every option maps to a canonical persisted date: "Trade Date" →
+ * Formula.tradeDate, "Scheduled Payment Date" → PaymentSchedule.scheduledDate,
+ * "Actual Payment Date" → PaymentRecord.actualDate, "Closed Date" →
+ * Formula.closedAt. "Trade Date" is the default aggregation basis.
  */
 export type DateBasis =
   | "Trade Date"
@@ -368,15 +368,9 @@ export type LogisticsVehicle = {
   memo?: string
 }
 
-export type TimelineEvent = {
-  id: string
-  type: "created" | "receipt" | "payment" | "invoice" | "logistics" | "version" | "note" | "share"
-  title: string
-  description: string
-  date: string
-  actor: string
-  linkTab?: string
-}
+// NOTE (P1-2): the former embedded `TimelineEvent` type was removed. Timeline
+// entries are produced by buildTimeline() as `DerivedTimelineEvent` (see
+// formula-math.ts) — the Formula never carries a stored timeline array.
 
 /** Which of the six canonical statuses a Status Log entry records a change for. */
 export type StatusLogType = "trade" | "cashIn" | "cashOut" | "invoice" | "logistics" | "delivery"
@@ -468,29 +462,40 @@ export type Formula = {
   closeable: boolean
   attention?: string
 
-  /* ---- Dates (P0-3) ---- */
+  /* ---- Canonical business dates (P0-1) ---- */
   /**
-   * PENDING CONTRACT FIELD (P0-3). Prisma Formula has NO tradeDate column. Kept
-   * for the wizard/UI only and NOT used as an authoritative filter/aggregation
-   * basis. Canonical persisted dates are createdAt / updatedAt / closedAt
-   * (plus PaymentSchedule.scheduledDate, PaymentRecord.actualDate, StatusLog.createdAt).
+   * Canonical trade/transaction date (Prisma Formula.tradeDate, date-only).
+   * A real business date — NOT the createdAt audit timestamp. Authoritative
+   * basis for date-anchored views (Timeline/Calendar/Reports/Filters).
+   * ISO date-only string ("YYYY-MM-DD").
    */
   tradeDate: string
-  /** PENDING CONTRACT FIELD (P0-3). Prisma Formula has NO contractDate column. */
+  /**
+   * Canonical contract date (Prisma Formula.contractDate, date-only). When the
+   * contract was agreed; precedes tradeDate. ISO date-only string ("YYYY-MM-DD").
+   */
   contractDate: string
+  /** Audit timestamps (not business dates). */
   createdAt: string
   updatedAt: string
   closedAt?: string
   canceledAt?: string
 
-  version: number
+  /**
+   * Latest version number shorthand (P1-1). Mirrors the highest
+   * FormulaVersion.versionNo; the authoritative history lives in `versions` /
+   * getVersionHistory(). This is a convenience counter, not a version record.
+   */
+  latestVersionNo: number
   invoices: InvoiceRecord[]
   logistics: LogisticsLeg[]
   /** Logistics Vehicles, linked to legs by `logisticsId` (P0-1). */
   vehicles: LogisticsVehicle[]
   /** Canonical status-change history — the Timeline projects these (P0-2). */
   statusLogs: StatusLog[]
-  timeline: TimelineEvent[]
+  // NOTE (P1-2): there is no embedded `timeline` array. The timeline is DERIVED
+  // via buildTimeline() from statusLogs, dates, schedules, and versions — never
+  // stored on the Formula.
 }
 
 export type Kpi = {

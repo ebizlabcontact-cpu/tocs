@@ -422,8 +422,11 @@ function buildFormula(i: number): Formula {
   // the trade happened `daysAgo` (0–40) ago; contract precedes it, the record is
   // created around the trade, and the last update is the most recent event.
   const tradeDaysAgo = daysAgo
-  const tradeDate = new Date(Date.now() - tradeDaysAgo * DAY).toISOString()
-  const contractDate = new Date(Date.now() - (tradeDaysAgo + 3 + Math.floor(rand() * 5)) * DAY).toISOString()
+  // Canonical business dates are date-only (YYYY-MM-DD); audit stamps keep time.
+  const tradeDate = new Date(Date.now() - tradeDaysAgo * DAY).toISOString().slice(0, 10)
+  const contractDate = new Date(Date.now() - (tradeDaysAgo + 3 + Math.floor(rand() * 5)) * DAY)
+    .toISOString()
+    .slice(0, 10)
   const createdAt = new Date(Date.now() - (tradeDaysAgo + 1) * DAY).toISOString()
   const updatedAt = new Date(Date.now() - Math.floor(tradeDaysAgo / 2) * DAY).toISOString()
 
@@ -434,7 +437,12 @@ function buildFormula(i: number): Formula {
     ? (contractExchangeRate ?? 0) + Math.round(rand() * 30) - 15
     : undefined
 
-  const number = `F-${2026}-${String(1000 + i).padStart(4, "0")}`
+  // Canonical formula number format FM-YYMM-NNNNN (P1-3). Derived from the trade
+  // date's year/month; the frontend never owns authoritative numbering — this
+  // mirrors the backend generate_formula_no() format for display only.
+  const numDate = new Date(tradeDate)
+  const yymm = `${String(numDate.getFullYear()).slice(-2)}${String(numDate.getMonth() + 1).padStart(2, "0")}`
+  const number = `FM-${yymm}-${String(i + 1).padStart(5, "0")}`
 
   const base: Formula = {
     id: `f${i}`,
@@ -476,7 +484,7 @@ function buildFormula(i: number): Formula {
     contractDate,
     createdAt,
     updatedAt,
-    version: 1 + Math.floor(rand() * 4),
+    latestVersionNo: 1 + Math.floor(rand() * 4),
     // Invoice expected amounts trace to Formula sell/buy totals (P0-2). The
     // external amount matches expected for "complete", is null (pending) for
     // "partial", and diverges for "unmatched" — always traceable.
@@ -554,28 +562,7 @@ function buildFormula(i: number): Formula {
       },
       { createdAt, tradeDate, updatedAt },
     ),
-    timeline: [
-      { id: "t1", type: "created", title: "Formula created", description: `${number} initialized for ${item}`, date: createdAt, actor: "Sarah Kim" },
-      {
-        id: "t2",
-        type: "logistics",
-        title: "Shipment booked",
-        description: "Sea freight booked with Logistics Partner",
-        date: new Date(Date.parse(createdAt) + 3 * DAY).toISOString(),
-        actor: "Logistics Bot",
-        linkTab: "logistics",
-      },
-      {
-        id: "t3",
-        type: "invoice",
-        title: "Invoice issued",
-        description: `INV-${9000 + i} issued to ${buyerCp}`,
-        date: new Date(Date.parse(createdAt) + 8 * DAY).toISOString(),
-        actor: "Sarah Kim",
-        linkTab: "invoices",
-      },
-      { id: "t4", type: "receipt", title: "Receipt recorded", description: `Partial receipt from ${buyerCp}`, date: updatedAt, actor: "Finance Team", linkTab: "payments" },
-    ],
+    // No embedded timeline (P1-2) — it is derived via buildTimeline().
   }
 
   return finalizeFormula(base, { isLoss, daysAgo })
@@ -588,7 +575,10 @@ function buildFormula(i: number): Formula {
  */
 function finalizeFormula(f: Formula, ctx: { isLoss: boolean; daysAgo: number }): Formula {
   const closeable = isCloseable(f) // all six statuses matched
-  const isClosed = closeable && f.receivable === 0 && f.payable === 0
+  // Close condition (P0-2): a Formula is closed exactly when it is closeable
+  // (all six statuses matched). Receivable/payable are KPI metrics only and do
+  // NOT gate closing.
+  const isClosed = closeable
 
   // Lifecycle stage ONLY (P1-2). Financial loss and logistics in-transit are
   // deliberately excluded — loss is surfaced via profit metrics/filters and
@@ -606,7 +596,7 @@ function finalizeFormula(f: Formula, ctx: { isLoss: boolean; daysAgo: number }):
 
   return {
     ...f,
-    closeable: closeable && !isClosed,
+    closeable,
     isClosed,
     status,
     attention,
@@ -648,7 +638,7 @@ function buildChainFormula(): Formula {
   const merged: Formula = {
     ...base,
     id: "f-chain",
-    number: "F-2026-0900",
+    number: "FM-2605-00900",
     companyId: "c1",
     item: "Used Cooking Oil",
     specMemo: "FFA ≤ 3.5%, Moisture ≤ 1%, ISCC-EU certified, multi-tier collection chain.",
@@ -661,9 +651,9 @@ function buildChainFormula(): Formula {
     adjustedExchangeRate: 1352,
     createdAt,
     updatedAt,
-    tradeDate: new Date(Date.now() - 56 * DAY).toISOString(),
-    contractDate: new Date(Date.now() - 55 * DAY).toISOString(),
-    version: 4,
+    tradeDate: new Date(Date.now() - 56 * DAY).toISOString().slice(0, 10),
+    contractDate: new Date(Date.now() - 55 * DAY).toISOString().slice(0, 10),
+    latestVersionNo: 4,
     participants,
     totalSell,
     totalBuy,
@@ -799,8 +789,7 @@ export function getRangeWindow(range: DateRange, customStart?: string, customEnd
 
 /**
  * Filter a formula list to those falling inside the range window. Uses the
- * canonical persisted `createdAt` as the authoritative basis (P0-3) — the
- * pending `tradeDate` contract field is never used as the filter basis.
+ * canonical business `tradeDate` as the authoritative basis (P0-1).
  */
 export function filterFormulasByRange(
   list: Formula[],
@@ -810,7 +799,7 @@ export function filterFormulasByRange(
 ): Formula[] {
   const { start, end } = getRangeWindow(range, customStart, customEnd)
   return list.filter((f) => {
-    const t = Date.parse(f.createdAt)
+    const t = Date.parse(f.tradeDate)
     return t >= start && t <= end
   })
 }
@@ -935,8 +924,8 @@ export function getProfitSeries(
     const to = start + (i + 1) * step
     const profit = list
       .filter((f) => {
-        // Canonical persisted basis (P0-3): createdAt, not the pending tradeDate.
-        const t = Date.parse(f.createdAt)
+        // Canonical business basis (P0-1): tradeDate.
+        const t = Date.parse(f.tradeDate)
         return t >= from && t < to
       })
       .reduce((s, f) => s + viewFormula(f, companyId, analyticsCompanyId).realizedProfit, 0)
@@ -972,7 +961,7 @@ const versionAuthors = ["Sarah Kim", "David Park", "Finance Team", "Jenny Lee", 
  * No diff engine — change entries are illustrative sample data.
  */
 export function getVersionHistory(formula: Formula): VersionEntry[] {
-  const count = Math.max(1, formula.version)
+  const count = Math.max(1, formula.latestVersionNo)
   // Typed diffs: raw values + valueType (formatted at render time) and an
   // explicit versionTriggering flag. Non-triggering entries (payment schedule
   // date, logistics mode) are grouped separately in the UI.
