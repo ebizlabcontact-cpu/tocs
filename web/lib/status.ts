@@ -1,4 +1,4 @@
-import type { FormulaStatus, TradeType } from "./types"
+import type { FormulaStatus, InvoiceStatus, TradeType } from "./types"
 
 type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "accent" | "outline"
 
@@ -19,12 +19,12 @@ export const tradeTypeConfig: Record<TradeType, { label: string }> = {
   triangular: { label: "Triangular" },
 }
 
-export const invoiceStatusConfig: Record<string, { label: string; tone: Tone }> = {
-  complete: { label: "Complete", tone: "success" },
-  partial: { label: "Partial", tone: "warning" },
-  unmatched: { label: "Unmatched", tone: "danger" },
-  matched: { label: "Matched", tone: "success" },
-  pending: { label: "Pending", tone: "neutral" },
+export const invoiceStatusConfig: Record<InvoiceStatus, { label: string; tone: Tone }> = {
+  missing: { label: "Missing", tone: "neutral" },
+  pending: { label: "Pending", tone: "warning" },
+  amount_matched: { label: "Amount Matched", tone: "success" },
+  amount_mismatched: { label: "Amount Mismatched", tone: "danger" },
+  canceled: { label: "Canceled", tone: "outline" },
 }
 
 export const logisticsStatusConfig: Record<string, { label: string; tone: Tone }> = {

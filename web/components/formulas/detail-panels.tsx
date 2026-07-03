@@ -11,6 +11,8 @@ import {
   scheduleFulfillment,
   sixStatuses,
   isCloseable,
+  deriveInvoiceVerification,
+  deriveInvoiceClose,
 } from "@/lib/formula-math"
 import {
   cashStatusConfig,
@@ -43,6 +45,7 @@ import {
   MessageSquare,
   Link2,
   AlertTriangle,
+  Info,
 } from "lucide-react"
 
 function SectionEmpty({ label }: { label: string }) {
@@ -278,37 +281,118 @@ export function PaymentsPanel({ formula }: { formula: Formula }) {
 }
 
 /* ---------------- Invoices ---------------- */
+/** Per-invoice close impact copy driven by canonical status. */
+function invoiceCloseImpact(status: ReturnType<typeof deriveInvoiceVerification>["status"]): {
+  label: string
+  tone: "success" | "warning" | "danger" | "outline"
+} {
+  switch (status) {
+    case "amount_matched":
+      return { label: "Allows close", tone: "success" }
+    case "amount_mismatched":
+      return { label: "Blocks close", tone: "danger" }
+    case "pending":
+      return { label: "Pending — blocks close", tone: "warning" }
+    case "canceled":
+      return { label: "Canceled — excluded", tone: "outline" }
+    default:
+      return { label: "Missing — blocks close", tone: "warning" }
+  }
+}
+
 export function InvoicesPanel({ formula }: { formula: Formula }) {
-  if (formula.invoices.length === 0) return <SectionEmpty label="No invoices recorded." />
+  if (formula.invoices.length === 0)
+    return (
+      <div className="space-y-3">
+        <InvoiceCloseRuleNote />
+        <SectionEmpty label="No invoices recorded — invoice is a close condition, so this Formula cannot close yet." />
+      </div>
+    )
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {formula.invoices.map((inv) => {
-        const cfg = invoiceStatusConfig[inv.status]
-        return (
-          <div key={inv.id} className="rounded-lg border border-border bg-card p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
-                  <FileText className="size-4" />
+    <div className="space-y-3">
+      <InvoiceCloseRuleNote />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {formula.invoices.map((inv) => {
+          const v = deriveInvoiceVerification(inv)
+          const cfg = invoiceStatusConfig[v.status]
+          const impact = invoiceCloseImpact(v.status)
+          return (
+            <div key={inv.id} className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+                    <FileText className="size-4" />
+                  </div>
+                  <div>
+                    <p className="font-mono text-sm font-semibold text-foreground">{inv.number}</p>
+                    <p className="text-xs capitalize text-muted-foreground">
+                      {inv.direction} · {inv.counterparty}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-mono text-sm font-semibold text-foreground">{inv.number}</p>
-                  <p className="text-xs capitalize text-muted-foreground">
-                    {inv.direction} · {inv.counterparty}
-                  </p>
+                <StatusBadge tone={cfg.tone}>{cfg.label}</StatusBadge>
+              </div>
+
+              {/* Amount verification: system-derived expected vs external (P0-1) */}
+              <div className="mt-3 space-y-1.5 border-t border-border pt-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Expected Amount</span>
+                  <span className="font-mono tabular-nums text-foreground">{formatCurrency(v.expectedAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">External Invoice Amount</span>
+                  <span className="font-mono tabular-nums text-foreground">
+                    {v.externalAmount == null ? "—" : formatCurrency(v.externalAmount)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Difference</span>
+                  <span
+                    className={cn(
+                      "font-mono tabular-nums",
+                      v.delta == null || v.delta === 0 ? "text-muted-foreground" : "text-danger",
+                    )}
+                  >
+                    {v.delta == null ? "—" : `${v.delta > 0 ? "+" : ""}${formatCurrency(v.delta)}`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Amount Verified</span>
+                  <span
+                    className={cn(
+                      "text-xs font-semibold",
+                      v.matched ? "text-success" : v.status === "canceled" ? "text-muted-foreground" : "text-danger",
+                    )}
+                  >
+                    {v.status === "canceled" ? "N/A" : v.matched ? "Matched" : "Mismatched"}
+                  </span>
                 </div>
               </div>
-              <StatusBadge tone={cfg.tone}>{cfg.label}</StatusBadge>
+
+              <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                <span className="text-xs text-muted-foreground">Due {formatDate(inv.dueDate)}</span>
+                <StatusBadge tone={impact.tone}>{impact.label}</StatusBadge>
+              </div>
             </div>
-            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-              <span className="text-xs text-muted-foreground">{formatDate(inv.date)}</span>
-              <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-                {formatCurrency(inv.amount)}
-              </span>
-            </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Amount verification is system-derived by comparing the external invoice amount with the expected amount.
+        Authoritative verification runs in backend services after integration.
+      </p>
+    </div>
+  )
+}
+
+function InvoiceCloseRuleNote() {
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+      <Info className="mt-0.5 size-4 shrink-0 text-accent" />
+      <span>
+        <span className="font-medium text-foreground">Invoice is a Formula close condition, not a transaction blocker.</span>{" "}
+        A Formula can continue without invoice completion, but cannot close until the invoice amount is matched.
+      </span>
     </div>
   )
 }
@@ -777,7 +861,8 @@ export function SettlementPanel({ formula }: { formula: Formula }) {
   const s = deriveSettlement(formula)
   const closeable = isCloseable(formula)
   const unmatchedPayments = (formula.records ?? []).filter((r) => !r.canceled && !r.scheduleId)
-  const invoiceUnmatched = formula.invoiceStatus !== "complete"
+  const invClose = deriveInvoiceClose(formula)
+  const invoiceUnmatched = !invClose.done
   const hasUnresolved = s.remainingReceivable > 0 || s.remainingPayable > 0 || unmatchedPayments.length > 0 || invoiceUnmatched
 
   return (
@@ -819,8 +904,20 @@ export function SettlementPanel({ formula }: { formula: Formula }) {
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <SettlementCheck label="All receipts collected" done={s.remainingReceivable === 0} />
             <SettlementCheck label="All payments cleared" done={s.remainingPayable === 0} />
-            <SettlementCheck label="Invoices matched" done={!invoiceUnmatched} />
+            <SettlementCheck
+              label={
+                invClose.activeCount === 0
+                  ? "Invoices matched (none recorded)"
+                  : `Invoices matched (${invClose.matchedCount}/${invClose.activeCount})`
+              }
+              done={!invoiceUnmatched}
+            />
             <SettlementCheck label="Ready to close (6/6)" done={closeable} />
+          </div>
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+            <Info className="mt-0.5 size-3.5 shrink-0 text-accent" />
+            Invoice is a Formula close condition, not a transaction blocker. A Formula can continue without invoice
+            completion, but cannot close until the invoice amount is matched.
           </div>
         </div>
       </section>

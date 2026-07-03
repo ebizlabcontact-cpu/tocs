@@ -77,8 +77,24 @@ export type CurrencyCode = "KRW" | "USD" | "EUR" | "JPY" | "CNY" | "SGD"
 export type TradeProgress = "draft" | "confirmed" | "completed"
 /** Cash movement progression (used for both cash-in and cash-out). */
 export type CashProgress = "pending" | "partial" | "completed"
-/** Invoice reconciliation state. */
+/**
+ * Coarse Formula-level invoice roll-up used only by list/report summaries.
+ * Per-invoice reconciliation uses the canonical `InvoiceStatus` set below.
+ */
 export type InvoiceState = "unmatched" | "partial" | "complete"
+
+/**
+ * Canonical per-invoice status set (P0-3). Single vocabulary across the
+ * Formula Detail Invoices tab and close-readiness display.
+ *   missing           — no invoice recorded (section-level empty state)
+ *   pending           — invoice not yet received (no external amount)
+ *   amount_matched    — external amount equals expected amount
+ *   amount_mismatched — external amount differs from expected amount
+ *   canceled          — voided; remains visible but never counts as matched
+ * Status is SYSTEM-DERIVED from amounts (see deriveInvoiceStatus), never
+ * user-entered.
+ */
+export type InvoiceStatus = "missing" | "pending" | "amount_matched" | "amount_mismatched" | "canceled"
 /** Physical logistics movement. */
 export type LogisticsState = "not_started" | "in_transit" | "delivered"
 /** Delivery / hand-off confirmation. */
@@ -231,8 +247,14 @@ export type InvoiceRecord = {
   number: string
   direction: "issued" | "received"
   counterparty: string
-  amount: number
-  status: "matched" | "unmatched" | "pending"
+  /** Expected amount, traceable to Formula/participant totals. */
+  expectedAmount: number
+  /** External invoice amount as received; null while pending (not yet received). */
+  externalAmount: number | null
+  /** Voided invoice — kept visible but excluded from matched/close counts. */
+  canceled?: boolean
+  /** When payment against the invoice is due. */
+  dueDate: string
   date: string
 }
 

@@ -368,14 +368,23 @@ function buildFormula(i: number): Formula {
     createdAt,
     updatedAt,
     version: 1 + Math.floor(rand() * 4),
+    // Invoice expected amounts trace to Formula sell/buy totals (P0-2). The
+    // external amount matches expected for "complete", is null (pending) for
+    // "partial", and diverges for "unmatched" — always traceable.
     invoices: [
       {
         id: "iv1",
         number: `INV-${9000 + i}`,
         direction: "issued",
         counterparty: buyerCp,
-        amount: Math.round(totalSell * 0.5),
-        status: invoiceStatus === "unmatched" ? "unmatched" : "matched",
+        expectedAmount: totalSell,
+        externalAmount:
+          invoiceStatus === "complete"
+            ? totalSell
+            : invoiceStatus === "partial"
+              ? totalSell
+              : totalSell + Math.round(totalSell * 0.04),
+        dueDate: new Date(Date.now() + (7 + (i % 10)) * DAY).toISOString(),
         date: updatedAt,
       },
       {
@@ -383,10 +392,27 @@ function buildFormula(i: number): Formula {
         number: `INV-${9500 + i}`,
         direction: "received",
         counterparty: originCp,
-        amount: Math.round(totalBuy * 0.5),
-        status: "matched",
+        expectedAmount: totalBuy,
+        externalAmount: invoiceStatus === "partial" ? null : totalBuy,
+        dueDate: new Date(Date.now() + (5 + (i % 8)) * DAY).toISOString(),
         date: createdAt,
       },
+      // Canceled invoice example — stays visible, never counts as matched (P0-5).
+      ...(rand() < 0.3
+        ? [
+            {
+              id: "iv3",
+              number: `INV-${9900 + i}`,
+              direction: "issued" as const,
+              counterparty: buyerCp,
+              expectedAmount: Math.round(totalSell * 0.2),
+              externalAmount: null,
+              canceled: true,
+              dueDate: new Date(Date.now() + (3 + (i % 6)) * DAY).toISOString(),
+              date: updatedAt,
+            },
+          ]
+        : []),
     ],
     logistics: [
       {

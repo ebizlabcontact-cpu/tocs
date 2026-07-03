@@ -1,4 +1,4 @@
-import type { Formula } from "./types"
+import type { Formula, InvoiceRecord, InvoiceStatus } from "./types"
 
 /**
  * Canonical Formula derivation adapter (P0-4).
@@ -116,6 +116,61 @@ export function scheduleFulfillment(f: Formula, scheduleId: string, scheduledAmo
   return { matchedTotal, remaining: Math.max(0, scheduledAmount - matchedTotal), count: matched.length }
 }
 
+/* ---------------- Invoice amount verification (P0-1/P0-3) ---------------- */
+
+export type InvoiceVerification = {
+  status: InvoiceStatus
+  expectedAmount: number
+  externalAmount: number | null
+  /** externalAmount − expectedAmount; null while pending. */
+  delta: number | null
+  matched: boolean
+  /** True when this invoice blocks close (pending or amount mismatch). */
+  blocksClose: boolean
+}
+
+/**
+ * System-derived per-invoice status. Verification is computed by comparing the
+ * external invoice amount with the expected amount — it is never user-entered.
+ * Authoritative verification runs in backend services after integration.
+ */
+export function deriveInvoiceStatus(inv: InvoiceRecord): InvoiceStatus {
+  if (inv.canceled) return "canceled"
+  if (inv.externalAmount == null) return "pending"
+  return inv.externalAmount === inv.expectedAmount ? "amount_matched" : "amount_mismatched"
+}
+
+export function deriveInvoiceVerification(inv: InvoiceRecord): InvoiceVerification {
+  const status = deriveInvoiceStatus(inv)
+  const delta = inv.externalAmount == null ? null : inv.externalAmount - inv.expectedAmount
+  return {
+    status,
+    expectedAmount: inv.expectedAmount,
+    externalAmount: inv.externalAmount,
+    delta,
+    matched: status === "amount_matched",
+    blocksClose: status === "pending" || status === "amount_mismatched",
+  }
+}
+
+/**
+ * Formula-level invoice close roll-up derived ONLY from invoice records
+ * (canonical). Canceled invoices stay visible but never count toward matched.
+ * Invoice is a Formula close condition, not a transaction blocker.
+ */
+export function deriveInvoiceClose(f: Formula) {
+  const active = (f.invoices ?? []).filter((i) => !i.canceled)
+  const matched = active.filter((i) => deriveInvoiceStatus(i) === "amount_matched")
+  const blocking = active.length - matched.length
+  return {
+    done: active.length > 0 && blocking === 0,
+    activeCount: active.length,
+    matchedCount: matched.length,
+    blocking,
+    canceledCount: (f.invoices ?? []).length - active.length,
+  }
+}
+
 /* ---------------- Six-status model (P0-6) ---------------- */
 
 export type StatusItem = {
@@ -130,11 +185,6 @@ const cashLabel: Record<string, string> = {
   pending: "Pending",
   partial: "Partial",
   completed: "Completed",
-}
-const invoiceLabel: Record<string, string> = {
-  unmatched: "Unmatched",
-  partial: "Partial",
-  complete: "Matched",
 }
 const logisticsLabel: Record<string, string> = {
   not_started: "Not Started",
@@ -154,11 +204,17 @@ const tradeLabel: Record<string, string> = {
 
 /** The six canonical Formula statuses, in display order. */
 export function sixStatuses(f: Formula): StatusItem[] {
+  const inv = deriveInvoiceClose(f)
+  const invoiceValue = inv.done
+    ? "Matched"
+    : inv.activeCount === 0
+      ? "Missing"
+      : `${inv.matchedCount}/${inv.activeCount} Matched`
   return [
     { key: "trade", label: "Trade", value: tradeLabel[f.tradeStatus], done: f.tradeStatus === "completed" },
     { key: "cashIn", label: "Cash In", value: cashLabel[f.cashInStatus], done: f.cashInStatus === "completed" },
     { key: "cashOut", label: "Cash Out", value: cashLabel[f.cashOutStatus], done: f.cashOutStatus === "completed" },
-    { key: "invoice", label: "Invoice", value: invoiceLabel[f.invoiceStatus], done: f.invoiceStatus === "complete" },
+    { key: "invoice", label: "Invoice", value: invoiceValue, done: inv.done },
     { key: "logistics", label: "Logistics", value: logisticsLabel[f.logisticsStatus], done: f.logisticsStatus === "delivered" },
     { key: "delivery", label: "Delivery", value: deliveryLabel[f.deliveryStatus], done: f.deliveryStatus === "delivered" },
   ]
