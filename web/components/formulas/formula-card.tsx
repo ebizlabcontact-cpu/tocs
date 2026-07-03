@@ -4,6 +4,7 @@ import type { Formula } from "@/lib/types"
 import { statusConfig, tradeTypeConfig } from "@/lib/status"
 import { StatusBadge } from "@/components/ui/badge"
 import { cn, formatCurrency, formatRelative } from "@/lib/utils"
+import { deriveExpected, deriveRealized, deriveSettlement } from "@/lib/formula-math"
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: "profit" | "loss" | "muted" }) {
   return (
@@ -25,9 +26,12 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: "
 
 export function FormulaCard({ formula }: { formula: Formula }) {
   const status = statusConfig[formula.status]
-  const isLoss = formula.realizedProfit < 0
-  const profitValue = formula.status === "closed" || formula.realizedProfit !== 0 ? formula.realizedProfit : formula.expectedProfit
-  const profitIsRealized = formula.realizedProfit !== 0 || formula.status === "closed"
+  const expected = deriveExpected(formula)
+  const realized = deriveRealized(formula)
+  const settlement = deriveSettlement(formula)
+  const isLoss = realized.realizedProfit < 0
+  const profitIsRealized = realized.realizedProfit !== 0 || formula.status === "closed"
+  const profitValue = profitIsRealized ? realized.realizedProfit : expected.expectedProfit
 
   return (
     <Link
@@ -55,8 +59,8 @@ export function FormulaCard({ formula }: { formula: Formula }) {
       )}
 
       <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-3">
-        <Metric label="Sell" value={formatCurrency(formula.totalSell, { compact: true })} />
-        <Metric label="Buy" value={formatCurrency(formula.totalBuy, { compact: true })} />
+        <Metric label="Sell" value={formatCurrency(expected.totalSell, { compact: true })} />
+        <Metric label="Buy" value={formatCurrency(expected.totalBuy, { compact: true })} />
         <Metric
           label={profitIsRealized ? "Realized" : "Expected"}
           value={formatCurrency(profitValue, { compact: true })}
@@ -67,7 +71,7 @@ export function FormulaCard({ formula }: { formula: Formula }) {
       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           {isLoss ? <TrendingDown className="size-3.5 text-danger" /> : <TrendingUp className="size-3.5 text-success" />}
-          Receivable {formatCurrency(formula.receivable, { compact: true })}
+          Receivable {formatCurrency(settlement.remainingReceivable, { compact: true })}
         </span>
         <span>{formatRelative(formula.updatedAt)}</span>
       </div>

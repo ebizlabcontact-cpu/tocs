@@ -6,6 +6,7 @@ import type { Formula } from "@/lib/types"
 import { statusConfig, tradeTypeConfig } from "@/lib/status"
 import { StatusBadge } from "@/components/ui/badge"
 import { cn, formatCurrency } from "@/lib/utils"
+import { deriveExpected, deriveRealized, deriveSettlement } from "@/lib/formula-math"
 
 export function FormulaTable({ formulas }: { formulas: Formula[] }) {
   const router = useRouter()
@@ -28,7 +29,10 @@ export function FormulaTable({ formulas }: { formulas: Formula[] }) {
           <tbody>
             {formulas.map((f) => {
               const status = statusConfig[f.status]
-              const isLoss = f.realizedProfit < 0
+              const expected = deriveExpected(f)
+              const realized = deriveRealized(f)
+              const settlement = deriveSettlement(f)
+              const isLoss = realized.realizedProfit < 0
               return (
                 <tr
                   key={f.id}
@@ -48,21 +52,21 @@ export function FormulaTable({ formulas }: { formulas: Formula[] }) {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                    {formatCurrency(f.expectedProfit, { compact: true })}
+                    {formatCurrency(expected.expectedProfit, { compact: true })}
                   </td>
                   <td
                     className={cn(
                       "px-4 py-3 text-right font-semibold tabular-nums",
-                      f.realizedProfit === 0 ? "text-muted-foreground" : isLoss ? "text-danger" : "text-success",
+                      realized.realizedProfit === 0 ? "text-muted-foreground" : isLoss ? "text-danger" : "text-success",
                     )}
                   >
-                    {f.realizedProfit === 0 ? "—" : formatCurrency(f.realizedProfit, { compact: true })}
+                    {realized.realizedProfit === 0 ? "—" : formatCurrency(realized.realizedProfit, { compact: true })}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-foreground">
-                    {formatCurrency(f.receivable, { compact: true })}
+                    {formatCurrency(settlement.remainingReceivable, { compact: true })}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-foreground">
-                    {formatCurrency(f.payable, { compact: true })}
+                    {formatCurrency(settlement.remainingPayable, { compact: true })}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge tone={status.tone}>{status.label}</StatusBadge>

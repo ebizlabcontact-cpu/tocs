@@ -4,6 +4,7 @@ import { useState } from "react"
 import { ChevronDown, Calculator } from "lucide-react"
 import type { Formula } from "@/lib/types"
 import { formatCurrency, cn } from "@/lib/utils"
+import { deriveExpected, deriveRealized, deriveSettlement } from "@/lib/formula-math"
 
 function ValueRow({
   label,
@@ -65,11 +66,14 @@ function EqLine({ op, label, value, result }: { op?: string; label: string; valu
 export function CalculationBreakdown({ formula }: { formula: Formula }) {
   const [open, setOpen] = useState(false)
 
-  const expectedRevenue = formula.totalSell
-  const expectedCost = formula.totalBuy
-  const logisticsCost = formula.cost
-  const share = formula.share
-  const expectedNet = formula.expectedProfit
+  const expected = deriveExpected(formula)
+  const realized = deriveRealized(formula)
+  const settlement = deriveSettlement(formula)
+  const expectedRevenue = expected.totalSell
+  const expectedCost = expected.totalBuy
+  const logisticsCost = expected.cost
+  const share = expected.share
+  const expectedNet = expected.expectedProfit
 
   return (
     <div className="space-y-4">
