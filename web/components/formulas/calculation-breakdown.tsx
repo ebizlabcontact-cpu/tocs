@@ -92,16 +92,16 @@ export function CalculationBreakdown({ formula }: { formula: Formula }) {
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Realized</p>
           <div className="divide-y divide-border">
-            <ValueRow label="Actual Receipts" value={formula.actualReceipts} tone="pos" />
-            <ValueRow label="Actual Payments" value={formula.actualPayments} tone="muted" />
+            <ValueRow label="Actual Receipts" value={realized.actualReceipts} tone="pos" />
+            <ValueRow label="Actual Payments" value={realized.actualPayments} tone="muted" />
             <ValueRow
               label="Realized Profit"
-              value={formula.realizedProfit}
-              tone={formula.realizedProfit >= 0 ? "pos" : "neg"}
+              value={realized.realizedProfit}
+              tone={realized.realizedProfit >= 0 ? "pos" : "neg"}
               strong
             />
-            <ValueRow label="Receivable" value={formula.receivable} />
-            <ValueRow label="Payable" value={formula.payable} />
+            <ValueRow label="Receivable" value={settlement.remainingReceivable} />
+            <ValueRow label="Payable" value={settlement.remainingPayable} />
           </div>
         </div>
       </div>
@@ -136,9 +136,9 @@ export function CalculationBreakdown({ formula }: { formula: Formula }) {
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Realized Profit
               </p>
-              <EqLine label="Actual Receipts" value={formula.actualReceipts} />
-              <EqLine op="−" label="Actual Payments" value={formula.actualPayments} />
-              <EqLine op="=" label="Realized Profit" value={formula.realizedProfit} result />
+              <EqLine label="Actual Receipts" value={realized.actualReceipts} />
+              <EqLine op="−" label="Actual Payments" value={realized.actualPayments} />
+              <EqLine op="=" label="Realized Profit" value={realized.realizedProfit} result />
             </div>
           </div>
         )}

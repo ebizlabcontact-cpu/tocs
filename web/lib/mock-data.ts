@@ -15,7 +15,7 @@ import type {
   VersionEntry,
 } from "./types"
 import { deriveChainFinancials } from "./derive"
-import { isCloseable } from "./formula-math"
+import { isCloseable, deriveRealized, deriveSettlement } from "./formula-math"
 
 export const companies: Company[] = [
   { id: "all", name: "All Companies", shortName: "ALL", color: "#f59e0b" },
@@ -620,10 +620,14 @@ export function getKpis(
 ): Kpi[] {
   const list = filterFormulasByRange(getFormulasByCompany(companyId), range, customStart, customEnd)
 
-  const realizedProfit = list.filter((x) => x.realizedProfit > 0).reduce((s, x) => s + x.realizedProfit, 0)
-  const totalLoss = list.filter((x) => x.realizedProfit < 0).reduce((s, x) => s + x.realizedProfit, 0)
-  const receivable = list.reduce((s, x) => s + x.receivable, 0)
-  const payable = list.reduce((s, x) => s + x.payable, 0)
+  // Route aggregates through the canonical adapters so KPIs re-derive from
+  // participant chains and settlement records (never stored profit fields).
+  const realized = list.map(deriveRealized)
+  const settlement = list.map(deriveSettlement)
+  const realizedProfit = realized.filter((r) => r.realizedProfit > 0).reduce((s, r) => s + r.realizedProfit, 0)
+  const totalLoss = realized.filter((r) => r.realizedProfit < 0).reduce((s, r) => s + r.realizedProfit, 0)
+  const receivable = settlement.reduce((s, r) => s + r.remainingReceivable, 0)
+  const payable = settlement.reduce((s, r) => s + r.remainingPayable, 0)
   const upcomingReceipts = list
     .flatMap((x) => x.schedule)
     .filter((s) => s.type === "receipt" && s.status !== "settled")
@@ -686,7 +690,7 @@ export function getProfitSeries(
         const t = Date.parse(f.tradeDate ?? f.createdAt)
         return t >= from && t < to
       })
-      .reduce((s, f) => s + f.realizedProfit, 0)
+      .reduce((s, f) => s + deriveRealized(f).realizedProfit, 0)
     const label = labelFor(from, to) || `Week ${i + 1}`
     series.push({ month: label, profit: Math.round(profit) })
   }

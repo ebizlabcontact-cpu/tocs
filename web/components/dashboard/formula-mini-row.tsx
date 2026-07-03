@@ -4,10 +4,12 @@ import type { Formula } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import { statusConfig } from "@/lib/status"
 import { cn, formatSignedCurrency, formatRelative } from "@/lib/utils"
+import { deriveRealized } from "@/lib/formula-math"
 
 export function FormulaMiniRow({ formula, showAttention }: { formula: Formula; showAttention?: boolean }) {
   const status = statusConfig[formula.status]
-  const isLoss = formula.realizedProfit < 0
+  const realizedProfit = deriveRealized(formula).realizedProfit
+  const isLoss = realizedProfit < 0
 
   return (
     <Link
@@ -34,7 +36,7 @@ export function FormulaMiniRow({ formula, showAttention }: { formula: Formula; s
       </div>
       <div className="shrink-0 text-right">
         <p className={cn("text-sm font-semibold tabular-nums", isLoss ? "text-danger" : "text-foreground")}>
-          {formatSignedCurrency(formula.realizedProfit, { compact: true })}
+          {formatSignedCurrency(realizedProfit, { compact: true })}
         </p>
         <p className="text-xs text-muted-foreground">{formatRelative(formula.updatedAt)}</p>
       </div>

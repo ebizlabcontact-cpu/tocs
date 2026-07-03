@@ -11,6 +11,7 @@ import { FormulaCard } from "@/components/formulas/formula-card"
 import { FormulaTable } from "@/components/formulas/formula-table"
 import { FormulaFilters, filterLabels, type StatusFilter } from "@/components/formulas/formula-filters"
 import { getFormulasByCompany } from "@/lib/mock-data"
+import { deriveExpected, deriveRealized, deriveSettlement } from "@/lib/formula-math"
 import { cn, formatCurrency } from "@/lib/utils"
 import type { Formula } from "@/lib/types"
 
@@ -22,15 +23,15 @@ function matchesStatus(f: Formula, status: StatusFilter) {
     case "all":
       return true
     case "loss":
-      return f.realizedProfit < 0
+      return deriveRealized(f).realizedProfit < 0
     case "profit":
-      return f.realizedProfit > 0
+      return deriveRealized(f).realizedProfit > 0
     case "closeable":
       return f.closeable
     case "receivable":
-      return f.receivable > 0
+      return deriveSettlement(f).remainingReceivable > 0
     case "payable":
-      return f.payable > 0
+      return deriveSettlement(f).remainingPayable > 0
     case "unmatched":
       return f.invoiceStatus === "unmatched"
     case "attention":
@@ -97,14 +98,16 @@ function FormulasContent() {
       attention: 0,
     }
     for (const f of all) {
+      const realized = deriveRealized(f).realizedProfit
+      const settlement = deriveSettlement(f)
       if (f.status === "active") c.active++
       if (f.status === "invoicing") c.invoicing++
       if (f.closeable) c.closeable++
       if (f.status === "closed") c.closed++
-      if (f.realizedProfit < 0) c.loss++
-      if (f.realizedProfit > 0) c.profit++
-      if (f.receivable > 0) c.receivable++
-      if (f.payable > 0) c.payable++
+      if (realized < 0) c.loss++
+      if (realized > 0) c.profit++
+      if (settlement.remainingReceivable > 0) c.receivable++
+      if (settlement.remainingPayable > 0) c.payable++
       if (f.invoiceStatus === "unmatched") c.unmatched++
       if (f.attention) c.attention++
     }
@@ -124,13 +127,13 @@ function FormulasContent() {
     }
     list = [...list].sort((a, b) => {
       if (sort === "recent") return Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
-      if (sort === "profit") return b.realizedProfit - a.realizedProfit
-      return b.totalSell - a.totalSell
+      if (sort === "profit") return deriveRealized(b).realizedProfit - deriveRealized(a).realizedProfit
+      return deriveExpected(b).totalSell - deriveExpected(a).totalSell
     })
     return list
   }, [all, status, query, sort])
 
-  const totalValue = filtered.reduce((s, f) => s + f.totalSell, 0)
+  const totalValue = filtered.reduce((s, f) => s + deriveExpected(f).totalSell, 0)
 
   return (
     <div className="animate-fade-in">

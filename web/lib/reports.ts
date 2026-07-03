@@ -14,6 +14,7 @@ import {
   getProfitSeries,
 } from "./mock-data"
 import { statusConfig, tradeTypeConfig } from "./status"
+import { deriveExpected, deriveRealized, deriveSettlement } from "./formula-math"
 
 export type MetricKey = "realized" | "expected" | "revenue" | "cost" | "receivable" | "payable"
 export type DimensionKey = "company" | "tradeType" | "item" | "status"
@@ -35,19 +36,22 @@ export const DIMENSIONS: { key: DimensionKey; label: string }[] = [
 ]
 
 function metricValue(f: Formula, metric: MetricKey): number {
+  // All figures re-derive from the canonical adapters (chain + records), never
+  // from stored profit/settlement fields.
+  const expected = deriveExpected(f)
   switch (metric) {
     case "realized":
-      return f.realizedProfit
+      return deriveRealized(f).realizedProfit
     case "expected":
-      return f.expectedProfit
+      return expected.expectedProfit
     case "revenue":
-      return f.totalSell
+      return expected.totalSell
     case "cost":
-      return f.totalBuy
+      return expected.totalBuy
     case "receivable":
-      return f.receivable
+      return deriveSettlement(f).remainingReceivable
     case "payable":
-      return f.payable
+      return deriveSettlement(f).remainingPayable
   }
 }
 
@@ -107,19 +111,21 @@ export type ExecutiveSummary = {
 
 export function getExecutiveSummary(companyId: string, range: DateRange): ExecutiveSummary {
   const list = filterFormulasByRange(getFormulasByCompany(companyId), range)
+  const withRealized = list
+    .map((f) => ({ f, realized: deriveRealized(f).realizedProfit }))
+    .sort((a, b) => b.realized - a.realized)
 
   return {
-    realizedProfit: list.reduce((s, f) => s + f.realizedProfit, 0),
-    expectedProfit: list.reduce((s, f) => s + f.expectedProfit, 0),
-    receivable: list.reduce((s, f) => s + f.receivable, 0),
-    payable: list.reduce((s, f) => s + f.payable, 0),
-    revenue: list.reduce((s, f) => s + f.totalSell, 0),
+    realizedProfit: list.reduce((s, f) => s + deriveRealized(f).realizedProfit, 0),
+    expectedProfit: list.reduce((s, f) => s + deriveExpected(f).expectedProfit, 0),
+    receivable: list.reduce((s, f) => s + deriveSettlement(f).remainingReceivable, 0),
+    payable: list.reduce((s, f) => s + deriveSettlement(f).remainingPayable, 0),
+    revenue: list.reduce((s, f) => s + deriveExpected(f).totalSell, 0),
     formulaCount: list.length,
     profitSeries: getProfitSeries(companyId, range),
-    topFormulas: [...list]
-      .sort((a, b) => b.realizedProfit - a.realizedProfit)
+    topFormulas: withRealized
       .slice(0, 6)
-      .map((f) => ({ number: f.number, item: f.item, realized: f.realizedProfit })),
+      .map(({ f, realized }) => ({ number: f.number, item: f.item, realized })),
   }
 }
 
@@ -166,7 +172,7 @@ export function getTrendSummary(companyId: string, range: DateRange): TrendPoint
   const list = filterFormulasByRange(getFormulasByCompany(companyId), range)
   const realizedSeries = getProfitSeries(companyId, range)
   const totalRealized = realizedSeries.reduce((s, p) => s + p.profit, 0) || 1
-  const totalExpected = list.reduce((s, f) => s + f.expectedProfit, 0)
+  const totalExpected = list.reduce((s, f) => s + deriveExpected(f).expectedProfit, 0)
 
   return realizedSeries.map((p) => ({
     month: p.month,
