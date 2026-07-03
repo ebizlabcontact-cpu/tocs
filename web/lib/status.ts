@@ -42,3 +42,22 @@ export const scheduleStatusConfig: Record<string, { label: string; tone: Tone }>
   settled: { label: "Settled", tone: "success" },
   overdue: { label: "Overdue", tone: "danger" },
 }
+
+/* ---- Six-status model tones (P0-6) ---- */
+export const tradeStatusConfig: Record<string, { label: string; tone: Tone }> = {
+  draft: { label: "Draft", tone: "neutral" },
+  confirmed: { label: "Confirmed", tone: "info" },
+  completed: { label: "Completed", tone: "success" },
+}
+
+export const cashStatusConfig: Record<string, { label: string; tone: Tone }> = {
+  pending: { label: "Pending", tone: "neutral" },
+  partial: { label: "Partial", tone: "warning" },
+  completed: { label: "Completed", tone: "success" },
+}
+
+export const deliveryStatusConfig: Record<string, { label: string; tone: Tone }> = {
+  pending: { label: "Pending", tone: "neutral" },
+  in_transit: { label: "In Transit", tone: "info" },
+  delivered: { label: "Delivered", tone: "success" },
+}

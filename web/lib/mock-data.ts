@@ -5,12 +5,17 @@ import type {
   TradeType,
   Kpi,
   Participant,
+  PaymentScheduleItem,
+  PaymentRecord,
+  FormulaShare,
+  CashProgress,
   RegisteredCompany,
   DateRange,
   CalendarEvent,
   VersionEntry,
 } from "./types"
 import { deriveChainFinancials } from "./derive"
+import { isCloseable } from "./formula-math"
 
 export const companies: Company[] = [
   { id: "all", name: "All Companies", shortName: "ALL", color: "#f59e0b" },
@@ -43,6 +48,10 @@ export const registeredCompanies: RegisteredCompany[] = [
     defaultCurrency: "KRW",
     memo: "Primary UCO supplier. ISCC-EU certified.",
     tags: ["ISCC", "Priority"],
+    contacts: [
+      { id: "ct1", name: "Ji-woo Han", department: "Global Sourcing", position: "Manager", email: "jiwoo.han@cj.example", mobile: "010-2345-6789", isPrimary: true },
+      { id: "ct2", name: "Min-jun Seo", department: "Finance", position: "Accountant", email: "minjun.seo@cj.example" },
+    ],
   },
   {
     id: "rc2",
@@ -75,11 +84,112 @@ const counterparties = registeredCompanies.map((c) => c.name)
 
 const tradeTypes: TradeType[] = ["import", "export", "domestic", "triangular"]
 
+const DAY = 86400000
+
 function rng(seed: number) {
   let s = seed
   return () => {
     s = (s * 9301 + 49297) % 233280
     return s / 233280
+  }
+}
+
+const cashProgress = (actual: number, total: number): CashProgress =>
+  actual >= total ? "completed" : actual > 0 ? "partial" : "pending"
+
+/**
+ * Builds the two-tier settlement (P0-5) for a formula: planned schedules and
+ * actual records that are internally consistent. Realized figures derive from
+ * the actual records, so nothing contradicts the Formula inputs.
+ */
+function buildSettlement(
+  totalSell: number,
+  totalBuy: number,
+  receiptRatio: number,
+  paymentRatio: number,
+  receiptCp: string,
+  paymentCp: string,
+  daysAgo: number,
+  rand: () => number,
+) {
+  const actualReceipts = Math.round(totalSell * receiptRatio)
+  const actualPayments = Math.round(totalBuy * paymentRatio)
+  const receivable = Math.max(0, totalSell - actualReceipts)
+  const payable = Math.max(0, totalBuy - actualPayments)
+  const now = Date.now()
+
+  const schedule: PaymentScheduleItem[] = [
+    {
+      id: "s1",
+      type: "receipt",
+      counterparty: receiptCp,
+      amount: totalSell,
+      scheduledDate: new Date(now + 7 * DAY).toISOString(),
+      dueDate: new Date(now + 7 * DAY).toISOString(),
+      status: receivable === 0 ? "settled" : actualReceipts > 0 ? "partial" : "scheduled",
+      settledAmount: actualReceipts,
+    },
+    {
+      id: "s2",
+      type: "payment",
+      counterparty: paymentCp,
+      amount: totalBuy,
+      scheduledDate: new Date(now + 4 * DAY).toISOString(),
+      dueDate: new Date(now + 4 * DAY).toISOString(),
+      status:
+        payable === 0
+          ? "settled"
+          : daysAgo > 25
+            ? "overdue"
+            : actualPayments > 0
+              ? "partial"
+              : "scheduled",
+      settledAmount: actualPayments,
+    },
+  ]
+
+  const records: PaymentRecord[] = []
+  if (actualReceipts > 0) {
+    records.push({
+      id: "r1",
+      type: "receipt",
+      counterparty: receiptCp,
+      amount: actualReceipts,
+      paidDate: new Date(now - Math.round(daysAgo / 2) * DAY).toISOString(),
+      scheduleId: "s1",
+    })
+  }
+  if (actualPayments > 0) {
+    records.push({
+      id: "r2",
+      type: "payment",
+      counterparty: paymentCp,
+      amount: actualPayments,
+      paidDate: new Date(now - Math.round(daysAgo / 3) * DAY).toISOString(),
+      scheduleId: "s2",
+    })
+  }
+  // Occasionally include a canceled record so the two-tier UI shows the state.
+  if (rand() < 0.18) {
+    records.push({
+      id: "rc",
+      type: "receipt",
+      counterparty: receiptCp,
+      amount: Math.round(totalSell * 0.1),
+      paidDate: new Date(now - daysAgo * DAY).toISOString(),
+      canceled: true,
+    })
+  }
+
+  return {
+    actualReceipts,
+    actualPayments,
+    receivable,
+    payable,
+    schedule,
+    records,
+    cashInStatus: cashProgress(actualReceipts, totalSell),
+    cashOutStatus: cashProgress(actualPayments, totalBuy),
   }
 }
 
@@ -91,52 +201,129 @@ function buildFormula(i: number): Formula {
   const tradeType = tradeTypes[i % tradeTypes.length]
   const quantity = 100 + (i % 9) * 50
 
-  // KRW-scale amounts (₩80M – ₩400M range).
-  const totalSell = Math.round((80000000 + rand() * 320000000) / 1000000) * 1000000
-  const totalBuy = Math.round(totalSell * (0.72 + rand() * 0.2))
-  const cost = Math.round(totalSell * (0.02 + rand() * 0.05))
-  const share = Math.round(totalSell * (0.01 + rand() * 0.03))
+  // ---- Priced participant chain (P0-3): origin → trader → buyer.
+  // Every headline number derives from these per-unit prices (P0-15).
+  const unitCost = 850000 + Math.round(rand() * 250000) // origin's per-unit proceeds
+  const spread = 0.04 + rand() * 0.07
+  const unitSell = Math.round(unitCost * (1 + spread)) // end buyer's per-unit payment
+
+  const originCp = counterparties[i % counterparties.length]
+  const traderCp = counterparties[(i + 2) % counterparties.length]
+  const buyerCp = counterparties[(i + 4) % counterparties.length]
+
+  const participants: Participant[] = [
+    {
+      id: "p1",
+      sequenceOrder: 0,
+      name: originCp,
+      company: originCp,
+      roleGroup: "supplier",
+      natureGroup: "manufacturer",
+      paymentGroup: "prepaid",
+      quantity,
+      buyUnitPrice: 0,
+      sellUnitPrice: unitCost,
+      isStart: true,
+      isEnd: false,
+      role: "seller",
+      nature: "Manufacturer",
+      chainOrder: 0,
+      buyPrice: 0,
+      sellPrice: unitCost,
+    },
+    {
+      id: "p2",
+      sequenceOrder: 1,
+      name: traderCp,
+      company: traderCp,
+      roleGroup: "other",
+      natureGroup: "trading",
+      paymentGroup: "credit",
+      quantity,
+      buyUnitPrice: unitCost,
+      sellUnitPrice: unitSell,
+      isStart: false,
+      isEnd: false,
+      role: "agent",
+      nature: "Trading Company",
+      chainOrder: 1,
+      buyPrice: unitCost,
+      sellPrice: unitSell,
+    },
+    {
+      id: "p3",
+      sequenceOrder: 2,
+      name: buyerCp,
+      company: buyerCp,
+      roleGroup: "buyer",
+      natureGroup: "buyer",
+      paymentGroup: "credit",
+      quantity,
+      buyUnitPrice: unitSell,
+      sellUnitPrice: 0,
+      isStart: false,
+      isEnd: true,
+      role: "buyer",
+      nature: "Buyer",
+      chainOrder: 2,
+      buyPrice: unitSell,
+      sellPrice: 0,
+    },
+  ]
+
+  const derived = deriveChainFinancials(participants)!
+  const totalSell = derived.expectedRevenue // = unitSell × qty
+  const totalBuy = derived.expectedCost // = unitCost × qty
+  const grossMargin = totalSell - totalBuy
+  const cost = Math.round(totalSell * (0.02 + rand() * 0.03)) // logistics / other costs
+  const share = Math.round(grossMargin * (0.05 + rand() * 0.15))
   const expectedProfit = totalSell - totalBuy - cost - share
 
+  // ---- Two-tier settlement, derived from the same totals.
+  const daysAgo = Math.floor(rand() * 40)
   const receiptRatio = 0.4 + rand() * 0.6
   const paymentRatio = 0.4 + rand() * 0.6
-  const actualReceipts = Math.round(totalSell * receiptRatio)
-  const actualPayments = Math.round(totalBuy * paymentRatio)
-  const realizedProfit = actualReceipts - actualPayments
-
-  const receivable = Math.max(0, totalSell - actualReceipts)
-  const payable = Math.max(0, totalBuy - actualPayments)
-
+  const settle = buildSettlement(totalSell, totalBuy, receiptRatio, paymentRatio, buyerCp, originCp, daysAgo, rand)
+  const realizedProfit = settle.actualReceipts - settle.actualPayments
   const isLoss = realizedProfit < 0
-  let status: FormulaStatus
-  const roll = rand()
-  if (isLoss) status = "loss"
-  else if (receivable === 0 && payable === 0) status = "closeable"
-  else if (roll < 0.25) status = "in_transit"
-  else if (roll < 0.5) status = "invoicing"
-  else if (roll < 0.85) status = "active"
-  else status = "closeable"
 
-  const closeable = status === "closeable"
+  // ---- Six-status model (P0-6).
   const invoiceStatus = rand() < 0.3 ? "unmatched" : rand() < 0.6 ? "partial" : "complete"
-  const logisticsStatus = rand() < 0.4 ? "in_transit" : rand() < 0.7 ? "delivered" : "not_started"
+  const logisticsRoll = rand()
+  const logisticsStatus = logisticsRoll < 0.4 ? "in_transit" : logisticsRoll < 0.75 ? "delivered" : "not_started"
+  const deliveryStatus =
+    logisticsStatus === "delivered" ? "delivered" : logisticsStatus === "in_transit" ? "in_transit" : "pending"
+  const tradeStatus =
+    settle.cashInStatus === "completed" && settle.cashOutStatus === "completed"
+      ? "completed"
+      : rand() < 0.12
+        ? "draft"
+        : "confirmed"
 
-  const daysAgo = Math.floor(rand() * 40)
+  // ---- Shares as a Formula concept (P0-4): split across the intermediaries.
+  const shares: FormulaShare[] = []
+  if (share > 0) {
+    shares.push({ id: "sh1", companyName: traderCp, amount: Math.round(share * 0.6), note: "Trading margin share" })
+    shares.push({ id: "sh2", companyName: originCp, amount: share - Math.round(share * 0.6), note: "Sourcing share" })
+  }
+
+  // ---- Dates (P0-2).
   const createdDaysAgo = daysAgo + 20 + Math.floor(rand() * 60)
-  const updatedAt = new Date(Date.now() - daysAgo * 86400000).toISOString()
-  const createdAt = new Date(Date.now() - createdDaysAgo * 86400000).toISOString()
+  const createdAt = new Date(Date.now() - createdDaysAgo * DAY).toISOString()
+  const updatedAt = new Date(Date.now() - daysAgo * DAY).toISOString()
+  const tradeDate = new Date(Date.now() - (createdDaysAgo + 2) * DAY).toISOString()
+  const contractDate = new Date(Date.now() - (createdDaysAgo + 1) * DAY).toISOString()
 
-  const cp1 = counterparties[i % counterparties.length]
-  const cp2 = counterparties[(i + 3) % counterparties.length]
-
-  let attention: string | undefined
-  if (isLoss) attention = "Realized profit is negative — review pricing and settlement."
-  else if (invoiceStatus === "unmatched") attention = "Invoice unmatched — 1 document needs reconciliation."
-  else if (payable > 0 && daysAgo > 25) attention = "Payment overdue — counterparty settlement pending."
+  // ---- FX (P0-7): domestic is KRW-only; cross-border carries a preview rate.
+  const crossBorder = tradeType !== "domestic"
+  const contractExchangeRate = crossBorder ? 1310 + Math.round(rand() * 60) : undefined
+  const adjustedExchangeRate = crossBorder
+    ? (contractExchangeRate ?? 0) + Math.round(rand() * 30) - 15
+    : undefined
 
   const number = `F-${2026}-${String(1000 + i).padStart(4, "0")}`
 
-  return {
+  const base: Formula = {
     id: `f${i}`,
     number,
     companyId,
@@ -145,55 +332,44 @@ function buildFormula(i: number): Formula {
     tradeType,
     quantity,
     unit: "MT",
-    participants: [
-      { id: "p1", name: cp1, role: "seller", company: cp1, sharePct: 60 },
-      { id: "p2", name: cp2, role: "buyer", company: cp2, sharePct: 40 },
-      { id: "p3", name: "Logistics Partner", role: "logistics", company: "Logistics Partner" },
-    ],
+    participants,
+    baseCurrency: "KRW",
+    transactionCurrency: crossBorder ? "USD" : "KRW",
+    contractExchangeRate,
+    adjustedExchangeRate,
     totalSell,
     totalBuy,
     cost,
     share,
     expectedProfit,
+    shares,
     realizedProfit,
-    actualReceipts,
-    actualPayments,
-    receivable,
-    payable,
-    status,
+    actualReceipts: settle.actualReceipts,
+    actualPayments: settle.actualPayments,
+    receivable: settle.receivable,
+    payable: settle.payable,
+    schedule: settle.schedule,
+    records: settle.records,
+    tradeStatus,
+    cashInStatus: settle.cashInStatus,
+    cashOutStatus: settle.cashOutStatus,
     invoiceStatus,
     logisticsStatus,
-    closeable,
-    attention,
-    updatedAt,
+    deliveryStatus,
+    isClosed: false,
+    status: "active",
+    closeable: false,
+    tradeDate,
+    contractDate,
     createdAt,
+    updatedAt,
     version: 1 + Math.floor(rand() * 4),
-    schedule: [
-      {
-        id: "s1",
-        type: "receipt",
-        counterparty: cp2,
-        amount: Math.round(totalSell * 0.5),
-        dueDate: new Date(Date.now() + (5 + i) * 86400000).toISOString(),
-        status: receivable > 0 ? "scheduled" : "settled",
-        settledAmount: receivable > 0 ? 0 : Math.round(totalSell * 0.5),
-      },
-      {
-        id: "s2",
-        type: "payment",
-        counterparty: cp1,
-        amount: Math.round(totalBuy * 0.5),
-        dueDate: new Date(Date.now() + (3 + i) * 86400000).toISOString(),
-        status: payable > 0 ? (daysAgo > 25 ? "overdue" : "scheduled") : "settled",
-        settledAmount: payable > 0 ? 0 : Math.round(totalBuy * 0.5),
-      },
-    ],
     invoices: [
       {
         id: "iv1",
         number: `INV-${9000 + i}`,
         direction: "issued",
-        counterparty: cp2,
+        counterparty: buyerCp,
         amount: Math.round(totalSell * 0.5),
         status: invoiceStatus === "unmatched" ? "unmatched" : "matched",
         date: updatedAt,
@@ -202,7 +378,7 @@ function buildFormula(i: number): Formula {
         id: "iv2",
         number: `INV-${9500 + i}`,
         direction: "received",
-        counterparty: cp1,
+        counterparty: originCp,
         amount: Math.round(totalBuy * 0.5),
         status: "matched",
         date: createdAt,
@@ -215,24 +391,17 @@ function buildFormula(i: number): Formula {
         origin: tradeType === "export" ? "Busan, KR" : "Shanghai, CN",
         destination: tradeType === "export" ? "Rotterdam, NL" : "Busan, KR",
         status: logisticsStatus === "delivered" ? "cleared" : logisticsStatus === "in_transit" ? "in_transit" : "booked",
-        eta: new Date(Date.now() + (10 + i) * 86400000).toISOString(),
+        eta: new Date(Date.now() + (10 + i) * DAY).toISOString(),
       },
     ],
     timeline: [
-      {
-        id: "t1",
-        type: "created",
-        title: "Formula created",
-        description: `${number} initialized for ${item}`,
-        date: createdAt,
-        actor: "Sarah Kim",
-      },
+      { id: "t1", type: "created", title: "Formula created", description: `${number} initialized for ${item}`, date: createdAt, actor: "Sarah Kim" },
       {
         id: "t2",
         type: "logistics",
         title: "Shipment booked",
-        description: `Sea freight booked with Logistics Partner`,
-        date: new Date(Date.parse(createdAt) + 3 * 86400000).toISOString(),
+        description: "Sea freight booked with Logistics Partner",
+        date: new Date(Date.parse(createdAt) + 3 * DAY).toISOString(),
         actor: "Logistics Bot",
         linkTab: "logistics",
       },
@@ -240,21 +409,47 @@ function buildFormula(i: number): Formula {
         id: "t3",
         type: "invoice",
         title: "Invoice issued",
-        description: `INV-${9000 + i} issued to ${cp2}`,
-        date: new Date(Date.parse(createdAt) + 8 * 86400000).toISOString(),
+        description: `INV-${9000 + i} issued to ${buyerCp}`,
+        date: new Date(Date.parse(createdAt) + 8 * DAY).toISOString(),
         actor: "Sarah Kim",
         linkTab: "invoices",
       },
-      {
-        id: "t4",
-        type: "receipt",
-        title: "Receipt recorded",
-        description: `Partial receipt from ${cp2}`,
-        date: updatedAt,
-        actor: "Finance Team",
-        linkTab: "payments",
-      },
+      { id: "t4", type: "receipt", title: "Receipt recorded", description: `Partial receipt from ${buyerCp}`, date: updatedAt, actor: "Finance Team", linkTab: "payments" },
     ],
+  }
+
+  return finalizeFormula(base, { isLoss, daysAgo })
+}
+
+/**
+ * Derives the close condition (all six statuses matched), the lifecycle summary
+ * status used for filtering, and the attention message — all from the canonical
+ * Formula fields, so the derived views never contradict Formula data.
+ */
+function finalizeFormula(f: Formula, ctx: { isLoss: boolean; daysAgo: number }): Formula {
+  const closeable = isCloseable(f) // all six statuses matched
+  const isClosed = closeable && f.receivable === 0 && f.payable === 0
+
+  let status: FormulaStatus
+  if (ctx.isLoss) status = "loss"
+  else if (isClosed) status = "closed"
+  else if (closeable) status = "closeable"
+  else if (f.logisticsStatus === "in_transit") status = "in_transit"
+  else if (f.invoiceStatus !== "complete") status = "invoicing"
+  else status = "active"
+
+  let attention: string | undefined
+  if (ctx.isLoss) attention = "Realized profit is negative — review pricing and settlement."
+  else if (f.invoiceStatus === "unmatched") attention = "Invoice unmatched — 1 document needs reconciliation."
+  else if (f.payable > 0 && ctx.daysAgo > 25) attention = "Payment overdue — counterparty settlement pending."
+
+  return {
+    ...f,
+    closeable: closeable && !isClosed,
+    isClosed,
+    status,
+    attention,
+    closedAt: isClosed ? new Date(Date.now() - Math.max(1, ctx.daysAgo) * DAY).toISOString() : undefined,
   }
 }
 
@@ -264,30 +459,32 @@ function buildFormula(i: number): Formula {
  */
 function buildChainFormula(): Formula {
   const base = buildFormula(7)
-  const createdAt = new Date(Date.now() - 54 * 86400000).toISOString()
-  const updatedAt = new Date(Date.now() - 2 * 86400000).toISOString()
+  const rand = rng(99)
+  const createdAt = new Date(Date.now() - 54 * DAY).toISOString()
+  const updatedAt = new Date(Date.now() - 2 * DAY).toISOString()
 
   const formulaQuantity = 500
-  // Participant quantities may differ from the total formula quantity —
-  // e.g. Nature Insight only handles part of the volume.
   const participants: Participant[] = [
-    { id: "cp1", name: "CJ CheilJedang", company: "CJ CheilJedang", role: "seller", nature: "Manufacturer", chainOrder: 0, quantity: 500, buyPrice: 0, sellPrice: 920000 },
-    { id: "cp2", name: "GeoWorks", company: "GeoWorks", role: "agent", nature: "Distributor", chainOrder: 1, quantity: 500, buyPrice: 920000, sellPrice: 948000 },
-    { id: "cp3", name: "Nature Insight", company: "Nature Insight", role: "agent", nature: "Trading Company", chainOrder: 2, quantity: 300, buyPrice: 948000, sellPrice: 985000 },
-    { id: "cp4", name: "Logistics Partner", company: "Logistics Partner", role: "logistics", nature: "Logistics Company", chainOrder: 3, quantity: 500, buyPrice: 985000, sellPrice: 992000 },
-    { id: "cp5", name: "Eco & Recycle", company: "Eco & Recycle", role: "buyer", nature: "Buyer", chainOrder: 4, quantity: 500, buyPrice: 992000, sellPrice: 0 },
+    { id: "cp1", sequenceOrder: 0, name: "CJ CheilJedang", company: "CJ CheilJedang", roleGroup: "supplier", natureGroup: "manufacturer", paymentGroup: "prepaid", quantity: 500, buyUnitPrice: 0, sellUnitPrice: 920000, isStart: true, isEnd: false, role: "seller", nature: "Manufacturer", chainOrder: 0, buyPrice: 0, sellPrice: 920000 },
+    { id: "cp2", sequenceOrder: 1, name: "GeoWorks", company: "GeoWorks", roleGroup: "other", natureGroup: "distributor", paymentGroup: "credit", quantity: 500, buyUnitPrice: 920000, sellUnitPrice: 948000, isStart: false, isEnd: false, role: "agent", nature: "Distributor", chainOrder: 1, buyPrice: 920000, sellPrice: 948000 },
+    { id: "cp3", sequenceOrder: 2, name: "Nature Insight", company: "Nature Insight", roleGroup: "other", natureGroup: "trading", paymentGroup: "credit", quantity: 300, buyUnitPrice: 948000, sellUnitPrice: 985000, isStart: false, isEnd: false, role: "agent", nature: "Trading Company", chainOrder: 2, buyPrice: 948000, sellPrice: 985000 },
+    { id: "cp4", sequenceOrder: 3, name: "Logistics Partner", company: "Logistics Partner", roleGroup: "carrier", natureGroup: "logistics", paymentGroup: "postpaid", quantity: 500, buyUnitPrice: 985000, sellUnitPrice: 992000, isStart: false, isEnd: false, role: "logistics", nature: "Logistics Company", chainOrder: 3, buyPrice: 985000, sellPrice: 992000 },
+    { id: "cp5", sequenceOrder: 4, name: "Eco & Recycle", company: "Eco & Recycle", roleGroup: "buyer", natureGroup: "buyer", paymentGroup: "credit", quantity: 500, buyUnitPrice: 992000, sellUnitPrice: 0, isStart: false, isEnd: true, role: "buyer", nature: "Buyer", chainOrder: 4, buyPrice: 992000, sellPrice: 0 },
   ]
 
-  // Every headline number is derived from the chain — no independent inputs.
   const logisticsCost = 3000000
-  const share = 5000000
-  const derived = deriveChainFinancials(participants, { logisticsCost, share })!
+  const shareAmount = 5000000
+  const derived = deriveChainFinancials(participants, { logisticsCost, share: shareAmount })!
   const totalSell = derived.expectedRevenue
   const totalBuy = derived.expectedCost
-  const actualReceipts = Math.round(totalSell * 0.5)
-  const actualPayments = Math.round(totalBuy * 0.45)
+  const settle = buildSettlement(totalSell, totalBuy, 0.5, 0.45, "Eco & Recycle", "CJ CheilJedang", 2, rand)
 
-  return {
+  const shares: FormulaShare[] = [
+    { id: "sh1", companyName: "Nature Insight", amount: 3000000, note: "Trading margin share" },
+    { id: "sh2", companyName: "GeoWorks", amount: 2000000, note: "Distribution share" },
+  ]
+
+  const merged: Formula = {
     ...base,
     id: "f-chain",
     number: "F-2026-0900",
@@ -295,24 +492,40 @@ function buildChainFormula(): Formula {
     item: "Used Cooking Oil",
     specMemo: "FFA ≤ 3.5%, Moisture ≤ 1%, ISCC-EU certified, multi-tier collection chain.",
     tradeType: "triangular",
-    status: "active",
     quantity: formulaQuantity,
     unit: "MT",
+    baseCurrency: "KRW",
+    transactionCurrency: "USD",
+    contractExchangeRate: 1345,
+    adjustedExchangeRate: 1352,
     createdAt,
     updatedAt,
+    tradeDate: new Date(Date.now() - 56 * DAY).toISOString(),
+    contractDate: new Date(Date.now() - 55 * DAY).toISOString(),
     version: 4,
+    participants,
     totalSell,
     totalBuy,
     cost: logisticsCost,
-    share,
+    share: shareAmount,
     expectedProfit: derived.expectedProfit,
-    actualReceipts,
-    actualPayments,
-    realizedProfit: actualReceipts - actualPayments,
-    receivable: Math.max(0, totalSell - actualReceipts),
-    payable: Math.max(0, totalBuy - actualPayments),
-    participants,
+    shares,
+    actualReceipts: settle.actualReceipts,
+    actualPayments: settle.actualPayments,
+    realizedProfit: settle.actualReceipts - settle.actualPayments,
+    receivable: settle.receivable,
+    payable: settle.payable,
+    schedule: settle.schedule,
+    records: settle.records,
+    cashInStatus: settle.cashInStatus,
+    cashOutStatus: settle.cashOutStatus,
+    tradeStatus: "confirmed",
+    invoiceStatus: "partial",
+    logisticsStatus: "in_transit",
+    deliveryStatus: "in_transit",
   }
+
+  return finalizeFormula(merged, { isLoss: merged.realizedProfit < 0, daysAgo: 2 })
 }
 
 export const formulas: Formula[] = [
@@ -351,8 +564,9 @@ export const DATE_RANGES: DateRange[] = [
 ]
 
 /**
- * Mock share of full-year totals attributable to each range. Used to make
- * dashboard figures visibly react to the selected period (mock only).
+ * Illustrative share of full-period totals attributable to each range. Used to
+ * make dashboard figures visibly react to the selected period. This is a mock
+ * scaling factor — clearly not real date filtering (P0-2).
  */
 const rangeFactor: Record<DateRange, number> = {
   "Last 7 Days": 0.14,
@@ -481,7 +695,7 @@ export function getVersionHistory(formula: Formula): VersionEntry[] {
     const idx = Math.min(i, changeSets.length - 1)
     return {
       versionNo,
-      createdAt: new Date(Date.now() - dayOffset * 86400000).toISOString(),
+      createdAt: new Date(Date.now() - dayOffset * DAY).toISOString(),
       createdBy: versionAuthors[(versionNo + formula.id.length) % versionAuthors.length],
       summary: summaries[idx],
       changes: changeSets[idx],

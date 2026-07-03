@@ -23,7 +23,7 @@ export type RegisteredCompany = {
   businessRegNo?: string
   corporateRegNo?: string
   taxType?: string
-  // Contact
+  // Contact (single default contact — backend supports a company_contacts collection)
   contactPerson?: string
   department?: string
   position?: string
@@ -38,8 +38,27 @@ export type RegisteredCompany = {
   defaultCurrency?: string
   memo?: string
   tags?: string[]
+  /** Prepared for the backend company_contacts collection. */
+  contacts?: CompanyContact[]
 }
 
+/** One contact row in a company's contact collection (mirrors company_contacts). */
+export type CompanyContact = {
+  id: string
+  name: string
+  department?: string
+  position?: string
+  phone?: string
+  mobile?: string
+  email?: string
+  isPrimary?: boolean
+}
+
+/**
+ * Lifecycle status used for list filtering / at-a-glance state. This is a
+ * derived summary of the canonical six-status model (see Formula) — it is not
+ * an authoritative independent status.
+ */
 export type FormulaStatus =
   | "draft"
   | "active"
@@ -51,19 +70,69 @@ export type FormulaStatus =
 
 export type TradeType = "import" | "export" | "domestic" | "triangular"
 
+export type CurrencyCode = "KRW" | "USD" | "EUR" | "JPY" | "CNY" | "SGD"
+
+/* ---------------- Six-status model (P0-6) ---------------- */
+/** Overall trade progression. */
+export type TradeProgress = "draft" | "confirmed" | "completed"
+/** Cash movement progression (used for both cash-in and cash-out). */
+export type CashProgress = "pending" | "partial" | "completed"
+/** Invoice reconciliation state. */
+export type InvoiceState = "unmatched" | "partial" | "complete"
+/** Physical logistics movement. */
+export type LogisticsState = "not_started" | "in_transit" | "delivered"
+/** Delivery / hand-off confirmation. */
+export type DeliveryState = "pending" | "in_transit" | "delivered"
+
+/**
+ * Canonical Formula participant contract (P0-3). One shape for every hop of a
+ * dynamic N-hop chain. The same company may appear more than once with
+ * different roles — uniqueness is NOT enforced. `sequenceOrder` defines chain
+ * order. Share does NOT belong to a participant (see FormulaShare).
+ */
 export type Participant = {
   id: string
+  /** Chain order (0-based). Canonical ordering key. */
+  sequenceOrder?: number
+  companyId?: string
+  /** Display name (kept for legacy rendering). */
   name: string
-  role: "buyer" | "seller" | "agent" | "logistics" | "financier"
   company: string
-  sharePct?: number
-  /** Trade nature label shown in a participant chain (e.g. "Manufacturer"). */
-  nature?: string
-  /** Position in a multi-party chain (0-based). Present only for chain demos. */
-  chainOrder?: number
+  /** Operational role bucket: supplier / buyer / carrier / financial / other. */
+  roleGroup?: string
+  /** Company nature hint carried into the chain (manufacturer, trading, …). */
+  natureGroup?: string
+  /** Settlement terms bucket: prepaid / credit / postpaid. */
+  paymentGroup?: string
   quantity?: number
+  buyUnitPrice?: number
+  sellUnitPrice?: number
+  isStart?: boolean
+  isEnd?: boolean
+
+  /* ---- Legacy aliases (retained so existing chain visuals keep working) ---- */
+  /** @deprecated use roleGroup. */
+  role: "buyer" | "seller" | "agent" | "logistics" | "financier"
+  /** @deprecated use natureGroup. */
+  nature?: string
+  /** @deprecated use sequenceOrder. */
+  chainOrder?: number
+  /** @deprecated use buyUnitPrice. */
   buyPrice?: number
+  /** @deprecated use sellUnitPrice. */
   sellPrice?: number
+}
+
+/**
+ * Formula-level profit share (P0-4). Share is a separate Formula concept — an
+ * absolute amount attributed to a company — never a participant percentage.
+ */
+export type FormulaShare = {
+  id: string
+  companyId?: string
+  companyName: string
+  amount: number
+  note?: string
 }
 
 /** A single field change within a formula version. */
@@ -104,14 +173,44 @@ export type DateRange =
   | "This Year"
   | "Custom Range"
 
+/** Which Formula date a Dashboard/Reports/Calendar view is anchored to (P0-2). */
+export type DateBasis =
+  | "Trade Date"
+  | "Scheduled Payment Date"
+  | "Actual Payment Date"
+  | "Closed Date"
+
+/**
+ * Tier 1 of the two-tier settlement model (P0-5): a PLANNED receipt/payment.
+ * `settledAmount` is a convenience rollup of matched Payment Records.
+ */
 export type PaymentScheduleItem = {
   id: string
   type: "receipt" | "payment"
   counterparty: string
   amount: number
+  /** Planned date. */
   dueDate: string
+  /** Alias of dueDate, named to match the canonical "Scheduled Date". */
+  scheduledDate?: string
   status: "scheduled" | "partial" | "settled" | "overdue"
   settledAmount: number
+}
+
+/**
+ * Tier 2 of the two-tier settlement model (P0-5): an ACTUAL receipt/payment
+ * record. Realized profit derives from these records, not from schedules.
+ */
+export type PaymentRecord = {
+  id: string
+  type: "receipt" | "payment"
+  counterparty: string
+  amount: number
+  /** Actual payment date. */
+  paidDate: string
+  /** Optional link back to the schedule item this record fulfils. */
+  scheduleId?: string
+  canceled?: boolean
 }
 
 export type InvoiceRecord = {
@@ -143,6 +242,12 @@ export type TimelineEvent = {
   linkTab?: string
 }
 
+/**
+ * Canonical frontend Formula contract (P0-1). The single source of truth every
+ * derived view (Dashboard, Reports, Calendar, Settlement, Analytics) traces
+ * back to. `number` is server-generated in the future — the frontend never
+ * owns authoritative numbering. Nothing here is persisted.
+ */
 export type Formula = {
   id: string
   number: string
@@ -155,25 +260,56 @@ export type Formula = {
   /** Unit for the formula quantity (e.g. "MT"). */
   unit: string
   participants: Participant[]
+
+  /* ---- Currency / FX (P0-7) — preview structure only, no FX engine ---- */
+  baseCurrency: CurrencyCode
+  transactionCurrency: CurrencyCode
+  contractExchangeRate?: number
+  adjustedExchangeRate?: number
+
+  /* ---- Expected (preview) financials, derived from priced chain inputs ---- */
   totalSell: number
   totalBuy: number
   cost: number
   share: number
   expectedProfit: number
+  /** Formula-level share allocations (P0-4). */
+  shares: FormulaShare[]
+
+  /* ---- Realized financials, derived from actual payment records ---- */
   realizedProfit: number
   actualReceipts: number
   actualPayments: number
   receivable: number
   payable: number
+
+  /* ---- Two-tier settlement (P0-5) ---- */
+  schedule: PaymentScheduleItem[]
+  records: PaymentRecord[]
+
+  /* ---- Six-status model (P0-6) ---- */
+  tradeStatus: TradeProgress
+  cashInStatus: CashProgress
+  cashOutStatus: CashProgress
+  invoiceStatus: InvoiceState
+  logisticsStatus: LogisticsState
+  deliveryStatus: DeliveryState
+  isClosed: boolean
+
+  /* ---- Derived lifecycle summary (for list filtering) ---- */
   status: FormulaStatus
-  invoiceStatus: "complete" | "partial" | "unmatched"
-  logisticsStatus: "not_started" | "in_transit" | "delivered"
   closeable: boolean
   attention?: string
-  updatedAt: string
+
+  /* ---- Dates (P0-2) ---- */
+  tradeDate: string
+  contractDate: string
   createdAt: string
+  updatedAt: string
+  closedAt?: string
+  canceledAt?: string
+
   version: number
-  schedule: PaymentScheduleItem[]
   invoices: InvoiceRecord[]
   logistics: LogisticsLeg[]
   timeline: TimelineEvent[]
