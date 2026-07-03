@@ -574,11 +574,17 @@ function buildFormula(i: number): Formula {
  * Formula fields, so the derived views never contradict Formula data.
  */
 function finalizeFormula(f: Formula, ctx: { isLoss: boolean; daysAgo: number }): Formula {
-  const closeable = isCloseable(f) // all six statuses matched
-  // Close condition (P0-2): a Formula is closed exactly when it is closeable
-  // (all six statuses matched). Receivable/payable are KPI metrics only and do
-  // NOT gate closing.
-  const isClosed = closeable
+  // Lifecycle: Open → Closeable → Closed (distinct states).
+  // allComplete = all six statuses completed (the precondition for closing).
+  // isClosed is the ONLY persisted close state — it represents a MANUAL final
+  // approval by the user, never an automatic consequence of allComplete.
+  // Receivable/payable are KPI metrics only and NEVER gate closing.
+  const allComplete = isCloseable(f) // all six statuses matched
+  // Mock persisted approval: some fully-complete formulas have been manually
+  // closed (deterministic by seed) so both Closeable and Closed states exist.
+  const isClosed = allComplete && ctx.daysAgo % 2 === 0
+  // Derived, NOT persisted: ready to close but awaiting manual approval.
+  const closeable = allComplete && !isClosed
 
   // Lifecycle stage ONLY (P1-2). Financial loss and logistics in-transit are
   // deliberately excluded — loss is surfaced via profit metrics/filters and

@@ -126,7 +126,7 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
           ) : (
             <Button variant="accent" disabled={!formula.closeable}>
               <CheckCircle2 className="size-4" />
-              {formula.closeable ? "Close Formula" : "Not Closeable"}
+              {formula.isClosed ? "Closed" : formula.closeable ? "Close Formula" : "Not Closeable"}
             </Button>
           )}
         </div>

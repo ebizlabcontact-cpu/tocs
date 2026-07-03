@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts"
 import Link from "next/link"
-import { Info, Activity, LayoutDashboard, SlidersHorizontal, ListFilter } from "lucide-react"
+import { Info, Activity, LayoutDashboard, SlidersHorizontal, ListFilter, CheckCircle2 } from "lucide-react"
 import { useCompany } from "@/components/company-context"
 import { useDateRange } from "@/components/date-range-context"
 import { AnalyticsCompanyFilter } from "@/components/shell/analytics-company-filter"
@@ -233,8 +233,9 @@ function OperationalSummaryView({ operatingId, analyticsId }: { operatingId: str
   const s = useMemo(() => getOperationalSummary(operatingId, analyticsId), [operatingId, analyticsId])
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Closeable" value={formatNumber(s.closeable)} intent="success" icon={<Activity className="size-4" />} />
+        <Stat label="Closed" value={formatNumber(s.closed)} intent="info" icon={<CheckCircle2 className="size-4" />} />
         <Stat label="Invoice Unmatched" value={formatNumber(s.invoiceUnmatched)} intent="danger" />
         <Stat label="In Transit" value={formatNumber(s.logisticsInTransit)} intent="info" />
       </div>

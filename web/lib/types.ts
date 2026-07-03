@@ -455,10 +455,20 @@ export type Formula = {
   invoiceStatus: InvoiceState
   logisticsStatus: LogisticsState
   deliveryStatus: DeliveryState
+  /**
+   * The ONLY persisted close state. True only after a MANUAL final approval by
+   * the user (sets closedAt). Never an automatic consequence of all statuses
+   * completing. Lifecycle: Open → Closeable → Closed.
+   */
   isClosed: boolean
 
   /* ---- Derived lifecycle summary (for list filtering) ---- */
   status: FormulaStatus
+  /**
+   * DERIVED, not persisted: all six statuses complete AND not yet closed
+   * (allComplete && !isClosed). Represents "ready to close, awaiting approval".
+   * Receivable/payable are KPI metrics only and never affect this.
+   */
   closeable: boolean
   attention?: string
 

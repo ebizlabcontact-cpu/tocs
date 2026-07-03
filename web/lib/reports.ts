@@ -138,7 +138,10 @@ export type OperationalSummary = {
   byTradeType: ReportRow[]
   invoiceUnmatched: number
   logisticsInTransit: number
+  /** Ready to close, awaiting manual approval: closeable === true && isClosed === false. */
   closeable: number
+  /** Manually closed (persisted): isClosed === true. */
+  closed: number
   attention: { number: string; item: string; note: string }[]
 }
 
@@ -158,7 +161,8 @@ export function getOperationalSummary(companyId: string, analyticsCompanyId?: st
     byTradeType: countBy((f) => tradeTypeConfig[f.tradeType].label),
     invoiceUnmatched: list.filter((f) => f.invoiceStatus === "unmatched").length,
     logisticsInTransit: list.filter((f) => f.logisticsStatus === "in_transit").length,
-    closeable: list.filter((f) => f.closeable).length,
+    closeable: list.filter((f) => f.closeable && !f.isClosed).length,
+    closed: list.filter((f) => f.isClosed).length,
     attention: list
       .filter((f) => f.attention)
       .slice(0, 6)
