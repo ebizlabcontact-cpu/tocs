@@ -31,6 +31,14 @@ import {
   getKpis as mockKpis,
   getProfitSeries as mockProfitSeries,
 } from "../mock-data"
+import {
+  deriveExpected,
+  deriveRealized,
+  deriveSettlement,
+  isCloseable,
+  derivePerspectiveMetrics,
+  type PerspectiveMetrics,
+} from "../formula-math"
 
 /** Simulate async resolution without adding artificial latency to interactions. */
 function ok<T>(value: T): Promise<T> {
@@ -43,6 +51,86 @@ export type RangeArgs = {
   customEnd?: string
   /** Selected analytical company perspective (maps to `?analytics=`). */
   analyticsCompanyId?: string
+}
+
+/* -------------------------------------------------------------------------- */
+/* API DTO signatures (P0-4). Contract-only — no real HTTP wiring yet.         */
+/* -------------------------------------------------------------------------- */
+
+/** POST /api/v1/auth/login */
+export type LoginRequest = { email: string; password: string }
+export type LoginResponse = { token: string; user: MeResponse }
+
+/** GET /api/v1/auth/me */
+export type MeResponse = {
+  id: string
+  name: string
+  email: string
+  /** Companies the user may operate as (drives X-Company-Id). */
+  companyIds: string[]
+}
+
+/** POST /api/v1/formulas — request body. Backend owns formula_no; never client-set. */
+export type CreateFormulaRequest = {
+  item: string
+  specMemo?: string
+  /** Prisma TradeType (map UI value via toPrismaTradeType before sending). */
+  tradeType: "DOMESTIC" | "IMPORT" | "EXPORT" | "MIXED"
+  quantity: number
+  unit?: string
+  contractDate?: string
+  tradeDate?: string
+}
+
+/** GET /api/v1/formulas/:id/status — authoritative six-status + closeable view. */
+export type CloseStatusDto = {
+  formulaId: string
+  /** All six domain statuses completed/matched. */
+  allComplete: boolean
+  /** Derived: allComplete && !isClosed. */
+  closeable: boolean
+  isClosed: boolean
+  closedAt?: string
+  matched: number
+  total: number
+}
+
+/** POST /api/v1/formulas/:id/close — result. */
+export type CloseFormulaResult = { formulaId: string; isClosed: true; closedAt: string }
+
+/** GET /api/v1/formulas/:id/kpi/confirmed — realized (settled) figures. */
+export type ConfirmedKpiDto = {
+  formulaId: string
+  realizedProfit: number
+  actualReceipts: number
+  actualPayments: number
+}
+
+/** GET /api/v1/formulas/:id/kpi/expected — projected figures. */
+export type ExpectedKpiDto = {
+  formulaId: string
+  totalSell: number
+  totalBuy: number
+  cost: number
+  share: number
+  grossMargin: number
+  expectedProfit: number
+}
+
+/** GET /api/v1/formulas/:id/receivable-payable */
+export type ReceivablePayableDto = { formulaId: string; receivable: number; payable: number }
+
+/** GET /api/v1/formulas/:id/kpi/participants */
+export type ParticipantKpiDto = PerspectiveMetrics
+
+/** GET /api/v1/payments/unmatched */
+export type UnmatchedPaymentDto = {
+  id: string
+  formulaId: string
+  formulaNo: string
+  direction: "IN" | "OUT"
+  amount: number
+  actualDate?: string
 }
 
 export const repository = {
@@ -89,10 +177,98 @@ export const repository = {
     return ok(mockCalendarEvents(scope, flow))
   },
 
-  /* ---- Writes (deferred to backend) ---- */
-  createFormula(): Promise<never> {
+  /* ---- Auth (backend authority; no local implementation) ---- */
+  login(_req: LoginRequest): Promise<LoginResponse> {
+    return Promise.reject(new Error("login → POST /api/v1/auth/login (backend authority; not wired)."))
+  },
+  me(): Promise<MeResponse> {
+    return Promise.reject(new Error("me → GET /api/v1/auth/me (backend authority; not wired)."))
+  },
+
+  /* ---- Close lifecycle (backend authority; never faked locally) ---- */
+  /**
+   * GET /api/v1/formulas/:id/status. PREVIEW ONLY: derives from mock so the UI
+   * can render the button state now. Authoritative source is v_formula_closeable.
+   */
+  getFormulaCloseStatus(id: string): Promise<CloseStatusDto | undefined> {
+    const f = mockFormulaById(id)
+    if (!f) return ok(undefined)
+    const allComplete = isCloseable(f)
+    return ok({
+      formulaId: f.id,
+      allComplete,
+      closeable: allComplete && !f.isClosed,
+      isClosed: f.isClosed,
+      closedAt: f.closedAt,
+      matched: allComplete ? 6 : 0,
+      total: 6,
+    })
+  },
+  /** POST /api/v1/formulas/:id/close — mutation owned by backend; never local. */
+  closeFormula(_id: string): Promise<CloseFormulaResult> {
     return Promise.reject(
-      new Error("createFormula is not implemented in the frontend — persistence is owned by backend services."),
+      new Error("closeFormula → POST /api/v1/formulas/:id/close (backend close action; not wired)."),
+    )
+  },
+
+  /* ---- Formula KPIs (PREVIEW ONLY — authoritative sources are backend views) ---- */
+  /** GET /kpi/confirmed → v_formula_confirmed_kpi. Preview from mock derivation. */
+  getFormulaConfirmedKpi(id: string): Promise<ConfirmedKpiDto | undefined> {
+    const f = mockFormulaById(id)
+    if (!f) return ok(undefined)
+    const r = deriveRealized(f)
+    const s = deriveSettlement(f)
+    return ok({
+      formulaId: f.id,
+      realizedProfit: r.realizedProfit,
+      actualReceipts: s.actualReceipts,
+      actualPayments: s.actualPayments,
+    })
+  },
+  /** GET /kpi/expected → v_formula_profit_engine. Preview from mock derivation. */
+  getFormulaExpectedKpi(id: string): Promise<ExpectedKpiDto | undefined> {
+    const f = mockFormulaById(id)
+    if (!f) return ok(undefined)
+    const e = deriveExpected(f)
+    return ok({ formulaId: f.id, ...e })
+  },
+  /** GET /receivable-payable → confirmed KPI view. Preview from mock derivation. */
+  getFormulaReceivablePayable(id: string): Promise<ReceivablePayableDto | undefined> {
+    const f = mockFormulaById(id)
+    if (!f) return ok(undefined)
+    const s = deriveSettlement(f)
+    return ok({ formulaId: f.id, receivable: s.remainingReceivable, payable: s.remainingPayable })
+  },
+  /** GET /kpi/participants → v_participant_confirmed_kpi. Preview from mock derivation. */
+  listParticipantKpi(id: string): Promise<ParticipantKpiDto[]> {
+    const f = mockFormulaById(id)
+    if (!f) return ok([])
+    const companyIds = Array.from(new Set(f.participants.map((p) => p.companyId).filter(Boolean) as string[]))
+    return ok(companyIds.map((cid) => derivePerspectiveMetrics(f, cid)))
+  },
+  /** GET /payments/unmatched → unmatched view. Preview from mock records. */
+  listUnmatchedPayments(scope: string): Promise<UnmatchedPaymentDto[]> {
+    const rows: UnmatchedPaymentDto[] = []
+    for (const f of mockFormulasByCompany(scope)) {
+      for (const rec of f.records ?? []) {
+        if (rec.canceled || rec.scheduleId) continue
+        rows.push({
+          id: rec.id,
+          formulaId: f.id,
+          formulaNo: f.number,
+          direction: rec.type === "receipt" ? "IN" : "OUT",
+          amount: rec.amount,
+          actualDate: rec.paidDate,
+        })
+      }
+    }
+    return ok(rows)
+  },
+
+  /* ---- Writes (deferred to backend) ---- */
+  createFormula(_req: CreateFormulaRequest): Promise<never> {
+    return Promise.reject(
+      new Error("createFormula → POST /api/v1/formulas (backend owns formula_no; not wired)."),
     )
   },
   updateFormula(): Promise<never> {

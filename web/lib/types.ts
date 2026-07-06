@@ -1,7 +1,9 @@
 export type Company = {
   id: string
   name: string
+  /** UI chrome only (P0-2) — not a Prisma Company field. Do not send in DTO. */
   shortName: string
+  /** UI chrome only (P0-2) — not a Prisma Company field. Do not send in DTO. */
   color: string
 }
 
@@ -401,7 +403,13 @@ export type StatusLog = {
  */
 export type Formula = {
   id: string
+  /** Display only (P0-2). Backend owns formula_no on create; never client-generated. */
   number: string
+  /**
+   * UI-only (P0-2). NOT a backend Formula owner field. Operating scope belongs
+   * to the company context (X-Company-Id header); analytical ownership belongs
+   * to participants[].companyId. Do not send as a Formula DTO field.
+   */
   companyId: string
   item: string
   specMemo: string
@@ -463,6 +471,10 @@ export type Formula = {
   isClosed: boolean
 
   /* ---- Derived lifecycle summary (for list filtering) ---- */
+  /**
+   * UI lifecycle projection ONLY (P0-1). NEVER a DB column — derived from the
+   * six domain statuses + is_closed. Do not send FormulaStatus to the backend.
+   */
   status: FormulaStatus
   /**
    * DERIVED, not persisted: all six statuses complete AND not yet closed
@@ -470,6 +482,7 @@ export type Formula = {
    * Receivable/payable are KPI metrics only and never affect this.
    */
   closeable: boolean
+  /** UI-derived alert only (P0-2). Not part of the API DTO. */
   attention?: string
 
   /* ---- Canonical business dates (P0-1) ---- */
@@ -488,7 +501,13 @@ export type Formula = {
   /** Audit timestamps (not business dates). */
   createdAt: string
   updatedAt: string
+  /** API/DB field only (P0-3). Set by the backend close action, never mock authority. */
   closedAt?: string
+  /**
+   * UI-only (P0-2). NOT a backend Formula column and NOT part of the DTO / Key
+   * Dates. Cancellation is represented by the six CANCELED statuses plus status
+   * logs / audit trail.
+   */
   canceledAt?: string
 
   /**

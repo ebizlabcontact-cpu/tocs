@@ -811,6 +811,11 @@ export function filterFormulasByRange(
 }
 
 /**
+ * MOCK-PREVIEW ONLY (P0-5) — not production truth. Authoritative dashboard KPIs
+ * come from backend views (kpi/confirmed → v_formula_confirmed_kpi, kpi/expected
+ * → v_formula_profit_engine, receivable-payable, kpi/participants). This local
+ * derivation exists only so the UI can render before integration.
+ *
  * Dashboard KPIs — REALIZED profit only, never estimated. Filtered by real date
  * window (P0-2). When `analyticsCompanyId` selects a participant company, every
  * financial figure is that company's perspective (P0-2/P0-4): profit/loss from

@@ -5,6 +5,16 @@
  * dataset. Reports never own an independent dataset or persistence — they are
  * pure projections of Formula data, scaled illustratively by the selected
  * period (mock only).
+ *
+ * MOCK-PREVIEW ONLY (P0-5). Nothing computed here is production truth. After
+ * integration the authoritative sources are:
+ *   Expected profit     → kpi/expected     / v_formula_profit_engine
+ *   Realized profit     → kpi/confirmed    / v_formula_confirmed_kpi
+ *   Receivable/payable  → receivable-payable / confirmed KPI view
+ *   Perspective metrics → kpi/participants / v_participant_confirmed_kpi
+ *   Invoice unmatched   → invoice status  / amount_verified / unmatched view
+ *   Closeable           → status endpoint / v_formula_closeable
+ *   Closed              → formulas.is_closed
  */
 import type { DateRange, Formula } from "./types"
 import {

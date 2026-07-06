@@ -21,12 +21,14 @@ import type {
   InvoiceStatus as UiInvoiceStatus,
   LogisticsState,
   DeliveryState,
+  TradeType as UiTradeType,
 } from "./types"
 
 /* -------------------------------------------------------------------------- */
 /* Prisma enum string unions (mirror schema.prisma exactly)                    */
 /* -------------------------------------------------------------------------- */
 
+export type PrismaTradeType = "DOMESTIC" | "IMPORT" | "EXPORT" | "MIXED"
 export type PrismaTradeStatus = "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "CANCELED"
 export type PrismaPaymentStatus = "PENDING" | "PARTIAL" | "COMPLETED" | "CANCELED"
 export type PrismaPaymentDirection = "IN" | "OUT"
@@ -38,6 +40,43 @@ export type PrismaInvoiceStatus =
   | "AMOUNT_MISMATCHED"
   | "CANCELED"
   | "REVISION_REQUIRED"
+
+/* -------------------------------------------------------------------------- */
+/* Trade type (Formula.tradeType — Prisma TradeType)                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Frontend TradeType → Prisma TradeType.
+ * IMPORTANT: the UI "triangular" trade has no dedicated Prisma enum member — it
+ * maps to MIXED (multi-leg / mixed import-export). This is the confirmed P0-1
+ * contract; do not persist "triangular" as a raw value.
+ */
+export function toPrismaTradeType(v: UiTradeType): PrismaTradeType {
+  switch (v) {
+    case "import":
+      return "IMPORT"
+    case "export":
+      return "EXPORT"
+    case "domestic":
+      return "DOMESTIC"
+    case "triangular":
+      return "MIXED"
+  }
+}
+
+/** Prisma TradeType → Frontend TradeType (MIXED surfaces as "triangular"). */
+export function fromPrismaTradeType(v: PrismaTradeType): UiTradeType {
+  switch (v) {
+    case "IMPORT":
+      return "import"
+    case "EXPORT":
+      return "export"
+    case "DOMESTIC":
+      return "domestic"
+    case "MIXED":
+      return "triangular"
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /* Trade status (Formula.tradeStatus — Prisma TradeStatus)                     */
@@ -154,6 +193,65 @@ export function toPrismaInvoiceStatus(v: UiInvoiceStatus): PrismaInvoiceStatus {
       return "CANCELED"
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* PaymentRecord date boundary (paidDate → actualDate)                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The UI names a settled payment's date `paidDate`; the backend/Prisma column is
+ * `actualDate`. Translate at the API boundary — do not send `paidDate`.
+ */
+export function toPrismaPaymentRecord<T extends { paidDate?: string }>(
+  record: T,
+): Omit<T, "paidDate"> & { actualDate?: string } {
+  const { paidDate, ...rest } = record
+  return { ...rest, actualDate: paidDate }
+}
+
+/* -------------------------------------------------------------------------- */
+/* UI-only lifecycle contract (NOT persisted / NOT DB state)                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * FormulaStatus is a UI lifecycle projection ONLY (open → closeable → closed).
+ * It is NEVER a DB column. The backend persists the six domain statuses
+ * (tradeStatus, logisticsStatus, deliveryStatus, cashInStatus, cashOutStatus,
+ * and invoice status) plus is_closed / closed_at. The UI status is derived from
+ * those — do not send FormulaStatus to the backend.
+ *
+ * closeable: DERIVED view value (all six complete && !is_closed). Never stored.
+ * isClosed / closedAt: API/DB fields ONLY (set by POST /formulas/:id/close).
+ *   The frontend mock simulates them for preview but they carry NO authority.
+ */
+export const LIFECYCLE_CONTRACT = {
+  formulaStatus: "ui-derived-only",
+  closeable: "ui-derived-only",
+  isClosed: "api-field-only",
+  closedAt: "api-field-only",
+} as const
+
+/* -------------------------------------------------------------------------- */
+/* UI-only fields that must NOT be sent as Formula DTO fields                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Fields present on the frontend Formula/Company types that are NOT backend
+ * Formula/Company DTO fields (P0-2). Documented so the API adapter strips them.
+ *
+ *   Formula.companyId    → operating scope lives in X-Company-Id header;
+ *                          analytical ownership lives in participants[].companyId.
+ *   Formula.canceledAt   → no such column; cancel = six CANCELED statuses + logs.
+ *   Formula.attention    → UI-derived alert string; never a DTO field.
+ *   Formula.latestVersionNo → derive from the version list / API response.
+ *   Formula.number       → display only; backend owns formula_no on create.
+ *   Company.color        → UI chrome only; not a Prisma Company field.
+ *   Company.shortName    → UI chrome only; not a Prisma Company field.
+ */
+export const UI_ONLY_FIELDS = {
+  formula: ["companyId", "canceledAt", "attention", "latestVersionNo", "number"],
+  company: ["color", "shortName"],
+} as const
 
 /* -------------------------------------------------------------------------- */
 /* Field-name mapping reference (documentation, not executable)                */

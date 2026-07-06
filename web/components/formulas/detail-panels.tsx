@@ -1162,14 +1162,14 @@ export function SettlementPanel({ formula }: { formula: Formula }) {
             </StatusBadge>
           </div>
           {hasUnresolved && !formula.isClosed && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2.5 text-xs text-warning">
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-xs text-muted-foreground">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              Unresolved balances remain. Resolve receivable, payable, unmatched, and invoice items before closing.
+              Outstanding receivable, payable, unmatched, and invoice items remain. These are review/KPI items — they do
+              not block closing. Closing requires all six statuses completed.
             </div>
           )}
+          {/* Close condition: only the six statuses gate closing. */}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <SettlementCheck label="All receipts collected" done={s.remainingReceivable === 0} />
-            <SettlementCheck label="All payments cleared" done={s.remainingPayable === 0} />
             <SettlementCheck
               label={
                 invClose.activeCount === 0
@@ -1181,6 +1181,11 @@ export function SettlementPanel({ formula }: { formula: Formula }) {
             <SettlementCheck label="Logistics completed" done={formula.logisticsStatus === "delivered"} />
             <SettlementCheck label="Delivery completed" done={formula.deliveryStatus === "delivered"} />
             <SettlementCheck label="Ready to close (6/6)" done={closeable} />
+          </div>
+          {/* Receivable/payable are KPI / review metrics only — not close conditions. */}
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <SettlementCheck label="All receipts collected (KPI)" done={s.remainingReceivable === 0} />
+            <SettlementCheck label="All payments cleared (KPI)" done={s.remainingPayable === 0} />
           </div>
           <div className="mt-3 space-y-2">
             <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
