@@ -396,8 +396,9 @@ instead of implementing it. Do not silently expand the allowed scope.
 Current phase:
 
 * Backend Engine **Stable** — 343 / 343 integration PASS
-* **Product UI Prototype** in `web/` — mock data, Premium SaaS direction
-* UI workflow: **v0 drafts → Cursor integrates** under `web/**` only
+* **Sprint 1 — Foundation** (Gate 1 artifacts in `docs/implementation/`)
+* UI workflow: **v0 drafts → Cursor integrates** under `web/**`; Sprint-scoped
+  API integration per `TOCS_IMPLEMENTATION_MASTER_PLAN.md` after Gate 1 approval
 
 Backend domains (complete):
 
@@ -434,14 +435,34 @@ Allowed:
 * Logistics
 * Cancel
 
-Not Allowed until explicitly requested:
+Next allowed implementation scope (Sprint 1 only — see
+`docs/implementation/SPRINT1_TARGET_STATE.md`):
 
-* API wiring from `web/` to backend (real fetch, auth cookies, company headers)
+1. `web/lib/api/**` — API client, errors, adapters (Sprint 1 DTOs only)
+2. `web/lib/data/repository.ts` — auth, scope, formula list/detail read,
+   formula create orchestration
+3. Auth shell — login, `me`, route guard, company scope headers
+4. Formula List / Detail read adapter — Sprint 1 pages only
+5. Formula Wizard submit — orchestrated persist; no fake redirect
+
+Sprint 1 rules:
+
+* Backend semantics preservation — replace preview derivations only after
+  DTO validation (`SPRINT1_BACKLOG.md` T12 before mock cutover T11)
+* Owning Company = Operating Scope (DL-050) — do not reopen
+* Mock preview (`formula-math`, Dashboard, Reports) stays until later sprint
+  equivalence checks — Master Plan §6
+* No backend / DB / SQL schema changes unless blocking defect approved
+
+Not Allowed until Sprint 2+ gate (or explicit approval):
+
+* Payment / Invoice / Logistics mutation wiring from `web/`
+* Share / Version UI mutations; Close / Cancel execute from UI
+* Dashboard / Reports API transition
 * Reopen
 * Close undo
 * Cancel undo
 * Adjustment Formula
-* Auth/RBAC
 * File Evidence
 * Notification
 
@@ -449,19 +470,19 @@ Known gaps / deferred:
 
 * DB integration green requires valid PostgreSQL DATABASE_URL
 * Logistics §5.3 audit_logs deferred
-* Auth/RBAC deferred
+* Backend route gaps G1–G4 (six-status PATCH routes) — not Sprint blockers
 * Reopen/Undo deferred
 
-UI prototype allowed (mock only):
+UI allowed (Sprint 1):
 
-* `web/app/**` routes and pages
-* `web/components/**` shell, dashboard, formula list/detail/wizard
-* `web/lib/**` mock data, providers, formatters
+* `web/app/**` routes and pages — login, formula list/detail/wizard
+* `web/components/**` shell, auth, company context
+* `web/lib/**` repository, API client, adapters; mock fallback via env flag
 * Design system tokens in `web/app/globals.css` and `web/components/ui/**`
 
 UI forbidden without approval:
 
-* Real API integration from frontend
+* API integration outside Sprint 1 scope (see Target State §9)
 * AI Assistant implementation (placeholder only)
 * Wizard Draft save/resume
 * Frontend-only scope presented as security enforcement
