@@ -37,6 +37,7 @@ import { VersionsPanel } from "./versions-panel"
 import { useFormulaWorkflow } from "./workflows/formula-workflow-context"
 import {
   PaymentWorkflowActions,
+  ParticipantWorkflowActions,
   InvoiceWorkflowActions,
   LogisticsWorkflowActions,
   SixStatusControls,
@@ -45,11 +46,13 @@ import {
   ShareWorkflowActions,
   triggerPaymentRecordCancel,
   ClosedPaymentsBanner,
+  SettlementRecordCancelSection,
 } from "./workflows/workflow-modals"
 import {
   MetadataWorkflowActions,
   InvoiceStatusActions,
   SettlementWorkflowActions,
+  ClosedSettlementBanner,
   TimelineWorkflowChrome,
 } from "./workflows/batch-2-workflows"
 
@@ -195,6 +198,7 @@ export function FormulaDetailView() {
               <TimelineWorkflowChrome formula={formula} versionHistory={versionHistory} onNavigate={setTab} />
             </TabsContent>
             <TabsContent value="participants">
+              <ParticipantWorkflowActions />
               <ParticipantsPanel formula={formula} />
             </TabsContent>
             <TabsContent value="payments">
@@ -228,6 +232,8 @@ export function FormulaDetailView() {
               <VersionsPanel formula={formula} versionHistory={versionHistory} />
             </TabsContent>
             <TabsContent value="settlement">
+              <ClosedSettlementBanner />
+              <SettlementRecordCancelSection />
               <SettlementWorkflowActions />
               <SettlementPanel formula={formula} />
             </TabsContent>

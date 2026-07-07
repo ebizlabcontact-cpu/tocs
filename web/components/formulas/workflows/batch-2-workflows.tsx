@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Pencil, FileText, MessageSquare, Plus, Filter, History } from "lucide-react"
+import { Pencil, FileText, MessageSquare, Plus, Filter, History, Lock } from "lucide-react"
 import { Modal } from "@/components/ui/modal"
 import { Button } from "@/components/ui/button"
 import { Field, Input, Select } from "@/components/ui/field"
@@ -12,7 +12,7 @@ import {
   addPaymentSchedule,
   addPaymentRecord,
   patchFormulaMetadataPreview,
-  updateInvoiceExternalAmountPreview,
+  updateInvoiceStatusPreview,
 } from "@/lib/formula-preview-mutations"
 import { deriveInvoiceVerification } from "@/lib/formula-math"
 import { useFormulaWorkflow } from "./formula-workflow-context"
@@ -117,11 +117,34 @@ export function InvoiceStatusActions({ invoice }: { invoice: InvoiceRecord }) {
     <>
       <Button variant="outline" size="sm" className="mt-2 gap-1 text-xs" onClick={() => setOpen(true)}>
         <FileText className="size-3" />
-        Update external amount (Preview)
+        Update Status (Preview)
       </Button>
       <InvoiceStatusModal open={open} onClose={() => setOpen(false)} invoice={invoice} applyPreview={applyPreview} />
     </>
   )
+}
+
+const INVOICE_STATUS_OPTIONS: { value: NonNullable<InvoiceRecord["statusEnum"]>; label: string }[] = [
+  { value: "pending", label: "PENDING" },
+  { value: "issued", label: "ISSUED" },
+  { value: "received", label: "RECEIVED" },
+  { value: "matched", label: "MATCHED" },
+  { value: "mismatched", label: "MISMATCHED" },
+  { value: "canceled", label: "CANCELED" },
+]
+
+/** Preview the external amount the backend would reconcile for a chosen status enum. */
+function projectedExternal(invoice: InvoiceRecord, status: NonNullable<InvoiceRecord["statusEnum"]>): number | null {
+  switch (status) {
+    case "matched":
+      return invoice.expectedAmount
+    case "mismatched":
+      return invoice.expectedAmount + Math.round(invoice.expectedAmount * 0.05)
+    case "received":
+      return invoice.externalAmount
+    default:
+      return null
+  }
 }
 
 function InvoiceStatusModal({
@@ -135,22 +158,21 @@ function InvoiceStatusModal({
   invoice: InvoiceRecord
   applyPreview: ReturnType<typeof useFormulaWorkflow>["applyPreview"]
 }) {
-  const [mode, setMode] = useState<"pending" | "matched" | "mismatched" | "custom">(
-    invoice.externalAmount == null ? "pending" : invoice.externalAmount === invoice.expectedAmount ? "matched" : "custom",
-  )
-  const [custom, setCustom] = useState(String(invoice.externalAmount ?? ""))
+  const initial: NonNullable<InvoiceRecord["statusEnum"]> =
+    invoice.statusEnum ??
+    (invoice.externalAmount == null
+      ? "pending"
+      : invoice.externalAmount === invoice.expectedAmount
+        ? "matched"
+        : "mismatched")
+  const [status, setStatus] = useState<NonNullable<InvoiceRecord["statusEnum"]>>(initial)
 
-  const external = useMemo(() => {
-    if (mode === "pending") return null
-    if (mode === "matched") return invoice.expectedAmount
-    if (mode === "mismatched") return invoice.expectedAmount + Math.round(invoice.expectedAmount * 0.05)
-    return custom === "" ? null : Number(custom)
-  }, [mode, custom, invoice.expectedAmount])
-
-  const v = deriveInvoiceVerification({ ...invoice, externalAmount: external })
+  // amount_verified is DB-derived — we preview it from the projected external amount, never a manual toggle.
+  const projected = useMemo(() => projectedExternal(invoice, status), [invoice, status])
+  const v = deriveInvoiceVerification({ ...invoice, externalAmount: projected })
 
   function save() {
-    applyPreview((f) => updateInvoiceExternalAmountPreview(f, invoice.id, external))
+    applyPreview((f) => updateInvoiceStatusPreview(f, invoice.id, status))
     onClose()
   }
 
@@ -158,37 +180,43 @@ function InvoiceStatusModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Sync Invoice Status"
-      description="PATCH /invoices/:id/status — verification derived from external amount."
+      title="Update Invoice Status"
+      description="PATCH /invoices/:id/status — accepts a status enum only; amount_verified is DB-derived."
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button variant="accent" onClick={save}>
-            Sync (Preview)
+            Update (Preview)
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <MockPreviewNote />
-        <Field label="External amount mode">
-          <Select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-            <option value="pending">Pending (null external)</option>
-            <option value="matched">Matched</option>
-            <option value="mismatched">Mismatched (+5%)</option>
-            <option value="custom">Custom amount</option>
+        <Field label="Status" hint="Prisma InvoiceStatus enum.">
+          <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
+            {INVOICE_STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </Select>
         </Field>
-        {mode === "custom" && (
-          <Field label="External amount (KRW)">
-            <Input type="number" value={custom} onChange={(e) => setCustom(e.target.value)} />
-          </Field>
-        )}
-        <p className="text-sm">
-          Verified: <span className={v.matched ? "text-success" : "text-warning"}>{v.matched ? "Matched" : v.status}</span>
-          {v.blocksClose && " — blocks close"}
+        <dl className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/30 p-3 text-sm">
+          <dt className="text-muted-foreground">Expected amount</dt>
+          <dd className="text-right font-mono">{formatCurrency(invoice.expectedAmount)}</dd>
+          <dt className="text-muted-foreground">External amount</dt>
+          <dd className="text-right font-mono">{projected == null ? "—" : formatCurrency(projected)}</dd>
+          <dt className="text-muted-foreground">Amount verified</dt>
+          <dd className="text-right">
+            <span className={v.matched ? "text-success" : "text-warning"}>{v.matched ? "Verified" : "Unverified"}</span>
+          </dd>
+        </dl>
+        <p className="text-xs text-muted-foreground">
+          Derived status: {v.status}
+          {v.blocksClose && " — blocks close"}. Verification is computed from amounts, not set directly.
         </p>
       </div>
     </Modal>

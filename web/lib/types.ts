@@ -308,6 +308,19 @@ export type PaymentRecord = {
   cancelReason?: string
 }
 
+/**
+ * Backend PATCH /invoices/:id/status enum (Prisma InvoiceStatus). Mirrors the
+ * lifecycle the API accepts — distinct from the amount-derived `InvoiceStatus`
+ * reconciliation set. `amount_verified` remains DB-derived, never user-entered.
+ */
+export type InvoiceLifecycleStatus =
+  | "pending"
+  | "issued"
+  | "received"
+  | "matched"
+  | "mismatched"
+  | "canceled"
+
 export type InvoiceRecord = {
   id: string
   number: string
@@ -317,6 +330,8 @@ export type InvoiceRecord = {
   expectedAmount: number
   /** External invoice amount as received; null while pending (not yet received). */
   externalAmount: number | null
+  /** Backend lifecycle status (PATCH target). Optional for legacy/mock records. */
+  statusEnum?: InvoiceLifecycleStatus
   /** Voided invoice — kept visible but excluded from matched/close counts. */
   canceled?: boolean
   /** When payment against the invoice is due. */

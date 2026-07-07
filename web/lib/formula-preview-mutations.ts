@@ -325,6 +325,76 @@ export function applyVersionTriggerPreview(
   }
 }
 
+export type AddParticipantInput = {
+  company: string
+  sequenceOrder?: number
+  roleGroup?: string
+  natureGroup?: string
+  paymentGroup?: string
+  buyUnitPrice?: number
+  sellUnitPrice?: number
+  quantity?: number
+  isStart?: boolean
+  isEnd?: boolean
+  memo?: string
+}
+
+const ROLE_GROUP_TO_LEGACY: Record<string, Participant["role"]> = {
+  supplier: "seller",
+  buyer: "buyer",
+  carrier: "logistics",
+  financial: "financier",
+  other: "agent",
+}
+
+/**
+ * Append a participant to the chain (mock preview for POST .../participants).
+ * Recomputes chain totals so expected amounts refresh; version bump is handled
+ * by the caller via applyVersionTriggerPreview (matches Share flow).
+ */
+export function addParticipantPreview(f: Formula, input: AddParticipantInput): Formula {
+  const roleGroup = input.roleGroup || "other"
+  const sequenceOrder =
+    input.sequenceOrder ??
+    (f.participants.reduce((max, p) => Math.max(max, p.sequenceOrder ?? p.chainOrder ?? 0), -1) + 1)
+
+  const participant: Participant = {
+    id: nextPreviewId("pt"),
+    sequenceOrder,
+    chainOrder: sequenceOrder,
+    company: input.company,
+    name: input.company,
+    roleGroup,
+    natureGroup: input.natureGroup || undefined,
+    paymentGroup: input.paymentGroup || undefined,
+    quantity: input.quantity,
+    buyUnitPrice: input.buyUnitPrice,
+    sellUnitPrice: input.sellUnitPrice,
+    isStart: input.isStart,
+    isEnd: input.isEnd,
+    role: ROLE_GROUP_TO_LEGACY[roleGroup] ?? "agent",
+    nature: input.natureGroup || undefined,
+    buyPrice: input.buyUnitPrice,
+    sellPrice: input.sellUnitPrice,
+  }
+
+  const participants = [...f.participants, participant]
+  const qty = f.quantity
+  const totalSell = participants
+    .filter((p) => p.isEnd)
+    .reduce((s, p) => s + (p.buyUnitPrice ?? p.buyPrice ?? 0) * (p.quantity ?? qty ?? 0), 0)
+  const totalBuy = participants
+    .filter((p) => p.isStart)
+    .reduce((s, p) => s + (p.sellUnitPrice ?? p.sellPrice ?? 0) * (p.quantity ?? qty ?? 0), 0)
+
+  return recomputeFormulaPreview({
+    ...f,
+    participants,
+    totalSell: totalSell || f.totalSell,
+    totalBuy: totalBuy || f.totalBuy,
+  })
+}
+
 export type MetadataPatch = {
   unit?: string
   specMemo?: string
@@ -350,6 +420,42 @@ export function updateInvoiceExternalAmountPreview(
   const invoices = f.invoices.map((inv) =>
     inv.id === invoiceId && !inv.canceled ? { ...inv, externalAmount } : inv,
   )
+  return recomputeFormulaPreview({ ...f, invoices })
+}
+
+/**
+ * PATCH /invoices/:id/status preview (V0-INV-01). The backend accepts a status
+ * enum only; `amount_verified` is DB-derived. Here we set the lifecycle enum and
+ * reconcile the external amount so the derived verification badge stays honest —
+ * we never let the user hand-toggle verification.
+ */
+export function updateInvoiceStatusPreview(
+  f: Formula,
+  invoiceId: string,
+  status: InvoiceRecord["statusEnum"],
+): Formula {
+  const invoices = f.invoices.map((inv) => {
+    if (inv.id !== invoiceId || inv.canceled) return inv
+    switch (status) {
+      case "matched":
+        return { ...inv, statusEnum: status, externalAmount: inv.expectedAmount }
+      case "mismatched":
+        return {
+          ...inv,
+          statusEnum: status,
+          externalAmount: inv.expectedAmount + Math.round(inv.expectedAmount * 0.05),
+        }
+      case "received":
+        // External received but not yet reconciled — keep any prior amount, else mirror expected pending review.
+        return { ...inv, statusEnum: status, externalAmount: inv.externalAmount }
+      case "canceled":
+        return { ...inv, statusEnum: status, canceled: true }
+      case "pending":
+      case "issued":
+      default:
+        return { ...inv, statusEnum: status, externalAmount: null }
+    }
+  })
   return recomputeFormulaPreview({ ...f, invoices })
 }
 

@@ -5,12 +5,12 @@ import {
   CalendarClock,
   CheckCircle2,
   FileText,
-  Link2,
   Lock,
   Ban,
   Plus,
   Pencil,
   Trash2,
+  UserPlus,
   Truck,
   PackageCheck,
   Handshake,
@@ -25,6 +25,7 @@ import { Tooltip } from "@/components/ui/tooltip"
 import { formatCurrency, cn } from "@/lib/utils"
 import {
   addInvoice,
+  addParticipantPreview,
   addPaymentRecord,
   addPaymentSchedule,
   applyVersionTriggerPreview,
@@ -33,12 +34,11 @@ import {
   closeFormulaPreview,
   deleteSharePreview,
   addLogisticsLegPreview,
-  linkRecordToSchedule,
   updateLogisticsStatusPreview,
   upsertSharePreview,
 } from "@/lib/formula-preview-mutations"
 import { deriveExpected, sixStatuses } from "@/lib/formula-math"
-import type { Formula, FormulaShare } from "@/lib/types"
+import type { Formula, FormulaShare, PaymentRecord } from "@/lib/types"
 import { useFormulaWorkflow } from "./formula-workflow-context"
 import { BACKEND_ROUTE_GAPS, MockPreviewNote } from "./mock-preview-note"
 
@@ -69,7 +69,6 @@ export function PaymentWorkflowActions({ onCancelRecord }: { onCancelRecord: (re
   const canPay = caps.canWritePayments
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [recordOpen, setRecordOpen] = useState(false)
-  const [linkOpen, setLinkOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelRecordId, setCancelRecordId] = useState<string | null>(null)
 
@@ -94,17 +93,12 @@ export function PaymentWorkflowActions({ onCancelRecord }: { onCancelRecord: (re
           disabled={!canPay}
           onClick={() => setRecordOpen(true)}
         />
-        <ToolbarButton
-          icon={Link2}
-          label="Link to Schedule"
-          disabled={!canPay || (formula.records ?? []).filter((r) => !r.canceled).length === 0}
-          onClick={() => setLinkOpen(true)}
-        />
+        {/* V0-PAY-02: schedule linking happens only at record registration (CreatePaymentRecordRequest.payment_schedule_id).
+            No post-create "Link to Schedule" action — backend has no record PATCH. */}
       </WorkflowToolbar>
 
       <AddScheduleModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} />
       <RegisterRecordModal open={recordOpen} onClose={() => setRecordOpen(false)} />
-      <LinkScheduleModal open={linkOpen} onClose={() => setLinkOpen(false)} />
       <CancelRecordModal
         open={cancelOpen}
         recordId={cancelRecordId}
@@ -250,62 +244,6 @@ function RegisterRecordModal({ open, onClose }: { open: boolean; onClose: () => 
         <Field label="Link to schedule (optional)" hint="Match this record to a planned schedule item.">
           <Select value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}>
             <option value="">— None —</option>
-            {formula.schedule.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.type} · {s.counterparty} · {formatCurrency(s.amount)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
-    </Modal>
-  )
-}
-
-function LinkScheduleModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { formula, applyPreview } = useFormulaWorkflow()
-  const activeRecords = (formula.records ?? []).filter((r) => !r.canceled)
-  const [recordId, setRecordId] = useState("")
-  const [scheduleId, setScheduleId] = useState("")
-
-  function submit() {
-    if (!recordId || !scheduleId) return
-    applyPreview((f) => linkRecordToSchedule(f, recordId, scheduleId))
-    onClose()
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Link Record to Schedule"
-      description="Associate an actual payment record with a planned schedule item."
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="accent" onClick={submit} disabled={!recordId || !scheduleId}>
-            Link (Preview)
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <MockPreviewNote />
-        <Field label="Payment record">
-          <Select value={recordId} onChange={(e) => setRecordId(e.target.value)}>
-            <option value="">Select record…</option>
-            {activeRecords.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.type} · {r.counterparty} · {formatCurrency(r.amount)}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Schedule item">
-          <Select value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}>
-            <option value="">Select schedule…</option>
             {formula.schedule.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.type} · {s.counterparty} · {formatCurrency(s.amount)}
@@ -904,6 +842,236 @@ export function CancelFormulaDialog({ open, onClose }: { open: boolean; onClose:
         )}
       </div>
     </Modal>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Participant add + version trigger (V0-PART-01)                             */
+/* -------------------------------------------------------------------------- */
+
+/** Mock registered companies — stands in for useRegisteredCompanies() until master data API is wired. */
+const MOCK_REGISTERED_COMPANIES = [
+  "Hanwha Trading Co.",
+  "Samil Logistics",
+  "Daewoo International",
+  "Kospo Materials",
+  "Nexen Global Partners",
+]
+
+const CUSTOM_COMPANY = "__custom__"
+
+export function ParticipantWorkflowActions() {
+  const { caps } = useFormulaWorkflow()
+  const [open, setOpen] = useState(false)
+
+  if (!caps.canWrite) {
+    return (
+      <Tooltip content="Requires MANAGER+ role on an open formula.">
+        <span className="mb-4 inline-block text-xs text-muted-foreground opacity-60">
+          Add participant unavailable
+        </span>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <>
+      <WorkflowToolbar>
+        <ToolbarButton icon={UserPlus} label="Add Participant" onClick={() => setOpen(true)} />
+      </WorkflowToolbar>
+      <AddParticipantModal open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
+function AddParticipantModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { formula, applyPreview, appendVersion } = useFormulaWorkflow()
+
+  const chainCompanies = useMemo(
+    () => Array.from(new Set(formula.participants.map((p) => p.company).filter(Boolean))),
+    [formula.participants],
+  )
+  const companyOptions = useMemo(
+    () => Array.from(new Set([...chainCompanies, ...MOCK_REGISTERED_COMPANIES])),
+    [chainCompanies],
+  )
+
+  const [companySelect, setCompanySelect] = useState("")
+  const [customCompany, setCustomCompany] = useState("")
+  const [roleGroup, setRoleGroup] = useState("buyer")
+  const [natureGroup, setNatureGroup] = useState("trading")
+  const [paymentGroup, setPaymentGroup] = useState("credit")
+  const [quantity, setQuantity] = useState(String(formula.quantity ?? ""))
+  const [buyUnitPrice, setBuyUnitPrice] = useState("")
+  const [sellUnitPrice, setSellUnitPrice] = useState("")
+  const [isStart, setIsStart] = useState(false)
+  const [isEnd, setIsEnd] = useState(false)
+  const [memo, setMemo] = useState("")
+  const [versionOpen, setVersionOpen] = useState(false)
+
+  const company = companySelect === CUSTOM_COMPANY ? customCompany.trim() : companySelect
+  const hasStart = formula.participants.some((p) => p.isStart)
+  const hasEnd = formula.participants.some((p) => p.isEnd)
+  const startConflict = isStart && hasStart
+  const endConflict = isEnd && hasEnd
+  const canContinue = Boolean(company) && !startConflict && !endConflict
+
+  function reset() {
+    setCompanySelect("")
+    setCustomCompany("")
+    setRoleGroup("buyer")
+    setNatureGroup("trading")
+    setPaymentGroup("credit")
+    setQuantity(String(formula.quantity ?? ""))
+    setBuyUnitPrice("")
+    setSellUnitPrice("")
+    setIsStart(false)
+    setIsEnd(false)
+    setMemo("")
+  }
+
+  function save() {
+    if (!company) return
+    const summary = `Participant added: ${company}`
+    applyPreview((f) =>
+      addParticipantPreview(f, {
+        company,
+        roleGroup,
+        natureGroup,
+        paymentGroup,
+        quantity: quantity ? Number(quantity) : undefined,
+        buyUnitPrice: buyUnitPrice ? Number(buyUnitPrice) : undefined,
+        sellUnitPrice: sellUnitPrice ? Number(sellUnitPrice) : undefined,
+        isStart,
+        isEnd,
+        memo: memo.trim() || undefined,
+      }),
+    )
+    const nextNo = formula.latestVersionNo + 1
+    appendVersion({
+      versionNo: nextNo,
+      createdAt: new Date().toISOString(),
+      createdBy: "Preview User",
+      summary,
+      changes: [
+        {
+          field: "participants",
+          label: "Participant",
+          oldValue: formula.participants.length,
+          newValue: formula.participants.length + 1,
+          valueType: "text",
+          versionTriggering: true,
+        },
+      ],
+    })
+    applyPreview((f) => applyVersionTriggerPreview(f, summary))
+    setVersionOpen(false)
+    reset()
+    onClose()
+  }
+
+  return (
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="Add Participant"
+        description="POST /formulas/:id/participants — creates participant + version + snapshot + audit."
+        footer={
+          <>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button variant="accent" disabled={!canContinue} onClick={() => setVersionOpen(true)}>
+              Continue
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <MockPreviewNote />
+          <Field label="Company" hint="Registered companies or an existing chain member.">
+            <Select value={companySelect} onChange={(e) => setCompanySelect(e.target.value)}>
+              <option value="">Select company…</option>
+              {companyOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+              <option value={CUSTOM_COMPANY}>Other (type below)…</option>
+            </Select>
+          </Field>
+          {companySelect === CUSTOM_COMPANY && (
+            <Field label="Company name">
+              <Input value={customCompany} onChange={(e) => setCustomCompany(e.target.value)} />
+            </Field>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Role group">
+              <Select value={roleGroup} onChange={(e) => setRoleGroup(e.target.value)}>
+                <option value="supplier">Supplier</option>
+                <option value="buyer">Buyer</option>
+                <option value="carrier">Carrier</option>
+                <option value="financial">Financial</option>
+                <option value="other">Other</option>
+              </Select>
+            </Field>
+            <Field label="Nature group">
+              <Select value={natureGroup} onChange={(e) => setNatureGroup(e.target.value)}>
+                <option value="manufacturer">Manufacturer</option>
+                <option value="trading">Trading</option>
+                <option value="agent">Agent</option>
+                <option value="logistics">Logistics</option>
+              </Select>
+            </Field>
+            <Field label="Payment group">
+              <Select value={paymentGroup} onChange={(e) => setPaymentGroup(e.target.value)}>
+                <option value="prepaid">Prepaid</option>
+                <option value="credit">Credit</option>
+                <option value="postpaid">Postpaid</option>
+              </Select>
+            </Field>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Quantity">
+              <Input type="number" min={0} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            </Field>
+            <Field label="Buy unit price (KRW)">
+              <Input type="number" min={0} value={buyUnitPrice} onChange={(e) => setBuyUnitPrice(e.target.value)} />
+            </Field>
+            <Field label="Sell unit price (KRW)">
+              <Input type="number" min={0} value={sellUnitPrice} onChange={(e) => setSellUnitPrice(e.target.value)} />
+            </Field>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isStart} onChange={(e) => setIsStart(e.target.checked)} />
+              Start point
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isEnd} onChange={(e) => setIsEnd(e.target.checked)} />
+              End point
+            </label>
+          </div>
+          {(startConflict || endConflict) && (
+            <p className="text-xs text-danger">
+              {startConflict && "A start point already exists in this chain. "}
+              {endConflict && "An end point already exists in this chain. "}
+              Uncheck to continue.
+            </p>
+          )}
+          <Field label="Memo (optional)">
+            <Input value={memo} onChange={(e) => setMemo(e.target.value)} />
+          </Field>
+        </div>
+      </Modal>
+      <VersionTriggerModal
+        open={versionOpen}
+        onClose={() => setVersionOpen(false)}
+        onConfirm={save}
+        actionLabel="Add participant"
+      />
+    </>
   )
 }
 
