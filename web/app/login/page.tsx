@@ -1,7 +1,7 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense, useState } from "react"
 import { LogIn, Info } from "lucide-react"
 import { useAuth } from "@/components/auth/auth-provider"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,16 @@ const DEMO_HINT = [
 ]
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login } = useAuth()
   const [email, setEmail] = useState("admin@tocs.local")
   const [password, setPassword] = useState("admin")
@@ -32,7 +41,8 @@ export default function LoginPage() {
       setError(res.message)
       return
     }
-    router.push("/formulas")
+    const next = searchParams.get("next")
+    router.push(next && next.startsWith("/") ? next : "/formulas")
   }
 
   return (

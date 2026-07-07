@@ -19,6 +19,8 @@ export type FormulaWriteCaps = {
   canWrite: boolean
   canEditMetadata: boolean
   canWritePayments: boolean
+  /** Payment record cancel — COMPANY_ADMIN+ (V0-PAY-01). Independent of open/closed so it also gates closed-formula settlement cancel (V0-PAY-05). */
+  canCancelPayment: boolean
   canWriteInvoices: boolean
   canWriteLogistics: boolean
   canWriteShares: boolean
@@ -40,6 +42,7 @@ export function formulaWriteCaps(opts: {
     canWrite: base && !isClosed,
     canEditMetadata: base && !isClosed,
     canWritePayments: base && !isClosed,
+    canCancelPayment: admin && !isAllCompanies && !isCanceled,
     canWriteInvoices: base && !isClosed,
     canWriteLogistics: base && !isClosed,
     canWriteShares: base && !isClosed,

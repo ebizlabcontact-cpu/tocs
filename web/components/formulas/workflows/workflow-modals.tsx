@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   FileText,
   Link2,
+  Lock,
   Ban,
   Plus,
   Pencil,
@@ -40,6 +41,24 @@ import { deriveExpected, sixStatuses } from "@/lib/formula-math"
 import type { Formula, FormulaShare } from "@/lib/types"
 import { useFormulaWorkflow } from "./formula-workflow-context"
 import { BACKEND_ROUTE_GAPS, MockPreviewNote } from "./mock-preview-note"
+
+/* -------------------------------------------------------------------------- */
+/* Closed-formula payments banner (V0-PAY-04)                                 */
+/* -------------------------------------------------------------------------- */
+
+/** DL-033: no open-formula payment writes once closed — corrections happen on Settlement. */
+export function ClosedPaymentsBanner() {
+  return (
+    <div className="mb-4 flex items-start gap-2 rounded-lg border border-accent/30 bg-accent-soft/50 px-4 py-3 text-sm text-foreground">
+      <Lock className="mt-0.5 size-4 shrink-0 text-accent" />
+      <span>
+        <span className="font-medium">Formula closed — payments locked.</span> Post-close payment changes are
+        append-only corrections on the <span className="font-medium">Settlement</span> tab (DL-033). Records below are
+        read-only here.
+      </span>
+    </div>
+  )
+}
 
 /* -------------------------------------------------------------------------- */
 /* Payment modals                                                             */
@@ -348,6 +367,82 @@ function CancelRecordModal({
         </Field>
       </div>
     </Modal>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Settlement record cancel (V0-PAY-05, closed formula, COMPANY_ADMIN+)       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * DL-033 allowlist: payment_record_cancel is permitted on a CLOSED formula
+ * (COMPANY_ADMIN+ only). Rendered on the Settlement tab so closed formulas keep
+ * cancel out of the (locked) Payments tab. Mock preview only.
+ */
+export function SettlementRecordCancelSection() {
+  const { formula, caps } = useFormulaWorkflow()
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [recordId, setRecordId] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+
+  if (!formula.isClosed || !caps.canCancelPayment) return null
+
+  const records = formula.records ?? []
+  if (records.length === 0) return null
+
+  function requestCancel(r: PaymentRecord) {
+    if (r.canceled) {
+      // Preview mirror of API 409 Conflict on re-cancel.
+      setNote(`${r.counterparty} · ${formatCurrency(r.amount)} is already canceled (API would return 409 Conflict).`)
+      return
+    }
+    setNote(null)
+    setRecordId(r.id)
+    setCancelOpen(true)
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-dashed border-border bg-secondary/20 p-3">
+      <MockPreviewNote className="mb-3 w-full" />
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Manage records — cancel (append-only)
+      </p>
+      <div className="space-y-2">
+        {records.map((r) => (
+          <div
+            key={r.id}
+            className={cn(
+              "flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm",
+              r.canceled && "opacity-60",
+            )}
+          >
+            <span className="min-w-0 truncate">
+              {r.type === "receipt" ? "Receipt" : "Payment"} · {r.counterparty} · {formatCurrency(r.amount)}
+              {r.canceled && <span className="ml-2 text-xs text-danger">Canceled</span>}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1 text-xs"
+              onClick={() => requestCancel(r)}
+              disabled={r.canceled}
+            >
+              <Ban className="size-3.5" />
+              {r.canceled ? "Canceled" : "Cancel (Preview)"}
+            </Button>
+          </div>
+        ))}
+      </div>
+      {note && <p className="mt-2 text-xs text-warning">{note}</p>}
+      <CancelRecordModal
+        open={cancelOpen}
+        recordId={recordId}
+        onClose={() => {
+          setCancelOpen(false)
+          setRecordId(null)
+        }}
+      />
+    </div>
   )
 }
 

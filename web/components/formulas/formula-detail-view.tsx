@@ -20,10 +20,8 @@ import {
 import { formatCurrency, formatRelative, cn } from "@/lib/utils"
 import { statusConfig, tradeTypeConfig } from "@/lib/status"
 import { deriveSettlement, buildTimeline } from "@/lib/formula-math"
-import { useCompany } from "@/components/company-context"
 import { StatusBadge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { Tooltip } from "@/components/ui/tooltip"
+import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FormulaEquation } from "./formula-equation"
 import {
@@ -46,6 +44,7 @@ import {
   CancelFormulaDialog,
   ShareWorkflowActions,
   triggerPaymentRecordCancel,
+  ClosedPaymentsBanner,
 } from "./workflows/workflow-modals"
 import {
   MetadataWorkflowActions,
@@ -72,31 +71,14 @@ function MetricPill({ label, value, tone }: { label: string; value: string; tone
   )
 }
 
-const WRITE_HINT = "Select a company to perform write actions."
-const CLOSED_HINT = "Closed formulas are immutable."
-const CANCELED_HINT = "Canceled formulas cannot be updated."
-
 export function FormulaDetailView() {
-  const { formula, versionHistory, caps, role } = useFormulaWorkflow()
+  const { formula, versionHistory, caps } = useFormulaWorkflow()
   const [tab, setTab] = useState("overview")
   const [closeOpen, setCloseOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const status = statusConfig[formula.status]
   const settlement = deriveSettlement(formula)
   const timelineCount = buildTimeline(formula, versionHistory).length
-  const { isAllCompanies } = useCompany()
-
-  const cancelBlocked = !caps.canCloseOrCancel
-  const closeBlocked = !caps.canCloseOrCancel || formula.isClosed
-  const writeHint = isAllCompanies
-    ? WRITE_HINT
-    : formula.canceledAt
-      ? CANCELED_HINT
-      : formula.isClosed
-        ? CLOSED_HINT
-        : role === "VIEWER"
-          ? "VIEWER role cannot perform write actions."
-          : WRITE_HINT
 
   return (
     <div className="animate-fade-in pb-6">
@@ -122,38 +104,14 @@ export function FormulaDetailView() {
             {formula.item} · {tradeTypeConfig[formula.tradeType].label} · updated {formatRelative(formula.updatedAt)}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {cancelBlocked ? (
-            <Tooltip content={writeHint}>
-              <button
-                type="button"
-                disabled
-                aria-disabled="true"
-                className={cn(buttonVariants({ variant: "outline" }), "gap-2 opacity-50")}
-              >
-                <Ban className="size-4" />
-                Cancel Formula
-              </button>
-            </Tooltip>
-          ) : (
+        {/* V0-HDR-01: Cancel/Close are COMPANY_ADMIN+ only (cancel:cancel, close:close).
+            Hidden entirely — not disabled — for MANAGER/VIEWER and for closed/canceled formulas. */}
+        {caps.canCloseOrCancel && (
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" className="gap-2" onClick={() => setCancelOpen(true)}>
               <Ban className="size-4" />
               Cancel Formula
             </Button>
-          )}
-          {closeBlocked ? (
-            <Tooltip content={writeHint}>
-              <button
-                type="button"
-                disabled
-                aria-disabled="true"
-                className={cn(buttonVariants({ variant: "accent" }), "gap-2 opacity-50")}
-              >
-                <CheckCircle2 className="size-4" />
-                Close Formula
-              </button>
-            </Tooltip>
-          ) : (
             <Button
               variant="accent"
               className="gap-2"
@@ -163,8 +121,8 @@ export function FormulaDetailView() {
               <CheckCircle2 className="size-4" />
               {formula.isClosed ? "Closed" : formula.closeable ? "Close Formula" : "Not Closeable"}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {formula.attention && (
@@ -240,10 +198,14 @@ export function FormulaDetailView() {
               <ParticipantsPanel formula={formula} />
             </TabsContent>
             <TabsContent value="payments">
-              <PaymentWorkflowActions onCancelRecord={triggerPaymentRecordCancel} />
+              {formula.isClosed ? (
+                <ClosedPaymentsBanner />
+              ) : (
+                <PaymentWorkflowActions onCancelRecord={triggerPaymentRecordCancel} />
+              )}
               <PaymentsPanel
                 formula={formula}
-                canWrite={caps.canWritePayments}
+                canWrite={caps.canCancelPayment && !formula.isClosed}
                 onCancelRecord={triggerPaymentRecordCancel}
               />
             </TabsContent>

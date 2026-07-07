@@ -195,6 +195,26 @@ function InvoiceStatusModal({
   )
 }
 
+/* ---- Closed settlement chrome (V0-SET-01, DL-033) ---- */
+
+/**
+ * Persistent banner shown atop the Settlement tab for a closed formula. Signals
+ * append-only correction mode (not trade edit) with distinct accent-soft chrome.
+ */
+export function ClosedSettlementBanner() {
+  const { formula } = useFormulaWorkflow()
+  if (!formula.isClosed) return null
+  return (
+    <div className="mb-4 flex items-start gap-2 rounded-lg border border-accent/40 bg-accent-soft/60 px-4 py-3 text-sm text-foreground">
+      <Lock className="mt-0.5 size-4 shrink-0 text-accent" />
+      <span>
+        <span className="font-medium">Original trade locked.</span> This formula is closed — only append-only
+        settlement corrections are allowed here (DL-033). Trade inputs, participants, and versions are immutable.
+      </span>
+    </div>
+  )
+}
+
 /* ---- Settlement append closed (B-15, B-16) ---- */
 
 export function SettlementWorkflowActions() {
