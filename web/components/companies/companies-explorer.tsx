@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, type ReactNode } from "react"
-import { Building2, Search, Plus, Pencil, Trash2, Archive, ArchiveRestore, Layers, Briefcase } from "lucide-react"
+import { Building2, Search, Plus, Pencil, Trash2, Archive, ArchiveRestore, Layers, Briefcase, Info } from "lucide-react"
 import { formulas } from "@/lib/mock-data"
 import { listPreviewCompanies, registerCreatedCompany } from "@/lib/company-preview-session"
 import type { RegisteredCompany } from "@/lib/types"
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { SidePanel } from "@/components/ui/side-panel"
 import { Field, Input, Select } from "@/components/ui/field"
+import { MockPreviewNote } from "@/components/formulas/workflows/mock-preview-note"
 type Draft = Omit<RegisteredCompany, "id">
 
 const natureOptions = [
@@ -351,19 +352,30 @@ function CompanyDetail({
         )}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-border pt-4">
-        <Button variant="outline" className="flex-1" onClick={onEdit}>
-          <Pencil className="size-4" />
-          Edit
-        </Button>
-        <Button variant="subtle" onClick={onArchive}>
-          {archived ? <ArchiveRestore className="size-4" /> : <Archive className="size-4" />}
-          {archived ? "Reactivate" : "Archive"}
-        </Button>
-        <Button variant="danger" onClick={onDelete}>
-          <Trash2 className="size-4" />
-          Delete
-        </Button>
+      <div className="border-t border-border pt-4">
+        {/* V0-CO-01 / G9: no PATCH or DELETE /companies API exists. Edit, Archive, and
+            Delete are preview-only and never persist. Create (POST) is the only real write. */}
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft/40 px-3 py-2 text-xs text-foreground">
+          <Info className="mt-0.5 size-3.5 shrink-0 text-warning" />
+          <span>
+            <span className="font-medium">Preview only — no company update API (G9).</span> Editing, archiving, and
+            deleting are not yet supported by the backend and change this view only.
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="flex-1" onClick={onEdit}>
+            <Pencil className="size-4" />
+            Edit
+          </Button>
+          <Button variant="subtle" onClick={onArchive}>
+            {archived ? <ArchiveRestore className="size-4" /> : <Archive className="size-4" />}
+            {archived ? "Reactivate" : "Archive"}
+          </Button>
+          <Button variant="danger" onClick={onDelete}>
+            <Trash2 className="size-4" />
+            Delete
+          </Button>
+        </div>
       </div>
     </div>
   )
@@ -418,6 +430,8 @@ function CompanyFormModal({
       }
     >
       <div className="flex flex-col gap-6">
+        {/* V0-CO-01: Edit has no backing API (G9) — flag clearly. Create is a real POST, so no note there. */}
+        {mode === "edit" && <MockPreviewNote />}
         {/* Basic */}
         <FormSection title="Basic">
           <Field label="Company Name" className="sm:col-span-2">

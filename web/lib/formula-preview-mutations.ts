@@ -17,6 +17,7 @@ import type {
   InvoiceRecord,
   LogisticsLeg,
   LogisticsState,
+  Participant,
   PaymentRecord,
   PaymentScheduleItem,
   StatusLog,
