@@ -46,6 +46,7 @@ export const formulaLogisticsStatusConfig: Record<string, { label: string; tone:
   not_started: { label: "Not Started", tone: "neutral" },
   in_transit: { label: "In Transit", tone: "info" },
   delivered: { label: "Completed", tone: "success" },
+  canceled: { label: "Canceled", tone: "outline" },
 }
 
 export const scheduleStatusConfig: Record<string, { label: string; tone: Tone }> = {
@@ -60,16 +61,19 @@ export const tradeStatusConfig: Record<string, { label: string; tone: Tone }> = 
   draft: { label: "Draft", tone: "neutral" },
   confirmed: { label: "Confirmed", tone: "info" },
   completed: { label: "Completed", tone: "success" },
+  canceled: { label: "Canceled", tone: "outline" },
 }
 
 export const cashStatusConfig: Record<string, { label: string; tone: Tone }> = {
   pending: { label: "Pending", tone: "neutral" },
   partial: { label: "Partial", tone: "warning" },
   completed: { label: "Completed", tone: "success" },
+  canceled: { label: "Canceled", tone: "outline" },
 }
 
 export const deliveryStatusConfig: Record<string, { label: string; tone: Tone }> = {
   pending: { label: "Pending", tone: "neutral" },
   in_transit: { label: "In Transit", tone: "info" },
   delivered: { label: "Delivered", tone: "success" },
+  canceled: { label: "Canceled", tone: "outline" },
 }

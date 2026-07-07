@@ -5917,3 +5917,74 @@ Architect audit
 Initial v0 instruction set from Backend vs UI comparison
 
 Handoff: Send this file to v0 verbatim. v0 implements UI only per §0 constraints. Architect re-audits after v0 delivery.
+
+---
+
+## Local Merge Supplement (Architect Rebase 2026-07-07)
+
+This section merges critical content from the local curated spec (commit `61edf80`) into the remote v0 full specification base. The remote document remains authoritative; this supplement closes gaps not explicit in the remote body.
+
+### Gap Matrix v2 Classification References
+
+- **Authoritative matrix:** `docs/implementation/TOCS_MASTER_GAP_MATRIX.md` (v2.0.0) — supersedes v1 classification.
+- **Core v2 rule:** Read-capability API readiness is distinct from write-workflow completeness.
+- **Do not** classify API-not-wired (`mock-data`, `ApiNotWiredError`) as UI-incomplete.
+- **Do not** downgrade a READ surface because WRITE actions are missing; split READ and WRITE rows.
+- **Priority:** Follow TOCS_MASTER_GAP_MATRIX §8 for implementation order; P0 queue in this spec aligns with matrix P0 rows.
+
+### UI Completion Batch 1/2 Assumptions (baseline @ `61edf80`)
+
+**Batch 1 (workflow surfaces):**
+
+- `web/components/formulas/workflows/workflow-modals.tsx` — Payment, Invoice, Logistics, Share, Version, Close, Cancel modals
+- `web/components/formulas/workflows/formula-workflow-context.tsx` — RBAC-aware write caps per formula
+- `web/components/formulas/workflows/mock-preview-note.tsx` — mutation surface disclaimer
+- `web/lib/formula-preview-mutations.ts` + `web/lib/formula-preview-session.ts` — in-memory mutation layer
+- `web/lib/permissions.ts` — preview RBAC matrix
+
+**Batch 2 (extended workflows):**
+
+- `web/components/formulas/workflows/batch-2-workflows.tsx` — metadata edit, invoice status enum, settlement append, version commit, timeline filters
+- `web/components/auth/auth-provider.tsx` + `web/lib/auth-preview-session.ts` — auth preview shell
+- `web/app/login/page.tsx` — login surface (guard still P0: V0-AUTH-01)
+
+**Mutation rule:** All writes call `formula-preview-mutations.ts` → `recomputeFormulaPreview()`. No HTTP, no repository API methods.
+
+### Backend Semantics Preservation Rules
+
+1. **Formula First** — every flow starts from `formula_id`; never introduce Deal/Order/Project/Contract roots.
+2. **formula_no** — DB-generated only; never assign in application, seed, or UI.
+3. **Version triggers** — `quantity`, `buyUnitPrice`, `sellUnitPrice`, `contractExchangeRate`, `adjustedExchangeRate`, `totalLogisticsCost`, `shareAmount`, `shareRate`, participant create/delete must create `formula_versions` + snapshot + audit; never direct Formula PATCH for these fields.
+4. **Payment semantics** — `payment_records.is_canceled` is separate from `formulas.*_status = CANCELED`; re-cancel returns 409 Conflict.
+5. **Invoice semantics** — `formulas.invoice_status` is service-synced from `v_formula_invoice_status`; invoice is closure condition, not transaction blocker.
+6. **Close / cancel** — status completion is manual; `is_closed = TRUE` makes Formula fully immutable except Settlement tab allowlist (DL-033).
+7. **Confirmed KPI** — dashboards use real bank deposit/withdrawal views only; do not treat payment schedules as confirmed money.
+
+### No API Wiring Rule (reinforced)
+
+- Label future binding points in UI copy only.
+- Never call `fetch`, server actions to backend, or wired `repository.ts` methods from v0 UI work in this phase.
+- Keep `MockPreviewNote` on every mutation surface until integration milestone.
+
+### P0 v0 Instruction Blocks (local cross-reference)
+
+The Master Development Queue above lists P0 items. Highest-priority local gaps for v0 sign-off:
+
+| ID | Blocking reason |
+|----|-----------------|
+| V0-AUTH-01 | No route guard — app loads without login |
+| V0-PART-01 | Participant add on detail missing |
+| V0-INV-01 | Invoice status must be enum, not amount PATCH |
+| V0-PAY-01 | Payment cancel RBAC (COMPANY_ADMIN+) |
+| V0-PAY-02 | Remove link-schedule post-create flow |
+| V0-PAY-04 / V0-PAY-05 | Closed formula payment/settlement rules |
+| V0-SET-01 | Closed settlement chrome (DL-033) |
+| V0-HDR-01 | Hide cancel/close from MANAGER |
+| V0-CO-01 | Company edit/delete honesty |
+| V0-OVR-02 | Preserve G1–G4 status stubs (no regression) |
+
+### Document Control (supplement)
+
+| Version | Date | Author | Notes |
+|---------|------|--------|-------|
+| v1.0.1 | 2026-07-07 | Architect rebase | Remote full spec base + local merge supplement; UI Batch `61edf80` preserved |

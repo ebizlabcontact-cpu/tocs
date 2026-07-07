@@ -11,6 +11,7 @@ import { FormulaCard } from "@/components/formulas/formula-card"
 import { FormulaTable } from "@/components/formulas/formula-table"
 import { FormulaFilters, filterLabels, type StatusFilter } from "@/components/formulas/formula-filters"
 import { getAnalyticsFormulas, filterFormulasByRange, analyticsCompanyName } from "@/lib/mock-data"
+import { mergeFormulasForScope } from "@/lib/formula-preview-session"
 import { viewFormula, type FormulaMetricsView } from "@/lib/formula-math"
 import { cn, formatCurrency } from "@/lib/utils"
 import type { DateRange, Formula } from "@/lib/types"
@@ -107,7 +108,7 @@ function FormulasContent() {
   // Scope + perspective aware set (P0-2), narrowed by the drilled date window
   // (P0-4). Each row carries its perspective metrics view (P0-3).
   const rows = useMemo(() => {
-    let list = getAnalyticsFormulas(operatingId, analyticsId)
+    let list = mergeFormulasForScope(getAnalyticsFormulas(operatingId, analyticsId), operatingId)
     if (range) list = filterFormulasByRange(list, range)
     return list.map((f) => ({ f, v: viewFormula(f, operatingId, analyticsId) }))
   }, [operatingId, analyticsId, range])

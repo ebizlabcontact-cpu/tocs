@@ -1,12 +1,17 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ArrowRight, RotateCcw, Wand2, GitBranch, AlertTriangle, Info } from "lucide-react"
+import { ArrowRight, RotateCcw, Wand2, GitBranch, AlertTriangle, Info, GitCommitVertical } from "lucide-react"
 import type { Formula } from "@/lib/types"
 import { simulateFormulaEdit, type EditSimResult } from "@/lib/derive"
+import { commitVersionPreview } from "@/lib/formula-preview-mutations"
+import { useFormulaWorkflow } from "./workflows/formula-workflow-context"
+import { MockPreviewNote } from "./workflows/mock-preview-note"
 import { formatCurrency, formatNumber, cn } from "@/lib/utils"
 import { Input } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
+import { Modal } from "@/components/ui/modal"
+import { Tooltip } from "@/components/ui/tooltip"
 
 /** Fields that create a new Formula Version + Snapshot after backend integration. */
 const VERSION_TRIGGER_FIELDS = [
@@ -28,11 +33,13 @@ const NON_VERSION_FIELDS = ["sequenceOrder", "roleGroup", "natureGroup", "paymen
 type Row = { label: string; before: number; after: number; strong?: boolean }
 
 export function FormulaEditSimulation({ formula }: { formula: Formula }) {
+  const { caps, applyPreview, appendVersion } = useFormulaWorkflow()
   const baseQty = formula.quantity || 1
   const baseSellUnit = Math.round(formula.totalSell / baseQty)
 
   const [quantity, setQuantity] = useState(baseQty)
   const [sellUnitPrice, setSellUnitPrice] = useState(baseSellUnit)
+  const [commitOpen, setCommitOpen] = useState(false)
 
   const before = useMemo(
     () => simulateFormulaEdit(formula, { quantity: baseQty, sellUnitPrice: baseSellUnit }),
@@ -56,6 +63,42 @@ export function FormulaEditSimulation({ formula }: { formula: Formula }) {
   function reset() {
     setQuantity(baseQty)
     setSellUnitPrice(baseSellUnit)
+  }
+
+  function commitVersion() {
+    const summary = `Quantity ${formatNumber(before.quantity)} → ${formatNumber(quantity)}; sell unit ${formatCurrency(before.sellUnitPrice)} → ${formatCurrency(sellUnitPrice)}`
+    const nextNo = formula.latestVersionNo + 1
+    const changes: { field: string; label: string; oldValue: number; newValue: number; valueType: "currency" | "number"; versionTriggering: boolean }[] = []
+    if (qtyChanged) {
+      changes.push({
+        field: "quantity",
+        label: "Formula Quantity",
+        oldValue: before.quantity,
+        newValue: quantity,
+        valueType: "number",
+        versionTriggering: true,
+      })
+    }
+    if (priceChanged) {
+      changes.push({
+        field: "sellUnitPrice",
+        label: "Sell Unit Price",
+        oldValue: before.sellUnitPrice,
+        newValue: sellUnitPrice,
+        valueType: "currency",
+        versionTriggering: true,
+      })
+    }
+    appendVersion({
+      versionNo: nextNo,
+      createdAt: new Date().toISOString(),
+      createdBy: "Preview User",
+      summary,
+      changes,
+    })
+    applyPreview((f) => commitVersionPreview(f, { quantity, sellUnitPrice }, summary))
+    reset()
+    setCommitOpen(false)
   }
 
   const expectedRows: Row[] = [
@@ -217,15 +260,64 @@ export function FormulaEditSimulation({ formula }: { formula: Formula }) {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           Preview only. Authoritative recalculation and versioning are performed by backend services after integration.
         </p>
-        <Button variant="ghost" type="button" onClick={reset} disabled={!dirty}>
-          <RotateCcw className="size-4" />
-          Reset
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" type="button" onClick={reset} disabled={!dirty}>
+            <RotateCcw className="size-4" />
+            Reset
+          </Button>
+          {caps.canCommitVersion ? (
+            <Button variant="accent" type="button" disabled={!dirty} onClick={() => setCommitOpen(true)}>
+              <GitCommitVertical className="size-4" />
+              Commit Version (Preview)
+            </Button>
+          ) : (
+            <Tooltip content="Requires MANAGER+ on an open formula.">
+              <span>
+                <Button variant="accent" type="button" disabled className="opacity-50">
+                  <GitCommitVertical className="size-4" />
+                  Commit Version
+                </Button>
+              </span>
+            </Tooltip>
+          )}
+        </div>
       </div>
+
+      <Modal
+        open={commitOpen}
+        onClose={() => setCommitOpen(false)}
+        title="Commit Version"
+        description="POST /formulas/:id/versions — creates formula_versions + calculation snapshot (mock preview)."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setCommitOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="accent" onClick={commitVersion}>
+              Commit v{formula.latestVersionNo + 1} (Preview)
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <MockPreviewNote />
+          <p className="text-sm text-muted-foreground">
+            This will bump the formula to <span className="font-mono font-semibold text-foreground">v{formula.latestVersionNo + 1}</span>{" "}
+            and append a snapshot with the previewed trade-definition changes.
+          </p>
+          {triggeredFields.length > 0 && (
+            <ul className="list-inside list-disc text-sm text-foreground">
+              {triggeredFields.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }

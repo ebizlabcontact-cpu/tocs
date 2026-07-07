@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { getFormula } from "@/lib/mock-data"
-import { FormulaDetailView } from "@/components/formulas/formula-detail-view"
+import { getPreviewFormula } from "@/lib/formula-preview-session"
+import { FormulaDetailShell } from "@/components/formulas/formula-detail-shell"
 import { buttonVariants } from "@/components/ui/button"
 
 export default async function FormulaDetailPage({
@@ -9,7 +10,7 @@ export default async function FormulaDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const formula = getFormula(id)
+  const formula = getPreviewFormula(id) ?? getFormula(id)
 
   if (!formula) {
     return (
@@ -25,5 +26,5 @@ export default async function FormulaDetailPage({
     )
   }
 
-  return <FormulaDetailView formula={formula} />
+  return <FormulaDetailShell initialFormula={formula} />
 }

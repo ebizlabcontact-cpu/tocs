@@ -1,0 +1,489 @@
+"use client"
+
+import { useMemo, useState } from "react"
+import { Pencil, FileText, MessageSquare, Plus, Filter, History } from "lucide-react"
+import { Modal } from "@/components/ui/modal"
+import { Button } from "@/components/ui/button"
+import { Field, Input, Select } from "@/components/ui/field"
+import { Tooltip } from "@/components/ui/tooltip"
+import { formatCurrency, cn } from "@/lib/utils"
+import {
+  addSettlementNotePreview,
+  addPaymentSchedule,
+  addPaymentRecord,
+  patchFormulaMetadataPreview,
+  updateInvoiceExternalAmountPreview,
+} from "@/lib/formula-preview-mutations"
+import { deriveInvoiceVerification } from "@/lib/formula-math"
+import { useFormulaWorkflow } from "./formula-workflow-context"
+import { MockPreviewNote } from "./mock-preview-note"
+import type { InvoiceRecord } from "@/lib/types"
+
+function WorkflowToolbar({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-border bg-secondary/20 px-3 py-3">
+      <MockPreviewNote className="w-full" />
+      {children}
+    </div>
+  )
+}
+
+/* ---- Metadata PATCH (B-02) ---- */
+
+export function MetadataWorkflowActions() {
+  const { caps, applyPreview, formula } = useFormulaWorkflow()
+  const [open, setOpen] = useState(false)
+
+  if (!caps.canEditMetadata) {
+    return (
+      <Tooltip content="Requires MANAGER+ role and an open formula.">
+        <span className="mb-4 inline-block text-xs text-muted-foreground opacity-60">Metadata edit unavailable</span>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <>
+      <Button variant="outline" size="sm" className="mb-4 gap-1.5" onClick={() => setOpen(true)}>
+        <Pencil className="size-3.5" />
+        Edit metadata (Preview)
+      </Button>
+      <MetadataModal open={open} onClose={() => setOpen(false)} formula={formula} applyPreview={applyPreview} />
+    </>
+  )
+}
+
+function MetadataModal({
+  open,
+  onClose,
+  formula,
+  applyPreview,
+}: {
+  open: boolean
+  onClose: () => void
+  formula: ReturnType<typeof useFormulaWorkflow>["formula"]
+  applyPreview: ReturnType<typeof useFormulaWorkflow>["applyPreview"]
+}) {
+  const [unit, setUnit] = useState(formula.unit)
+  const [specMemo, setSpecMemo] = useState(formula.specMemo)
+  const [note, setNote] = useState(formula.note ?? "")
+
+  function save() {
+    applyPreview((f) => patchFormulaMetadataPreview(f, { unit, specMemo, note }))
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Edit Formula Metadata"
+      description="PATCH /formulas/:id — non-version fields only (mock preview)."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={save}>
+            Save (Preview)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        <Field label="Unit">
+          <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
+        </Field>
+        <Field label="Spec / Quality memo (content)">
+          <Input value={specMemo} onChange={(e) => setSpecMemo(e.target.value)} />
+        </Field>
+        <Field label="Internal note">
+          <Input value={note} onChange={(e) => setNote(e.target.value)} />
+        </Field>
+      </div>
+    </Modal>
+  )
+}
+
+/* ---- Invoice status update (B-11) ---- */
+
+export function InvoiceStatusActions({ invoice }: { invoice: InvoiceRecord }) {
+  const { caps, applyPreview } = useFormulaWorkflow()
+  const [open, setOpen] = useState(false)
+  if (invoice.canceled || !caps.canWriteInvoices) return null
+
+  return (
+    <>
+      <Button variant="outline" size="sm" className="mt-2 gap-1 text-xs" onClick={() => setOpen(true)}>
+        <FileText className="size-3" />
+        Update external amount (Preview)
+      </Button>
+      <InvoiceStatusModal open={open} onClose={() => setOpen(false)} invoice={invoice} applyPreview={applyPreview} />
+    </>
+  )
+}
+
+function InvoiceStatusModal({
+  open,
+  onClose,
+  invoice,
+  applyPreview,
+}: {
+  open: boolean
+  onClose: () => void
+  invoice: InvoiceRecord
+  applyPreview: ReturnType<typeof useFormulaWorkflow>["applyPreview"]
+}) {
+  const [mode, setMode] = useState<"pending" | "matched" | "mismatched" | "custom">(
+    invoice.externalAmount == null ? "pending" : invoice.externalAmount === invoice.expectedAmount ? "matched" : "custom",
+  )
+  const [custom, setCustom] = useState(String(invoice.externalAmount ?? ""))
+
+  const external = useMemo(() => {
+    if (mode === "pending") return null
+    if (mode === "matched") return invoice.expectedAmount
+    if (mode === "mismatched") return invoice.expectedAmount + Math.round(invoice.expectedAmount * 0.05)
+    return custom === "" ? null : Number(custom)
+  }, [mode, custom, invoice.expectedAmount])
+
+  const v = deriveInvoiceVerification({ ...invoice, externalAmount: external })
+
+  function save() {
+    applyPreview((f) => updateInvoiceExternalAmountPreview(f, invoice.id, external))
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Sync Invoice Status"
+      description="PATCH /invoices/:id/status — verification derived from external amount."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={save}>
+            Sync (Preview)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        <Field label="External amount mode">
+          <Select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+            <option value="pending">Pending (null external)</option>
+            <option value="matched">Matched</option>
+            <option value="mismatched">Mismatched (+5%)</option>
+            <option value="custom">Custom amount</option>
+          </Select>
+        </Field>
+        {mode === "custom" && (
+          <Field label="External amount (KRW)">
+            <Input type="number" value={custom} onChange={(e) => setCustom(e.target.value)} />
+          </Field>
+        )}
+        <p className="text-sm">
+          Verified: <span className={v.matched ? "text-success" : "text-warning"}>{v.matched ? "Matched" : v.status}</span>
+          {v.blocksClose && " — blocks close"}
+        </p>
+      </div>
+    </Modal>
+  )
+}
+
+/* ---- Settlement append closed (B-15, B-16) ---- */
+
+export function SettlementWorkflowActions() {
+  const { formula, caps, applyPreview } = useFormulaWorkflow()
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [schedOpen, setSchedOpen] = useState(false)
+  const [recOpen, setRecOpen] = useState(false)
+
+  if (!caps.canSettlementAppend) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Settlement append actions require a <span className="font-medium">closed</span> formula and COMPANY_ADMIN+ role
+        (mock preview).
+      </p>
+    )
+  }
+
+  return (
+    <>
+      <WorkflowToolbar>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSchedOpen(true)}>
+          <Plus className="size-3.5" />
+          Add schedule (Closed)
+        </Button>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setRecOpen(true)}>
+          <Plus className="size-3.5" />
+          Register record (Closed)
+        </Button>
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setNoteOpen(true)}>
+          <MessageSquare className="size-3.5" />
+          Settlement note
+        </Button>
+      </WorkflowToolbar>
+      <SettlementNoteModal open={noteOpen} onClose={() => setNoteOpen(false)} applyPreview={applyPreview} />
+      <ClosedScheduleModal open={schedOpen} onClose={() => setSchedOpen(false)} applyPreview={applyPreview} />
+      <ClosedRecordModal open={recOpen} onClose={() => setRecOpen(false)} applyPreview={applyPreview} formula={formula} />
+      {(formula.settlementNotes ?? []).length > 0 && (
+        <div className="mb-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Settlement notes</p>
+          {formula.settlementNotes!.map((n) => (
+            <div key={n.id} className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
+              <p>{n.text}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {n.createdBy} · {new Date(n.createdAt).toLocaleString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+function SettlementNoteModal({
+  open,
+  onClose,
+  applyPreview,
+}: {
+  open: boolean
+  onClose: () => void
+  applyPreview: ReturnType<typeof useFormulaWorkflow>["applyPreview"]
+}) {
+  const [text, setText] = useState("")
+  function save() {
+    if (!text.trim()) return
+    applyPreview((f) => addSettlementNotePreview(f, text.trim()))
+    setText("")
+    onClose()
+  }
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Settlement Note"
+      description="POST .../settlement/notes — closed formulas only."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={save} disabled={!text.trim()}>
+            Append note (Preview)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        <Field label="Note">
+          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Dispute, adjustment context…" />
+        </Field>
+      </div>
+    </Modal>
+  )
+}
+
+function ClosedScheduleModal({
+  open,
+  onClose,
+  applyPreview,
+}: {
+  open: boolean
+  onClose: () => void
+  applyPreview: ReturnType<typeof useFormulaWorkflow>["applyPreview"]
+}) {
+  const [type, setType] = useState<"receipt" | "payment">("receipt")
+  const [counterparty, setCounterparty] = useState("")
+  const [amount, setAmount] = useState("")
+  const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().slice(0, 10))
+
+  function save() {
+    const amt = Number(amount)
+    if (!counterparty.trim() || !amt) return
+    applyPreview((f) =>
+      addPaymentSchedule(f, { type, counterparty: counterparty.trim(), amount: amt, scheduledDate }),
+    )
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Append Payment Schedule (Closed)"
+      description="POST .../settlement/payment-schedules"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={save}>
+            Append (Preview)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        <Field label="Type">
+          <Select value={type} onChange={(e) => setType(e.target.value as "receipt" | "payment")}>
+            <option value="receipt">Receipt</option>
+            <option value="payment">Payment</option>
+          </Select>
+        </Field>
+        <Field label="Counterparty">
+          <Input value={counterparty} onChange={(e) => setCounterparty(e.target.value)} />
+        </Field>
+        <Field label="Amount">
+          <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </Field>
+        <Field label="Scheduled date">
+          <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+        </Field>
+      </div>
+    </Modal>
+  )
+}
+
+function ClosedRecordModal({
+  open,
+  onClose,
+  applyPreview,
+  formula,
+}: {
+  open: boolean
+  onClose: () => void
+  applyPreview: ReturnType<typeof useFormulaWorkflow>["applyPreview"]
+  formula: ReturnType<typeof useFormulaWorkflow>["formula"]
+}) {
+  const [type, setType] = useState<"receipt" | "payment">("receipt")
+  const [counterparty, setCounterparty] = useState("")
+  const [amount, setAmount] = useState("")
+  const [paidDate, setPaidDate] = useState(new Date().toISOString().slice(0, 10))
+  const [scheduleId, setScheduleId] = useState("")
+
+  function save() {
+    const amt = Number(amount)
+    if (!counterparty.trim() || !amt) return
+    applyPreview((f) =>
+      addPaymentRecord(f, {
+        type,
+        counterparty: counterparty.trim(),
+        amount: amt,
+        paidDate,
+        scheduleId: scheduleId || undefined,
+      }),
+    )
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Register Payment Record (Closed)"
+      description="Append-only actual on closed formula."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={save}>
+            Register (Preview)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        <Field label="Type">
+          <Select value={type} onChange={(e) => setType(e.target.value as "receipt" | "payment")}>
+            <option value="receipt">Receipt</option>
+            <option value="payment">Payment</option>
+          </Select>
+        </Field>
+        <Field label="Counterparty">
+          <Input value={counterparty} onChange={(e) => setCounterparty(e.target.value)} />
+        </Field>
+        <Field label="Amount">
+          <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </Field>
+        <Field label="Paid date">
+          <Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
+        </Field>
+        <Field label="Link schedule">
+          <Select value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}>
+            <option value="">— None —</option>
+            {formula.schedule.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.type} · {formatCurrency(s.amount)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+    </Modal>
+  )
+}
+
+/* ---- Timeline filters + status log viewer (B partial) ---- */
+
+import { TimelinePanel } from "../detail-panels"
+import type { Formula } from "@/lib/types"
+import type { VersionEntry } from "@/lib/types"
+import { buildTimeline } from "@/lib/formula-math"
+
+export function TimelineWorkflowChrome({
+  formula,
+  versionHistory,
+  onNavigate,
+}: {
+  formula: Formula
+  versionHistory?: VersionEntry[]
+  onNavigate?: (tab: string) => void
+}) {
+  const [filter, setFilter] = useState<string>("all")
+  const events = buildTimeline(formula, versionHistory)
+  const types = useMemo(() => ["all", ...new Set(events.map((e) => e.type))], [events])
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Filter className="size-4 text-muted-foreground" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filter events</span>
+        {types.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setFilter(t)}
+            className={cn(
+              "rounded-full border px-2.5 py-0.5 text-xs capitalize",
+              filter === t ? "border-accent bg-accent-soft text-accent" : "border-border text-muted-foreground",
+            )}
+          >
+            {t}
+          </button>
+        ))}
+        {filter !== "all" && (
+          <span className="text-xs text-muted-foreground">
+            {events.filter((e) => e.type === filter).length} of {events.length}
+          </span>
+        )}
+      </div>
+      <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
+        <History className="mt-0.5 size-3.5 shrink-0" />
+        Status log entries are projected from <code className="text-[10px]">formula.statusLogs</code> — authoritative
+        list API deferred (Group C).
+      </div>
+      <TimelinePanel formula={formula} onNavigate={onNavigate} versionHistory={versionHistory} eventFilter={filter} />
+    </div>
+  )
+}

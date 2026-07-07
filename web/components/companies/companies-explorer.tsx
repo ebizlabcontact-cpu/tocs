@@ -2,15 +2,14 @@
 
 import { useMemo, useState, type ReactNode } from "react"
 import { Building2, Search, Plus, Pencil, Trash2, Archive, ArchiveRestore, Layers, Briefcase } from "lucide-react"
-import { registeredCompanies, formulas } from "@/lib/mock-data"
+import { formulas } from "@/lib/mock-data"
+import { listPreviewCompanies, registerCreatedCompany } from "@/lib/company-preview-session"
 import type { RegisteredCompany } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { SidePanel } from "@/components/ui/side-panel"
 import { Field, Input, Select } from "@/components/ui/field"
-import { uid } from "@/lib/utils"
-
 type Draft = Omit<RegisteredCompany, "id">
 
 const natureOptions = [
@@ -69,8 +68,7 @@ function formulasUsing(name: string) {
 }
 
 export function CompaniesExplorer() {
-  // Mock local state only — no persistence, no backend.
-  const [list, setList] = useState<RegisteredCompany[]>(registeredCompanies)
+  const [list, setList] = useState<RegisteredCompany[]>(() => listPreviewCompanies())
   const [query, setQuery] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -91,7 +89,8 @@ export function CompaniesExplorer() {
   const selected = list.find((c) => c.id === selectedId) ?? null
 
   function handleCreate(draft: Draft) {
-    setList((prev) => [{ ...draft, id: uid() }, ...prev])
+    registerCreatedCompany(draft)
+    setList(listPreviewCompanies())
     setCreateOpen(false)
   }
 
@@ -107,7 +106,6 @@ export function CompaniesExplorer() {
       setList((prev) => prev.filter((c) => c.id !== confirm.company.id))
       if (selectedId === confirm.company.id) setSelectedId(null)
     } else {
-      // Archive toggles active <-> inactive.
       const next = confirm.company.status === "active" ? "inactive" : "active"
       setList((prev) => prev.map((c) => (c.id === confirm.company.id ? { ...c, status: next } : c)))
     }

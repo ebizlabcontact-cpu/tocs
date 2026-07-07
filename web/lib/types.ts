@@ -81,14 +81,14 @@ export type CurrencyCode = "KRW" | "USD" | "EUR" | "JPY" | "CNY" | "SGD"
 
 /* ---------------- Six-status model (P0-6) ---------------- */
 /** Overall trade progression. */
-export type TradeProgress = "draft" | "confirmed" | "completed"
+export type TradeProgress = "draft" | "confirmed" | "completed" | "canceled"
 /** Cash movement progression (used for both cash-in and cash-out). */
-export type CashProgress = "pending" | "partial" | "completed"
+export type CashProgress = "pending" | "partial" | "completed" | "canceled"
 /**
  * Coarse Formula-level invoice roll-up used only by list/report summaries.
  * Per-invoice reconciliation uses the canonical `InvoiceStatus` set below.
  */
-export type InvoiceState = "unmatched" | "partial" | "complete"
+export type InvoiceState = "unmatched" | "partial" | "complete" | "canceled"
 
 /**
  * Canonical per-invoice status set (P0-3). Single vocabulary across the
@@ -103,9 +103,9 @@ export type InvoiceState = "unmatched" | "partial" | "complete"
  */
 export type InvoiceStatus = "missing" | "pending" | "amount_matched" | "amount_mismatched" | "canceled"
 /** Physical logistics movement. */
-export type LogisticsState = "not_started" | "in_transit" | "delivered"
+export type LogisticsState = "not_started" | "in_transit" | "delivered" | "canceled"
 /** Delivery / hand-off confirmation. */
-export type DeliveryState = "pending" | "in_transit" | "delivered"
+export type DeliveryState = "pending" | "in_transit" | "delivered" | "canceled"
 
 /**
  * Canonical Formula participant contract (P0-3). One shape for every hop of a
@@ -156,6 +156,12 @@ export type FormulaShare = {
   companyName: string
   amount: number
   note?: string
+  /** UI preview only — how the share amount was entered. */
+  method?: "fixed" | "rate" | "split"
+  /** Percentage of expected profit when method = rate. */
+  rate?: number
+  /** Denominator N in N/1 split when method = split. */
+  splitCount?: number
 }
 
 /**
@@ -395,6 +401,14 @@ export type StatusLog = {
   memo?: string
 }
 
+/** Append-only settlement note on a closed Formula (preview shape). */
+export type SettlementNote = {
+  id: string
+  text: string
+  createdAt: string
+  createdBy: string
+}
+
 /**
  * Canonical frontend Formula contract (P0-1). The single source of truth every
  * derived view (Dashboard, Reports, Calendar, Settlement, Analytics) traces
@@ -522,6 +536,10 @@ export type Formula = {
   vehicles: LogisticsVehicle[]
   /** Canonical status-change history — the Timeline projects these (P0-2). */
   statusLogs: StatusLog[]
+  /** Internal memo (Prisma Formula.note) — non-version metadata. */
+  note?: string
+  /** Append-only settlement notes on closed formulas (preview). */
+  settlementNotes?: SettlementNote[]
   // NOTE (P1-2): there is no embedded `timeline` array. The timeline is DERIVED
   // via buildTimeline() from statusLogs, dates, schedules, and versions — never
   // stored on the Formula.

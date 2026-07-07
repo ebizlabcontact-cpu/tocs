@@ -73,17 +73,23 @@ export type RealizedDerivation = {
  * actuals when a formula carries no records.
  */
 export function deriveRealized(f: Formula): RealizedDerivation {
-  const active = (f.records ?? []).filter((r) => !r.canceled)
-  if (active.length === 0) {
-    return {
-      actualReceipts: f.actualReceipts,
-      actualPayments: f.actualPayments,
-      realizedProfit: f.actualReceipts - f.actualPayments,
-    }
+  const records = f.records ?? []
+  const active = records.filter((r) => !r.canceled)
+  if (active.length > 0) {
+    const actualReceipts = active.filter((r) => r.type === "receipt").reduce((s, r) => s + r.amount, 0)
+    const actualPayments = active.filter((r) => r.type === "payment").reduce((s, r) => s + r.amount, 0)
+    return { actualReceipts, actualPayments, realizedProfit: actualReceipts - actualPayments }
   }
-  const actualReceipts = active.filter((r) => r.type === "receipt").reduce((s, r) => s + r.amount, 0)
-  const actualPayments = active.filter((r) => r.type === "payment").reduce((s, r) => s + r.amount, 0)
-  return { actualReceipts, actualPayments, realizedProfit: actualReceipts - actualPayments }
+  // All records canceled — realized totals are zero (canceled never counts).
+  if (records.length > 0) {
+    return { actualReceipts: 0, actualPayments: 0, realizedProfit: 0 }
+  }
+  // Legacy fixture with no records array — fall back to stored scalars.
+  return {
+    actualReceipts: f.actualReceipts,
+    actualPayments: f.actualPayments,
+    realizedProfit: f.actualReceipts - f.actualPayments,
+  }
 }
 
 export type SettlementDerivation = {
@@ -229,12 +235,12 @@ export type TimelineEventType =
 
 /** Human labels for status-log values, keyed by status type (P0-2). */
 const statusLogValueLabels: Record<string, Record<string, string>> = {
-  trade: { draft: "Draft", confirmed: "Confirmed", completed: "Completed" },
-  cashIn: { pending: "Pending", partial: "Partial", completed: "Completed" },
-  cashOut: { pending: "Pending", partial: "Partial", completed: "Completed" },
-  invoice: { unmatched: "Unmatched", partial: "Partial", complete: "Complete" },
-  logistics: { not_started: "Not Started", in_transit: "In Transit", delivered: "Delivered" },
-  delivery: { pending: "Pending", in_transit: "In Transit", delivered: "Delivered" },
+  trade: { draft: "Draft", confirmed: "Confirmed", completed: "Completed", canceled: "Canceled" },
+  cashIn: { pending: "Pending", partial: "Partial", completed: "Completed", canceled: "Canceled" },
+  cashOut: { pending: "Pending", partial: "Partial", completed: "Completed", canceled: "Canceled" },
+  invoice: { unmatched: "Unmatched", partial: "Partial", complete: "Complete", canceled: "Canceled" },
+  logistics: { not_started: "Not Started", in_transit: "In Transit", delivered: "Delivered", canceled: "Canceled" },
+  delivery: { pending: "Pending", in_transit: "In Transit", delivered: "Delivered", canceled: "Canceled" },
 }
 const statusLogTypeLabels: Record<string, string> = {
   trade: "Trade",
@@ -438,25 +444,45 @@ const cashLabel: Record<string, string> = {
   pending: "Pending",
   partial: "Partial",
   completed: "Completed",
+  canceled: "Canceled",
 }
 const logisticsLabel: Record<string, string> = {
   not_started: "Not Started",
   in_transit: "In Transit",
   delivered: "Delivered",
+  canceled: "Canceled",
 }
 const deliveryLabel: Record<string, string> = {
   pending: "Pending",
   in_transit: "In Transit",
   delivered: "Delivered",
+  canceled: "Canceled",
 }
 const tradeLabel: Record<string, string> = {
   draft: "Draft",
   confirmed: "Confirmed",
   completed: "Completed",
+  canceled: "Canceled",
+}
+
+/** True when the Formula has been canceled (preview or backend six CANCELED statuses). */
+export function isFormulaCanceled(f: Formula): boolean {
+  return Boolean(f.canceledAt)
 }
 
 /** The six canonical Formula statuses, in display order. */
 export function sixStatuses(f: Formula): StatusItem[] {
+  if (isFormulaCanceled(f)) {
+    return [
+      { key: "trade", label: "Trade", value: tradeLabel[f.tradeStatus] ?? "Canceled", done: false },
+      { key: "cashIn", label: "Cash In", value: cashLabel[f.cashInStatus] ?? "Canceled", done: false },
+      { key: "cashOut", label: "Cash Out", value: cashLabel[f.cashOutStatus] ?? "Canceled", done: false },
+      { key: "invoice", label: "Invoice", value: "Canceled", done: false },
+      { key: "logistics", label: "Logistics", value: logisticsLabel[f.logisticsStatus] ?? "Canceled", done: false },
+      { key: "delivery", label: "Delivery", value: deliveryLabel[f.deliveryStatus] ?? "Canceled", done: false },
+    ]
+  }
+
   const inv = deriveInvoiceClose(f)
   const invoiceValue = inv.done
     ? "Matched"
@@ -464,17 +490,43 @@ export function sixStatuses(f: Formula): StatusItem[] {
       ? "Missing"
       : `${inv.matchedCount}/${inv.activeCount} Matched`
   return [
-    { key: "trade", label: "Trade", value: tradeLabel[f.tradeStatus], done: f.tradeStatus === "completed" },
-    { key: "cashIn", label: "Cash In", value: cashLabel[f.cashInStatus], done: f.cashInStatus === "completed" },
-    { key: "cashOut", label: "Cash Out", value: cashLabel[f.cashOutStatus], done: f.cashOutStatus === "completed" },
+    {
+      key: "trade",
+      label: "Trade",
+      value: tradeLabel[f.tradeStatus] ?? f.tradeStatus,
+      done: f.tradeStatus === "completed",
+    },
+    {
+      key: "cashIn",
+      label: "Cash In",
+      value: cashLabel[f.cashInStatus] ?? f.cashInStatus,
+      done: f.cashInStatus === "completed",
+    },
+    {
+      key: "cashOut",
+      label: "Cash Out",
+      value: cashLabel[f.cashOutStatus] ?? f.cashOutStatus,
+      done: f.cashOutStatus === "completed",
+    },
     { key: "invoice", label: "Invoice", value: invoiceValue, done: inv.done },
-    { key: "logistics", label: "Logistics", value: logisticsLabel[f.logisticsStatus], done: f.logisticsStatus === "delivered" },
-    { key: "delivery", label: "Delivery", value: deliveryLabel[f.deliveryStatus], done: f.deliveryStatus === "delivered" },
+    {
+      key: "logistics",
+      label: "Logistics",
+      value: logisticsLabel[f.logisticsStatus] ?? f.logisticsStatus,
+      done: f.logisticsStatus === "delivered",
+    },
+    {
+      key: "delivery",
+      label: "Delivery",
+      value: deliveryLabel[f.deliveryStatus] ?? f.deliveryStatus,
+      done: f.deliveryStatus === "delivered",
+    },
   ]
 }
 
 /** Close condition (P0-6): a Formula is closeable only when all six match. */
 export function isCloseable(f: Formula): boolean {
+  if (isFormulaCanceled(f)) return false
   return sixStatuses(f).every((s) => s.done)
 }
 

@@ -1,4 +1,6 @@
 import type { Formula } from "@/lib/types"
+import type { VersionEntry } from "@/lib/types"
+import type { ReactNode } from "react"
 import { formatCurrency, formatDate, formatNumber, formatRelative, cn } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/badge"
 import { CalculationBreakdown } from "./calculation-breakdown"
@@ -11,6 +13,7 @@ import {
   scheduleFulfillment,
   sixStatuses,
   isCloseable,
+  isFormulaCanceled,
   deriveInvoiceVerification,
   deriveInvoiceClose,
   buildTimeline,
@@ -299,7 +302,15 @@ export function SchedulePanel({ formula }: { formula: Formula }) {
 }
 
 /* ---------------- Payment Records (Tier 2 / actual) ---------------- */
-export function PaymentRecordsPanel({ formula }: { formula: Formula }) {
+export function PaymentRecordsPanel({
+  formula,
+  canWrite,
+  onCancelRecord,
+}: {
+  formula: Formula
+  canWrite?: boolean
+  onCancelRecord?: (recordId: string) => void
+}) {
   const records = formula.records ?? []
   if (records.length === 0) return <SectionEmpty label="No actual payment records yet." />
   const active = records.filter((r) => !r.canceled)
@@ -315,6 +326,7 @@ export function PaymentRecordsPanel({ formula }: { formula: Formula }) {
             <th className="px-4 py-2.5 font-medium">Linked Schedule</th>
             <th className="px-4 py-2.5 text-right font-medium">Actual Amount</th>
             <th className="px-4 py-2.5 font-medium">State</th>
+            {onCancelRecord && <th className="px-4 py-2.5 font-medium">Actions</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -361,6 +373,20 @@ export function PaymentRecordsPanel({ formula }: { formula: Formula }) {
                   <StatusBadge tone="success">Confirmed</StatusBadge>
                 )}
               </td>
+              {onCancelRecord && (
+                <td className="px-4 py-3">
+                  {!r.canceled && canWrite && (
+                    <button
+                      type="button"
+                      onClick={() => onCancelRecord(r.id)}
+                      className="inline-flex items-center gap-1 text-xs text-danger hover:underline"
+                    >
+                      <Ban className="size-3.5" />
+                      Cancel
+                    </button>
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -370,7 +396,15 @@ export function PaymentRecordsPanel({ formula }: { formula: Formula }) {
 }
 
 /* ---------------- Payments Tab (P2) ---------------- */
-export function PaymentsPanel({ formula }: { formula: Formula }) {
+export function PaymentsPanel({
+  formula,
+  canWrite,
+  onCancelRecord,
+}: {
+  formula: Formula
+  canWrite?: boolean
+  onCancelRecord?: (recordId: string) => void
+}) {
   return (
     <div className="space-y-5">
       <section>
@@ -392,7 +426,7 @@ export function PaymentsPanel({ formula }: { formula: Formula }) {
           </p>
           <span className="text-[11px] text-muted-foreground">Canceled records are shown but excluded from totals.</span>
         </div>
-        <PaymentRecordsPanel formula={formula} />
+        <PaymentRecordsPanel formula={formula} canWrite={canWrite} onCancelRecord={onCancelRecord} />
       </section>
     </div>
   )
@@ -418,7 +452,13 @@ function invoiceCloseImpact(status: ReturnType<typeof deriveInvoiceVerification>
   }
 }
 
-export function InvoicesPanel({ formula }: { formula: Formula }) {
+export function InvoicesPanel({
+  formula,
+  renderInvoiceActions,
+}: {
+  formula: Formula
+  renderInvoiceActions?: (inv: Formula["invoices"][number]) => React.ReactNode
+}) {
   if (formula.invoices.length === 0)
     return (
       <div className="space-y-3">
@@ -491,6 +531,7 @@ export function InvoicesPanel({ formula }: { formula: Formula }) {
                 <span className="text-xs text-muted-foreground">Due {formatDate(inv.dueDate)}</span>
                 <StatusBadge tone={impact.tone}>{impact.label}</StatusBadge>
               </div>
+              {renderInvoiceActions?.(inv)}
             </div>
           )
         })}
@@ -680,14 +721,18 @@ const tabLabels: Record<string, string> = {
 export function TimelinePanel({
   formula,
   onNavigate,
+  versionHistory,
+  eventFilter = "all",
 }: {
   formula: Formula
   onNavigate?: (tab: string) => void
+  versionHistory?: VersionEntry[]
+  eventFilter?: string
 }) {
-  // P1-1: derive events from Formula data (no static template). Version events
-  // come from the mock version-history helper.
-  const events = buildTimeline(formula, getVersionHistory(formula))
-  if (events.length === 0) return <SectionEmpty label="No activity yet." />
+  const events = buildTimeline(formula, versionHistory ?? getVersionHistory(formula))
+  const filtered = eventFilter === "all" ? events : events.filter((e) => e.type === eventFilter)
+  if (filtered.length === 0)
+    return <SectionEmpty label={eventFilter === "all" ? "No activity yet." : `No ${eventFilter} events.`} />
   return (
     <div className="space-y-3">
       <p className="text-xs leading-relaxed text-muted-foreground">
@@ -697,7 +742,7 @@ export function TimelinePanel({
       </p>
       <ol className="relative space-y-5 pl-8">
         <span className="absolute left-[15px] top-1 bottom-1 w-px bg-border" aria-hidden />
-        {events.map((ev) => {
+        {filtered.map((ev) => {
           const Icon = timelineIcons[ev.type] ?? Clock
           const linkLabel = ev.linkTab ? tabLabels[ev.linkTab] : undefined
           return (
@@ -981,8 +1026,6 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
         </div>
       </div>
 
-      <SixStatusGrid formula={formula} />
-
       <KeyDates formula={formula} />
 
       <FormulaChainView formula={formula} />
@@ -1097,34 +1140,9 @@ function TierAmount({ label, value, tone }: { label: string; value: number; tone
   )
 }
 
-/* Read-only mock action row for append-only settlement adjustments (P3). */
-function AdjustmentAction({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  description: string
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-card p-4">
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
-        <Icon className="size-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{description}</p>
-      </div>
-      <span className="shrink-0 rounded-md border border-border px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-        Preview
-      </span>
-    </div>
-  )
-}
-
 export function SettlementPanel({ formula }: { formula: Formula }) {
   const s = deriveSettlement(formula)
+  const canceled = isFormulaCanceled(formula)
   const closeable = isCloseable(formula)
   const unmatchedPayments = (formula.records ?? []).filter((r) => !r.canceled && !r.scheduleId)
   const invClose = deriveInvoiceClose(formula)
@@ -1141,27 +1159,31 @@ export function SettlementPanel({ formula }: { formula: Formula }) {
             <div className="flex items-center gap-2.5">
               {formula.isClosed ? (
                 <Lock className="size-5 text-success" />
+              ) : canceled ? (
+                <Ban className="size-5 text-danger" />
               ) : (
                 <Scale className="size-5 text-accent" />
               )}
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  {formula.isClosed ? "Closed" : "Not Closed"}
+                  {formula.isClosed ? "Closed" : canceled ? "Canceled" : "Not Closed"}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formula.isClosed
                     ? "Original trade data is immutable. Settlement adjustments are append-only."
-                    : closeable
-                      ? "All six statuses matched — ready to close."
-                      : "Close condition not yet met (6/6 statuses required)."}
+                    : canceled
+                      ? "Formula canceled — all six statuses are CANCELED. Close and further writes are disabled."
+                      : closeable
+                        ? "All six statuses matched — ready to close."
+                        : "Close condition not yet met (6/6 statuses required)."}
                 </p>
               </div>
             </div>
-            <StatusBadge tone={formula.isClosed ? "success" : closeable ? "success" : "outline"}>
-              {formula.isClosed ? "Closed" : closeable ? "Ready to close" : "Open"}
+            <StatusBadge tone={formula.isClosed ? "success" : canceled ? "danger" : closeable ? "success" : "outline"}>
+              {formula.isClosed ? "Closed" : canceled ? "Canceled" : closeable ? "Ready to close" : "Open"}
             </StatusBadge>
           </div>
-          {hasUnresolved && !formula.isClosed && (
+          {hasUnresolved && !formula.isClosed && !canceled && (
             <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2.5 text-xs text-muted-foreground">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               Outstanding receivable, payable, unmatched, and invoice items remain. These are review/KPI items — they do
@@ -1170,17 +1192,9 @@ export function SettlementPanel({ formula }: { formula: Formula }) {
           )}
           {/* Close condition: only the six statuses gate closing. */}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <SettlementCheck
-              label={
-                invClose.activeCount === 0
-                  ? "Invoices matched (none recorded)"
-                  : `Invoices matched (${invClose.matchedCount}/${invClose.activeCount})`
-              }
-              done={!invoiceUnmatched}
-            />
-            <SettlementCheck label="Logistics completed" done={formula.logisticsStatus === "delivered"} />
-            <SettlementCheck label="Delivery completed" done={formula.deliveryStatus === "delivered"} />
-            <SettlementCheck label="Ready to close (6/6)" done={closeable} />
+            {sixStatuses(formula).map((st) => (
+              <SettlementCheck key={st.key} label={`${st.label}: ${st.value}`} done={st.done} />
+            ))}
           </div>
           {/* Receivable/payable are KPI / review metrics only — not close conditions. */}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1234,35 +1248,22 @@ export function SettlementPanel({ formula }: { formula: Formula }) {
       </section>
 
       {/* 3. Append-only Settlement Adjustments (mock UI) */}
-      <section>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Settlement Adjustments · Append-only
-        </p>
-        <div className="mb-3 flex items-start gap-2 rounded-lg border border-border bg-secondary/40 px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
-          <Lock className="mt-0.5 size-4 shrink-0 text-accent" />
-          Closed formulas cannot directly modify original trade data. Settlement adjustments are append-only.
-        </div>
-        <div className="space-y-2">
-          <AdjustmentAction
-            icon={Plus}
-            title="Add actual payment record"
-            description="Append a new receipt or payment record matched to a schedule. Original trade data is untouched."
-          />
-          <AdjustmentAction
-            icon={Ban}
-            title="Cancel payment record"
-            description="Mark an existing record canceled with a reason. It stays visible but is excluded from realized totals."
-          />
-          <AdjustmentAction
-            icon={MessageSquare}
-            title="Settlement note / issue log"
-            description="Record a settlement note or dispute for audit history without mutating the formula."
-          />
-        </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          These are preview-only affordances. Authoritative mutations run in backend services after integration.
-        </p>
-      </section>
+      {/* Append-only adjustments are in SettlementWorkflowActions toolbar above. */}
+      {formula.isClosed && (formula.settlementNotes ?? []).length > 0 && (
+        <section>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Settlement Notes</p>
+          <div className="space-y-2">
+            {formula.settlementNotes!.map((n) => (
+              <div key={n.id} className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                <p>{n.text}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {n.createdBy} · {new Date(n.createdAt).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="rounded-lg border border-border bg-card p-4">
         <SettlementScenarios expectedReceipts={s.scheduledReceipts} expectedPayments={s.scheduledPayments} />

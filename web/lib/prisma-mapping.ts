@@ -91,6 +91,8 @@ export function toPrismaTradeStatus(v: TradeProgress): PrismaTradeStatus {
       return "IN_PROGRESS"
     case "completed":
       return "COMPLETED"
+    case "canceled":
+      return "CANCELED"
   }
 }
 
@@ -107,6 +109,8 @@ export function toPrismaLogisticsStatus(v: LogisticsState): PrismaTradeStatus {
       return "IN_PROGRESS"
     case "delivered":
       return "COMPLETED"
+    case "canceled":
+      return "CANCELED"
   }
 }
 
@@ -119,6 +123,8 @@ export function toPrismaDeliveryStatus(v: DeliveryState): PrismaTradeStatus {
       return "IN_PROGRESS"
     case "delivered":
       return "COMPLETED"
+    case "canceled":
+      return "CANCELED"
   }
 }
 
@@ -135,6 +141,8 @@ export function toPrismaPaymentStatus(v: CashProgress): PrismaPaymentStatus {
       return "PARTIAL"
     case "completed":
       return "COMPLETED"
+    case "canceled":
+      return "CANCELED"
   }
 }
 

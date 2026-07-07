@@ -74,8 +74,17 @@ function useSnapshotSections(formula: Formula) {
   }, [formula])
 }
 
-export function VersionsPanel({ formula }: { formula: Formula }) {
-  const versions = useMemo(() => getVersionHistory(formula), [formula])
+export function VersionsPanel({
+  formula,
+  versionHistory: versionHistoryProp,
+}: {
+  formula: Formula
+  versionHistory?: VersionEntry[]
+}) {
+  const versions = useMemo(
+    () => versionHistoryProp ?? getVersionHistory(formula),
+    [formula, versionHistoryProp],
+  )
   const [active, setActive] = useState<SnapshotVersion | null>(null)
   const { company, chain, base, endpointsResolved } = useSnapshotSections(formula)
   // The newest version is the live/current state; older versions render their

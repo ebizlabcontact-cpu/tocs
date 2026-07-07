@@ -9,6 +9,8 @@ import { Stepper, StepperMobile, type Step } from "./stepper"
 import { FormulaPreview } from "./formula-preview"
 import { emptyWizardState, getWizardIssues, type WizardState } from "./types"
 import { StepBasics, StepTradeChain, StepSettlement, StepLogistics, StepReview } from "./steps"
+import { buildCreateFormulaRequest, buildFormulaFromWizard } from "@/lib/wizard-to-formula"
+import { registerCreatedFormula } from "@/lib/formula-preview-session"
 
 const steps: Step[] = [
   { id: 1, label: "Basic Information", hint: "Company, item, trade type" },
@@ -65,7 +67,10 @@ export function FormulaWizard() {
     if (isLast) {
       if (!canCreate) return
       setSubmitting(true)
-      setTimeout(() => router.push("/formulas"), 900)
+      const createRequest = buildCreateFormulaRequest(state)
+      const created = buildFormulaFromWizard(state)
+      registerCreatedFormula(created, createRequest)
+      setTimeout(() => router.push(`/formulas/${created.id}`), 600)
       return
     }
     setCurrent((c) => Math.min(steps.length, c + 1))
