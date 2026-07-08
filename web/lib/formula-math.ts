@@ -700,6 +700,97 @@ export function isPerspective(operatingId: string, analyticsCompanyId?: string):
   return !!analyticsCompanyId && analyticsCompanyId !== operatingId
 }
 
+/* ---------------- Participant Confirmed KPI (P1 Feature 1) ---------------- */
+
+/**
+ * Per-participant confirmed cash KPI row — mirrors `v_participant_confirmed_kpi`
+ * / `GET /api/v1/formulas/:formulaId/kpi/participants`. Confirmed figures derive
+ * from ACTUAL (non-canceled) payment records, never from schedules. This is an
+ * illustrative local preview; authoritative figures come from the backend view.
+ */
+export type ParticipantConfirmedKpiRow = {
+  formulaId: string
+  formulaNo: string
+  participantId: string
+  companyId: string
+  companyName: string
+  roleGroup: string
+  sequenceOrder: number
+  totalBuyAmount: number
+  totalSellAmount: number
+  confirmedIn: number
+  confirmedOut: number
+  scheduledIn: number
+  scheduledOut: number
+  receivable: number
+  payable: number
+  confirmedNetProfit: number
+}
+
+/**
+ * Derives one confirmed-KPI row per participant, sorted by chain order.
+ *
+ * Cash movements are matched to a participant by counterparty NAME (schedules /
+ * records reference counterparties by name; participants carry the stable
+ * companyId — the counterparty index bridges the two, falling back to the
+ * participant's own company name). Definitions (desk-scoped, matching the view):
+ *   confirmedIn/Out  — Σ non-canceled receipt / payment records for the party
+ *   scheduledIn/Out  — Σ remaining scheduled receipt / payment for the party
+ *   receivable/payable — remaining scheduled minus confirmed, per direction
+ *   confirmedNetProfit = confirmedIn − confirmedOut
+ */
+export function deriveParticipantConfirmedKpi(f: Formula): ParticipantConfirmedKpiRow[] {
+  const index = counterpartyCompanyIndex(f)
+  const sorted = [...f.participants].sort((a, b) => chainOrderOf(a) - chainOrderOf(b))
+
+  return sorted.map((p) => {
+    const companyId = p.companyId ?? ""
+    // A settlement counterparty belongs to this participant when its indexed
+    // companyId matches, or (no companyId) when the raw name matches.
+    const belongs = (counterparty: string): boolean =>
+      companyId ? index.get(counterparty) === companyId : counterparty === p.company
+
+    let confirmedIn = 0
+    let confirmedOut = 0
+    for (const r of f.records ?? []) {
+      if (r.canceled || !belongs(r.counterparty)) continue
+      if (r.type === "receipt") confirmedIn += r.amount
+      else confirmedOut += r.amount
+    }
+
+    let scheduledIn = 0
+    let scheduledOut = 0
+    for (const s of f.schedule ?? []) {
+      if (!belongs(s.counterparty)) continue
+      const remaining = Math.max(0, s.amount - s.settledAmount)
+      if (s.type === "receipt") scheduledIn += remaining
+      else scheduledOut += remaining
+    }
+
+    const totalBuyAmount = pBuyUnit(p) * pQty(p)
+    const totalSellAmount = pSellUnit(p) * pQty(p)
+
+    return {
+      formulaId: f.id,
+      formulaNo: f.number,
+      participantId: p.id,
+      companyId,
+      companyName: p.company,
+      roleGroup: p.roleGroup ?? p.role ?? "other",
+      sequenceOrder: chainOrderOf(p),
+      totalBuyAmount,
+      totalSellAmount,
+      confirmedIn,
+      confirmedOut,
+      scheduledIn,
+      scheduledOut,
+      receivable: Math.max(0, scheduledIn - confirmedIn),
+      payable: Math.max(0, scheduledOut - confirmedOut),
+      confirmedNetProfit: confirmedIn - confirmedOut,
+    }
+  })
+}
+
 export function viewFormula(f: Formula, operatingId: string, analyticsCompanyId?: string): FormulaMetricsView {
   if (isPerspective(operatingId, analyticsCompanyId)) {
     const m = derivePerspectiveMetrics(f, analyticsCompanyId as string)

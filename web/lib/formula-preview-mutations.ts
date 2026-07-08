@@ -496,6 +496,99 @@ export function commitVersionPreview(f: Formula, input: VersionCommitInput, summ
   return applyVersionTriggerPreview(recomputeFormulaPreview(next), summary)
 }
 
+/* ---------------- Version-triggering field edits (P1 Feature 3) ---------------- */
+
+/**
+ * FX rate change preview (contract / adjusted exchange rate). Version-triggering.
+ * KRW totals are illustrative and left unchanged here — the backend recomputes
+ * authoritative converted amounts.
+ */
+export function patchFormulaFxPreview(
+  f: Formula,
+  patch: { contractExchangeRate?: number; adjustedExchangeRate?: number },
+  summary?: string,
+): Formula {
+  const next = {
+    ...f,
+    contractExchangeRate: patch.contractExchangeRate ?? f.contractExchangeRate,
+    adjustedExchangeRate: patch.adjustedExchangeRate ?? f.adjustedExchangeRate,
+  }
+  const label =
+    summary ??
+    `Exchange rate updated (contract ${next.contractExchangeRate ?? "—"}, adjusted ${next.adjustedExchangeRate ?? "—"})`
+  return applyVersionTriggerPreview(recomputeFormulaPreview(next), label)
+}
+
+/**
+ * Total logistics cost change preview. Version-triggering. Keeps the canonical
+ * logistics-cost rollup (`deriveLogisticsCost` sums `logistics[].cost`) in sync
+ * with the new total so Expected Profit reflects the change: existing legs are
+ * scaled proportionally (or split evenly) to the new total; when there are no
+ * legs the scalar `cost` carries it.
+ */
+export function patchLogisticsCostPreview(f: Formula, totalLogisticsCost: number, summary?: string): Formula {
+  const total = Math.max(0, Math.round(totalLogisticsCost))
+  const legs = f.logistics ?? []
+  let logistics = legs
+  if (legs.length > 0) {
+    const currentSum = legs.reduce((s, l) => s + (l.cost ?? 0), 0)
+    if (currentSum > 0) {
+      const factor = total / currentSum
+      logistics = legs.map((l) => ({ ...l, cost: Math.round((l.cost ?? 0) * factor) }))
+    } else {
+      const each = Math.round(total / legs.length)
+      logistics = legs.map((l) => ({ ...l, cost: each }))
+    }
+  }
+  const label = summary ?? `Logistics cost updated to ${total.toLocaleString()} KRW`
+  return applyVersionTriggerPreview(recomputeFormulaPreview({ ...f, cost: total, logistics }), label)
+}
+
+/**
+ * Participant unit economics change preview (quantity, buy/sell unit price).
+ * Version-triggering. Refreshes chain start/end totals so expected amounts track.
+ */
+export function patchParticipantEconomicsPreview(
+  f: Formula,
+  participantId: string,
+  patch: { quantity?: number; buyUnitPrice?: number; sellUnitPrice?: number },
+  summary?: string,
+): Formula {
+  const participants = f.participants.map((p) => {
+    if (p.id !== participantId) return p
+    const quantity = patch.quantity ?? p.quantity
+    const buyUnitPrice = patch.buyUnitPrice ?? p.buyUnitPrice
+    const sellUnitPrice = patch.sellUnitPrice ?? p.sellUnitPrice
+    return {
+      ...p,
+      quantity,
+      buyUnitPrice,
+      sellUnitPrice,
+      buyPrice: buyUnitPrice,
+      sellPrice: sellUnitPrice,
+    }
+  })
+  const qty = f.quantity
+  const totalSell = participants
+    .filter((p) => p.isEnd)
+    .reduce((s, p) => s + (p.buyUnitPrice ?? p.buyPrice ?? 0) * (p.quantity ?? qty ?? 0), 0)
+  const totalBuy = participants
+    .filter((p) => p.isStart)
+    .reduce((s, p) => s + (p.sellUnitPrice ?? p.sellPrice ?? 0) * (p.quantity ?? qty ?? 0), 0)
+
+  const target = f.participants.find((p) => p.id === participantId)
+  const label = summary ?? `Participant economics updated: ${target?.company ?? participantId}`
+  return applyVersionTriggerPreview(
+    recomputeFormulaPreview({
+      ...f,
+      participants,
+      totalSell: totalSell || f.totalSell,
+      totalBuy: totalBuy || f.totalBuy,
+    }),
+    label,
+  )
+}
+
 /** Closed-formula settlement note append (POST .../settlement/notes). */
 export function addSettlementNotePreview(f: Formula, text: string): Formula {
   if (!f.isClosed) return f

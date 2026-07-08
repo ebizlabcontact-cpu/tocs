@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FormulaEquation } from "./formula-equation"
 import {
   ParticipantsPanel,
+  ParticipantConfirmedKpiPanel,
   PaymentsPanel,
   InvoicesPanel,
   LogisticsPanel,
@@ -34,6 +35,7 @@ import {
   SettlementPanel,
 } from "./detail-panels"
 import { VersionsPanel } from "./versions-panel"
+import { VersionTriggerFieldsPanel } from "./version-trigger-fields-panel"
 import { useFormulaWorkflow } from "./workflows/formula-workflow-context"
 import {
   PaymentWorkflowActions,
@@ -199,7 +201,10 @@ export function FormulaDetailView() {
             </TabsContent>
             <TabsContent value="participants">
               <ParticipantWorkflowActions />
-              <ParticipantsPanel formula={formula} />
+              <div className="space-y-5">
+                <ParticipantConfirmedKpiPanel formula={formula} />
+                <ParticipantsPanel formula={formula} />
+              </div>
             </TabsContent>
             <TabsContent value="payments">
               {formula.isClosed ? (
@@ -229,7 +234,10 @@ export function FormulaDetailView() {
               <SharesPanel formula={formula} />
             </TabsContent>
             <TabsContent value="versions">
-              <VersionsPanel formula={formula} versionHistory={versionHistory} />
+              <div className="space-y-6">
+                <VersionsPanel formula={formula} versionHistory={versionHistory} />
+                <VersionTriggerFieldsPanel formula={formula} />
+              </div>
             </TabsContent>
             <TabsContent value="settlement">
               <ClosedSettlementBanner />

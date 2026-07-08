@@ -16,7 +16,6 @@ import { tradeTypeConfig } from "@/lib/status"
 import { formatCurrency, formatDate, formatNumber, cn } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/badge"
 import { SidePanel } from "@/components/ui/side-panel"
-import { FormulaEditSimulation } from "./formula-edit-simulation"
 
 /** A version entry rendered in the snapshot preview. */
 type SnapshotVersion = VersionEntry
@@ -114,8 +113,6 @@ export function VersionsPanel({
 
   return (
     <div className="space-y-5">
-      <FormulaEditSimulation formula={formula} />
-
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Version History</p>
         <div className="space-y-3">

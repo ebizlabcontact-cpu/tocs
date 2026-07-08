@@ -2,7 +2,7 @@ import type { Formula } from "@/lib/types"
 import type { VersionEntry } from "@/lib/types"
 import type { ReactNode } from "react"
 import { formatCurrency, formatDate, formatNumber, formatRelative, cn } from "@/lib/utils"
-import { StatusBadge } from "@/components/ui/badge"
+import { StatusBadge, type BadgeTone } from "@/components/ui/badge"
 import { CalculationBreakdown } from "./calculation-breakdown"
 import { FormulaChainView } from "./formula-chain"
 import { SettlementScenarios } from "@/components/wizard/settlement-scenarios"
@@ -18,7 +18,9 @@ import {
   deriveInvoiceClose,
   buildTimeline,
   chainOrderOf,
+  deriveParticipantConfirmedKpi,
 } from "@/lib/formula-math"
+import type { StatusLogType } from "@/lib/types"
 import { getVersionHistory } from "@/lib/mock-data"
 import {
   cashStatusConfig,
@@ -238,6 +240,162 @@ function roleGroupLabel(rg?: string) {
     other: "Other",
   }
   return map[rg] ?? capitalize(rg)
+}
+
+/* ---------------- Participant Confirmed KPI (P1 Feature 1) ---------------- */
+
+const kpiRoleLabels: Record<string, string> = {
+  supplier: "Supplier",
+  buyer: "Buyer",
+  carrier: "Carrier",
+  financial: "Financial",
+  other: "Other",
+  seller: "Seller",
+  agent: "Agent",
+  logistics: "Logistics",
+  financier: "Financier",
+}
+
+/**
+ * Per-participant confirmed cash KPI (P1 Feature 1). Read-only mirror of
+ * `v_participant_confirmed_kpi`. Confirmed figures derive from actual payment
+ * records (cash), never schedules — computed locally as a preview.
+ */
+export function ParticipantConfirmedKpiPanel({ formula }: { formula: Formula }) {
+  const rows = deriveParticipantConfirmedKpi(formula)
+  const canceled = isFormulaCanceled(formula)
+
+  return (
+    <div className="space-y-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Confirmed KPI by Participant
+        </p>
+        <div className="flex items-center gap-2">
+          {canceled && <StatusBadge tone="outline">Canceled formula</StatusBadge>}
+          <StatusBadge tone="info">Cash-based · Preview</StatusBadge>
+        </div>
+      </div>
+      <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+        Confirmed figures derive from actual payment records (cash movements), not schedules. Mirrors{" "}
+        <code className="text-[10px]">v_participant_confirmed_kpi</code> — preview computed locally.
+      </p>
+
+      {rows.length === 0 ? (
+        <SectionEmpty label="No participants — confirmed KPI unavailable." />
+      ) : (
+        <>
+          {/* Card view (mobile) */}
+          <div className="grid gap-3 sm:hidden">
+            {rows.map((r) => (
+              <div key={r.participantId} className="rounded-lg border border-border bg-card p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary font-mono text-xs font-semibold text-muted-foreground">
+                    {r.sequenceOrder + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{r.companyName}</p>
+                  </div>
+                  <StatusBadge tone="outline">{kpiRoleLabels[r.roleGroup] ?? capitalize(r.roleGroup)}</StatusBadge>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <KpiStat label="Confirmed In" value={formatCurrency(r.confirmedIn)} />
+                  <KpiStat label="Confirmed Out" value={formatCurrency(r.confirmedOut)} />
+                  <KpiStat label="Scheduled In" value={formatCurrency(r.scheduledIn)} />
+                  <KpiStat label="Scheduled Out" value={formatCurrency(r.scheduledOut)} />
+                  <KpiStat label="Receivable" value={formatCurrency(r.receivable)} />
+                  <KpiStat label="Payable" value={formatCurrency(r.payable)} />
+                  <KpiStat
+                    label="Confirmed Net"
+                    value={formatCurrency(r.confirmedNetProfit)}
+                    tone={r.confirmedNetProfit >= 0 ? "pos" : "neg"}
+                    strong
+                  />
+                </dl>
+              </div>
+            ))}
+          </div>
+
+          {/* Table view (sm+) */}
+          <div className="hidden overflow-x-auto rounded-lg border border-border sm:block">
+            <table className="w-full min-w-[1100px] text-sm">
+              <caption className="sr-only">Per-participant confirmed cash KPI</caption>
+              <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th scope="col" className="px-3 py-2.5 text-center font-medium">Seq</th>
+                  <th scope="col" className="px-3 py-2.5 font-medium">Company</th>
+                  <th scope="col" className="px-3 py-2.5 font-medium">Role</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Confirmed In</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Confirmed Out</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Scheduled In</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Scheduled Out</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Receivable</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Payable</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Confirmed Net</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.map((r) => (
+                  <tr key={r.participantId} className="bg-card">
+                    <td className="px-3 py-3 text-center">
+                      <span className="inline-flex size-6 items-center justify-center rounded-md bg-secondary font-mono text-xs font-semibold text-muted-foreground">
+                        {r.sequenceOrder + 1}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 font-medium text-foreground">{r.companyName}</td>
+                    <td className="px-3 py-3">
+                      <StatusBadge tone="outline">{kpiRoleLabels[r.roleGroup] ?? capitalize(r.roleGroup)}</StatusBadge>
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">{formatCurrency(r.confirmedIn)}</td>
+                    <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">{formatCurrency(r.confirmedOut)}</td>
+                    <td className="px-3 py-3 text-right font-mono tabular-nums text-muted-foreground">{formatCurrency(r.scheduledIn)}</td>
+                    <td className="px-3 py-3 text-right font-mono tabular-nums text-muted-foreground">{formatCurrency(r.scheduledOut)}</td>
+                    <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">{formatCurrency(r.receivable)}</td>
+                    <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">{formatCurrency(r.payable)}</td>
+                    <td
+                      className={cn(
+                        "px-3 py-3 text-right font-mono tabular-nums font-semibold",
+                        r.confirmedNetProfit >= 0 ? "text-success" : "text-danger",
+                      )}
+                    >
+                      {formatCurrency(r.confirmedNetProfit)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function KpiStat({
+  label,
+  value,
+  tone,
+  strong,
+}: {
+  label: string
+  value: string
+  tone?: "pos" | "neg"
+  strong?: boolean
+}) {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          "mt-0.5 font-mono tabular-nums",
+          strong && "font-semibold",
+          tone === "pos" ? "text-success" : tone === "neg" ? "text-danger" : "text-foreground",
+        )}
+      >
+        {value}
+      </dd>
+    </div>
+  )
 }
 
 /* ---------------- Payment Schedules (Tier 1 / planned) ---------------- */
@@ -775,6 +933,135 @@ export function TimelinePanel({
         })}
       </ol>
     </div>
+  )
+}
+
+/* ---------------- Status Log Viewer (P1 Feature 2) ---------------- */
+
+const statusLogTypeLabels: Record<StatusLogType, string> = {
+  trade: "Trade",
+  cashIn: "Cash In",
+  cashOut: "Cash Out",
+  invoice: "Invoice",
+  logistics: "Logistics",
+  delivery: "Delivery",
+}
+
+const statusLogValueLabels: Record<string, Record<string, string>> = {
+  trade: { draft: "Draft", confirmed: "Confirmed", completed: "Completed", closed: "Closed", canceled: "Canceled" },
+  cashIn: { pending: "Pending", partial: "Partial", completed: "Completed", canceled: "Canceled" },
+  cashOut: { pending: "Pending", partial: "Partial", completed: "Completed", canceled: "Canceled" },
+  invoice: { unmatched: "Unmatched", partial: "Partial", complete: "Complete", canceled: "Canceled" },
+  logistics: { not_started: "Not Started", in_transit: "In Transit", delivered: "Delivered", canceled: "Canceled" },
+  delivery: { pending: "Pending", in_transit: "In Transit", delivered: "Delivered", canceled: "Canceled" },
+}
+
+function statusLogValueLabel(type: StatusLogType, value: string | null): string {
+  if (value == null) return "—"
+  return statusLogValueLabels[type]?.[value] ?? value
+}
+
+function statusLogTone(value: string): BadgeTone {
+  switch (value) {
+    case "canceled":
+      return "danger"
+    case "completed":
+    case "delivered":
+    case "complete":
+    case "confirmed":
+    case "closed":
+      return "success"
+    case "partial":
+    case "in_transit":
+      return "warning"
+    default:
+      return "outline"
+  }
+}
+
+/**
+ * Canonical status-log table (P1 Feature 2). Reads `formula.statusLogs` only —
+ * never synthesizes logs from timeline events. Sorted newest-first, filtered by
+ * status domain. Read-only.
+ */
+export function StatusLogTable({
+  formula,
+  statusTypeFilter,
+}: {
+  formula: Formula
+  statusTypeFilter: StatusLogType | "all"
+}) {
+  const logs = [...(formula.statusLogs ?? [])]
+    .filter((l) => statusTypeFilter === "all" || l.statusType === statusTypeFilter)
+    .sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime())
+
+  if (logs.length === 0) return <SectionEmpty label="No status log entries for this filter." />
+
+  const canceled = isFormulaCanceled(formula)
+
+  return (
+    <>
+      {/* Card view (mobile) */}
+      <div className="grid gap-3 sm:hidden">
+        {logs.map((log) => (
+          <div key={log.id} className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-foreground">{statusLogTypeLabels[log.statusType]}</span>
+              <time className="text-xs text-muted-foreground">{formatDate(log.changedAt)}</time>
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{statusLogValueLabel(log.statusType, log.previousStatus)}</span>
+              <ChevronRight className="size-3.5 text-muted-foreground" />
+              <StatusBadge tone={canceled ? "outline" : statusLogTone(log.newStatus)}>
+                {statusLogValueLabel(log.statusType, log.newStatus)}
+              </StatusBadge>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">by {log.changedBy}</p>
+            {log.memo && <p className="mt-1 text-xs text-muted-foreground">{log.memo}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* Table view (sm+) */}
+      <div className="hidden overflow-x-auto rounded-lg border border-border sm:block">
+        <table className="w-full min-w-[760px] text-sm">
+          <caption className="sr-only">Canonical status change log</caption>
+          <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th scope="col" className="px-3 py-2.5 font-medium">Domain</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">Previous</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">New</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">Changed</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">By</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">Memo</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {logs.map((log) => (
+              <tr key={log.id} className="bg-card align-top">
+                <td className="px-3 py-3 font-medium text-foreground">{statusLogTypeLabels[log.statusType]}</td>
+                <td className="px-3 py-3 text-muted-foreground">
+                  {statusLogValueLabel(log.statusType, log.previousStatus)}
+                </td>
+                <td className="px-3 py-3">
+                  <StatusBadge tone={canceled ? "outline" : statusLogTone(log.newStatus)}>
+                    {statusLogValueLabel(log.statusType, log.newStatus)}
+                  </StatusBadge>
+                </td>
+                <td className="px-3 py-3 text-muted-foreground">
+                  <span className="block text-foreground">{formatDate(log.changedAt)}</span>
+                  <span className="text-xs">{new Date(log.changedAt).toLocaleTimeString()}</span>
+                </td>
+                <td className="px-3 py-3 text-muted-foreground">{log.changedBy}</td>
+                <td className="max-w-[280px] truncate px-3 py-3 text-muted-foreground" title={log.memo || undefined}>
+                  {log.memo || "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }
 

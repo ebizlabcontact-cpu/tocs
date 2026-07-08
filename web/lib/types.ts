@@ -44,16 +44,24 @@ export type RegisteredCompany = {
   contacts?: CompanyContact[]
 }
 
-/** One contact row in a company's contact collection (mirrors company_contacts). */
+/**
+ * One contact row in a company's contact collection (mirrors `company_contacts`).
+ * Fields align to the schema columns: contact_name, title, phone, email,
+ * branch_address, is_primary, is_active, memo.
+ */
 export type CompanyContact = {
   id: string
+  /** maps contact_name */
   name: string
-  department?: string
-  position?: string
+  title?: string
   phone?: string
-  mobile?: string
   email?: string
+  /** maps branch_address */
+  branchAddress?: string
   isPrimary?: boolean
+  /** defaults to true */
+  isActive?: boolean
+  memo?: string
 }
 
 /**

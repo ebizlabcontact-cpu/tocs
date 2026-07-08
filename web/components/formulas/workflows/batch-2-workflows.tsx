@@ -484,10 +484,20 @@ function ClosedRecordModal({
 
 /* ---- Timeline filters + status log viewer (B partial) ---- */
 
-import { TimelinePanel } from "../detail-panels"
+import { TimelinePanel, StatusLogTable } from "../detail-panels"
 import type { Formula } from "@/lib/types"
-import type { VersionEntry } from "@/lib/types"
+import type { VersionEntry, StatusLogType } from "@/lib/types"
 import { buildTimeline } from "@/lib/formula-math"
+
+const STATUS_LOG_FILTERS: { label: string; value: StatusLogType | "all" }[] = [
+  { label: "All", value: "all" },
+  { label: "Trade", value: "trade" },
+  { label: "Cash In", value: "cashIn" },
+  { label: "Cash Out", value: "cashOut" },
+  { label: "Invoice", value: "invoice" },
+  { label: "Logistics", value: "logistics" },
+  { label: "Delivery", value: "delivery" },
+]
 
 export function TimelineWorkflowChrome({
   formula,
@@ -499,11 +509,45 @@ export function TimelineWorkflowChrome({
   onNavigate?: (tab: string) => void
 }) {
   const [filter, setFilter] = useState<string>("all")
+  const [statusLogFilter, setStatusLogFilter] = useState<StatusLogType | "all">("all")
   const events = buildTimeline(formula, versionHistory)
   const types = useMemo(() => ["all", ...new Set(events.map((e) => e.type))], [events])
 
   return (
     <div className="space-y-3">
+      {/* Section A — Status Logs (canonical status change history) */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status Logs</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Canonical status change history from <code className="text-[10px]">formula.statusLogs</code>. Six domains:
+          trade, cash in, cash out, invoice, logistics, delivery.
+        </p>
+        <div className="mb-3 mt-3 flex flex-wrap gap-2">
+          {STATUS_LOG_FILTERS.map((chip) => (
+            <button
+              key={chip.value}
+              type="button"
+              onClick={() => setStatusLogFilter(chip.value)}
+              className={cn(
+                "rounded-full border px-2.5 py-0.5 text-xs",
+                statusLogFilter === chip.value
+                  ? "border-accent bg-accent-soft text-accent"
+                  : "border-border text-muted-foreground",
+              )}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+        <StatusLogTable formula={formula} statusTypeFilter={statusLogFilter} />
+      </div>
+
+      {/* Section divider */}
+      <div className="mt-6 mb-4 border-t border-border pt-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Activity Timeline</p>
+      </div>
+
+      {/* Section B — Activity Timeline (existing behavior) */}
       <div className="flex flex-wrap items-center gap-2">
         <Filter className="size-4 text-muted-foreground" />
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filter events</span>

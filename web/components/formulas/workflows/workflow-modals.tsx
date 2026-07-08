@@ -1325,7 +1325,7 @@ function ShareEditorModal({
   )
 }
 
-function VersionTriggerModal({
+export function VersionTriggerModal({
   open,
   onClose,
   onConfirm,
