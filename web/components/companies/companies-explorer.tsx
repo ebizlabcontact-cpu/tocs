@@ -4,7 +4,13 @@ import { useMemo, useState, type ReactNode } from "react"
 import { Building2, Search, Plus, Pencil, Trash2, Archive, ArchiveRestore, Layers, Briefcase, Info } from "lucide-react"
 import { formulas } from "@/lib/mock-data"
 import { listPreviewCompanies, registerCreatedCompany } from "@/lib/company-preview-session"
-import type { RegisteredCompany } from "@/lib/types"
+import type { RegisteredCompany, CompanyContact } from "@/lib/types"
+import {
+  CompanyContactsEditor,
+  CompanyContactsReadOnlyTable,
+  normalizeContacts,
+  primaryContactName,
+} from "./company-contacts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
@@ -89,15 +95,27 @@ export function CompaniesExplorer() {
 
   const selected = list.find((c) => c.id === selectedId) ?? null
 
+  /** Normalizes contacts and syncs the primary contact name to contactPerson (spec 4.6). */
+  function withContactSync(draft: Draft): Draft {
+    const contacts = normalizeContacts(draft.contacts)
+    const primaryName = primaryContactName(contacts)
+    return {
+      ...draft,
+      contacts,
+      contactPerson: primaryName ?? draft.contactPerson,
+    }
+  }
+
   function handleCreate(draft: Draft) {
-    registerCreatedCompany(draft)
+    registerCreatedCompany(withContactSync(draft))
     setList(listPreviewCompanies())
     setCreateOpen(false)
   }
 
   function handleEdit(draft: Draft) {
     if (!editing) return
-    setList((prev) => prev.map((c) => (c.id === editing.id ? { ...c, ...draft } : c)))
+    const next = withContactSync(draft)
+    setList((prev) => prev.map((c) => (c.id === editing.id ? { ...c, ...next } : c)))
     setEditing(null)
   }
 
@@ -325,6 +343,7 @@ function CompanyDetail({
           ["Detail", company.addressDetail],
         ]}
       />
+      <CompanyContactsReadOnlyTable contacts={company.contacts} />
       {company.memo && (
         <div>
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Memo</p>
@@ -487,27 +506,11 @@ function CompanyFormModal({
           </Field>
         </FormSection>
 
-        {/* Contact */}
-        <FormSection title="Contact">
-          <Field label="Contact Person">
-            <Input value={draft.contactPerson ?? ""} onChange={(e) => patch({ contactPerson: e.target.value })} />
-          </Field>
-          <Field label="Department">
-            <Input value={draft.department ?? ""} onChange={(e) => patch({ department: e.target.value })} />
-          </Field>
-          <Field label="Position">
-            <Input value={draft.position ?? ""} onChange={(e) => patch({ position: e.target.value })} />
-          </Field>
-          <Field label="Phone">
-            <Input value={draft.phone ?? ""} onChange={(e) => patch({ phone: e.target.value })} placeholder="02-0000-0000" />
-          </Field>
-          <Field label="Mobile">
-            <Input value={draft.mobile ?? ""} onChange={(e) => patch({ mobile: e.target.value })} placeholder="010-0000-0000" />
-          </Field>
-          <Field label="Email">
-            <Input type="email" value={draft.email ?? ""} onChange={(e) => patch({ email: e.target.value })} placeholder="name@company.com" />
-          </Field>
-        </FormSection>
+        {/* Contacts (P1 Feature 4) — multi-row editor replaces the single-contact block */}
+        <CompanyContactsEditor
+          value={draft.contacts ?? []}
+          onChange={(rows: CompanyContact[]) => patch({ contacts: rows })}
+        />
 
         {/* Address */}
         <FormSection title="Address">
