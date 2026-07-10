@@ -1610,7 +1610,7 @@ export function VersionTriggerModal({
 function WorkflowToolbar({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-border bg-secondary/20 px-3 py-3">
-      <MockPreviewNote className="w-full" />
+      <MockPreviewNote className="w-full" compact />
       {children}
     </div>
   )

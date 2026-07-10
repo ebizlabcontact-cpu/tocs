@@ -32,7 +32,14 @@ const NON_VERSION_FIELDS = ["sequenceOrder", "roleGroup", "natureGroup", "paymen
 
 type Row = { label: string; before: number; after: number; strong?: boolean }
 
-export function FormulaEditSimulation({ formula }: { formula: Formula }) {
+export function FormulaEditSimulation({
+  formula,
+  hidePreviewNote = false,
+}: {
+  formula: Formula
+  /** P1-3: suppress the in-modal MockPreviewNote when the parent renders one. */
+  hidePreviewNote?: boolean
+}) {
   const { caps, applyPreview, appendVersion } = useFormulaWorkflow()
   const baseQty = formula.quantity || 1
   const baseSellUnit = Math.round(formula.totalSell / baseQty)
@@ -304,7 +311,7 @@ export function FormulaEditSimulation({ formula }: { formula: Formula }) {
         }
       >
         <div className="space-y-3">
-          <MockPreviewNote />
+          {!hidePreviewNote && <MockPreviewNote />}
           <p className="text-sm text-muted-foreground">
             This will bump the formula to <span className="font-mono font-semibold text-foreground">v{formula.latestVersionNo + 1}</span>{" "}
             and append a snapshot with the previewed trade-definition changes.

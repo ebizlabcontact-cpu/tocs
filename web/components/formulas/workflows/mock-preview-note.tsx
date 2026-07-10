@@ -2,8 +2,24 @@
 
 import { Info } from "lucide-react"
 
-/** Shown on workflow surfaces that mutate mock preview state only. */
-export function MockPreviewNote({ className }: { className?: string }) {
+/**
+ * Shown on workflow surfaces that mutate mock preview state only.
+ * P2-2: `compact` renders a single-line variant for dense surfaces (toolbars);
+ * the full variant stays on modals and first-time edit surfaces.
+ */
+export function MockPreviewNote({ className, compact = false }: { className?: string; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div
+        className={`flex items-center gap-2 rounded-lg border border-accent/25 bg-accent-soft/40 px-3 py-1.5 text-xs text-muted-foreground ${className ?? ""}`}
+      >
+        <Info className="size-3.5 shrink-0 text-accent" />
+        <span>
+          <span className="font-medium text-foreground">Preview only</span> — local state, no persistence.
+        </span>
+      </div>
+    )
+  }
   return (
     <div
       className={`flex items-start gap-2 rounded-lg border border-accent/25 bg-accent-soft/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground ${className ?? ""}`}

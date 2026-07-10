@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { GitCommitVertical, GitBranch, Pencil } from "lucide-react"
+import { type ReactNode, useMemo, useState } from "react"
+import { GitCommitVertical, GitBranch, Pencil, ChevronDown } from "lucide-react"
 import type { Formula, Participant, VersionChange } from "@/lib/types"
 import { chainOrderOf, deriveLogisticsCost } from "@/lib/formula-math"
 import {
@@ -26,11 +26,57 @@ import { Modal } from "@/components/ui/modal"
  * before applying a preview mutation. Hidden entirely when the user cannot
  * commit a version (also covers closed / canceled formulas).
  */
-export function VersionTriggerFieldsPanel({ formula }: { formula: Formula }) {
+export function VersionTriggerFieldsPanel({
+  formula,
+  hidePreviewNote = false,
+  chrome = true,
+}: {
+  formula: Formula
+  /** P1-3: parent (VersionsTabLayout) renders a single MockPreviewNote instead. */
+  hidePreviewNote?: boolean
+  /** P1-3: when false, drop the outer card/title (rendered inside a CollapsibleSection). */
+  chrome?: boolean
+}) {
   const { caps } = useFormulaWorkflow()
   if (!caps.canCommitVersion) return null
 
   const isCrossBorder = formula.transactionCurrency !== formula.baseCurrency
+
+  const body = (
+    <>
+      {!hidePreviewNote && (
+        <div className="mb-4">
+          <MockPreviewNote />
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {/* A — Formula Quantity & Sell Price */}
+        <NestedDisclosure title="Simulation — Quantity & Sell Price" defaultOpen>
+          <FormulaEditSimulation formula={formula} hidePreviewNote />
+        </NestedDisclosure>
+
+        {/* B — Exchange Rates (cross-border only) */}
+        {isCrossBorder && (
+          <NestedDisclosure title="Exchange Rates">
+            <FxVersionTriggerSection formula={formula} />
+          </NestedDisclosure>
+        )}
+
+        {/* C — Logistics Cost */}
+        <NestedDisclosure title="Logistics Cost Rollup">
+          <LogisticsCostVersionTriggerSection formula={formula} />
+        </NestedDisclosure>
+
+        {/* D — Participant Unit Economics */}
+        <NestedDisclosure title="Participant Unit Economics">
+          <ParticipantEconomicsVersionTriggerSection formula={formula} />
+        </NestedDisclosure>
+      </div>
+    </>
+  )
+
+  if (!chrome) return body
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -41,35 +87,34 @@ export function VersionTriggerFieldsPanel({ formula }: { formula: Formula }) {
       <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
         Changes here create formula_versions + calculation_snapshots + audit_logs on the backend.
       </p>
+      {body}
+    </div>
+  )
+}
 
-      <div className="mb-4">
-        <MockPreviewNote />
-      </div>
-
-      {/* 1 — Formula Quantity & Sell Price (existing simulation) */}
-      <section>
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Formula Quantity &amp; Sell Price
-        </p>
-        <FormulaEditSimulation formula={formula} />
-      </section>
-
-      {/* 2 — Exchange Rates (cross-border only) */}
-      {isCrossBorder && (
-        <section className="mt-4 border-t border-border pt-4">
-          <FxVersionTriggerSection formula={formula} />
-        </section>
-      )}
-
-      {/* 3 — Logistics Cost */}
-      <section className="mt-4 border-t border-border pt-4">
-        <LogisticsCostVersionTriggerSection formula={formula} />
-      </section>
-
-      {/* 4 — Participant Unit Economics */}
-      <section className="mt-4 border-t border-border pt-4">
-        <ParticipantEconomicsVersionTriggerSection formula={formula} />
-      </section>
+/** P1-3 simple nested disclosure (not a full CollapsibleSection). */
+function NestedDisclosure({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 bg-secondary/40 px-3 py-2.5 text-left"
+      >
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</span>
+        <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && <div className="p-3">{children}</div>}
     </div>
   )
 }
@@ -123,7 +168,6 @@ function FxVersionTriggerSection({ formula }: { formula: Formula }) {
 
   return (
     <>
-      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Exchange Rates</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Contract Exchange Rate">
           <Input type="number" step="0.01" value={contract} onChange={(e) => setContract(e.target.value)} />
@@ -175,7 +219,6 @@ function LogisticsCostVersionTriggerSection({ formula }: { formula: Formula }) {
 
   return (
     <>
-      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Logistics Cost</p>
       <Field label="Total Logistics Cost (KRW)">
         <Input type="number" min={0} value={cost} onChange={(e) => setCost(e.target.value)} />
       </Field>
@@ -205,9 +248,6 @@ function ParticipantEconomicsVersionTriggerSection({ formula }: { formula: Formu
 
   return (
     <>
-      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Participant Unit Economics
-      </p>
       {chain.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
           No participants to edit.

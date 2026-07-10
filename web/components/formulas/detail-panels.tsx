@@ -572,6 +572,67 @@ const kpiRoleLabels: Record<string, string> = {
   financier: "Financier",
 }
 
+/** P1-2 column definitions for the KPI explainer + header tooltips. */
+const KPI_COLUMN_HELP: Record<string, string> = {
+  confirmedIn: "Sum of confirmed (non-canceled) inbound payment records for this participant. Cash actually received.",
+  confirmedOut: "Sum of confirmed outbound payment records. Cash actually paid.",
+  scheduledIn: "Sum of inbound payment schedule amounts. Planned receipts, not yet cash.",
+  scheduledOut: "Sum of outbound payment schedule amounts. Planned disbursements.",
+  receivable: "Scheduled In − Confirmed In. Outstanding amount still expected to be received.",
+  payable: "Scheduled Out − Confirmed Out. Outstanding amount still to be paid.",
+  confirmedNet: "Confirmed In − Confirmed Out. Realized cash position for this participant.",
+}
+
+/**
+ * P1-2 KPI Explainer. Collapsible glossary of every KPI column and its cash-basis
+ * derivation. Read-only; no data mutation. Complements the per-header tooltips.
+ */
+function KpiExplainer() {
+  const [open, setOpen] = useState(false)
+  const items: [string, string][] = [
+    ["Confirmed In", KPI_COLUMN_HELP.confirmedIn],
+    ["Confirmed Out", KPI_COLUMN_HELP.confirmedOut],
+    ["Scheduled In", KPI_COLUMN_HELP.scheduledIn],
+    ["Scheduled Out", KPI_COLUMN_HELP.scheduledOut],
+    ["Receivable", KPI_COLUMN_HELP.receivable],
+    ["Payable", KPI_COLUMN_HELP.payable],
+    ["Confirmed Net", KPI_COLUMN_HELP.confirmedNet],
+  ]
+  return (
+    <div className="mb-3 rounded-lg border border-border bg-secondary/30">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-2 text-xs font-medium text-foreground">
+          <Info className="size-3.5 text-muted-foreground" />
+          How these figures are calculated
+        </span>
+        <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <dl className="grid gap-x-6 gap-y-2 border-t border-border px-3 py-3 text-xs sm:grid-cols-2">
+          {items.map(([term, def]) => (
+            <div key={term} className="flex flex-col gap-0.5">
+              <dt className="font-medium text-foreground">{term}</dt>
+              <dd className="leading-relaxed text-muted-foreground">{def}</dd>
+            </div>
+          ))}
+          <div className="flex flex-col gap-0.5 sm:col-span-2">
+            <dt className="font-medium text-foreground">Cash vs. schedule</dt>
+            <dd className="leading-relaxed text-muted-foreground">
+              Confirmed columns count only actual payment records. Scheduled columns reflect plans. Completing a Cash
+              status does not change these numbers — status and cash are independent.
+            </dd>
+          </div>
+        </dl>
+      )}
+    </div>
+  )
+}
+
 /**
  * Per-participant confirmed cash KPI (P1 Feature 1). Read-only mirror of
  * `v_participant_confirmed_kpi`. Confirmed figures derive from actual payment
@@ -596,6 +657,8 @@ export function ParticipantConfirmedKpiPanel({ formula }: { formula: Formula }) 
         Confirmed figures derive from actual payment records (cash movements), not schedules. Mirrors{" "}
         <code className="text-[10px]">v_participant_confirmed_kpi</code> — preview computed locally.
       </p>
+
+      <KpiExplainer />
 
       {rows.length === 0 ? (
         <SectionEmpty label="No participants — confirmed KPI unavailable." />
@@ -641,13 +704,13 @@ export function ParticipantConfirmedKpiPanel({ formula }: { formula: Formula }) 
                   <th scope="col" className="px-3 py-2.5 text-center font-medium">Seq</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Company</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Role</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Confirmed In</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Confirmed Out</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Scheduled In</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Scheduled Out</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Receivable</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Payable</th>
-                  <th scope="col" className="px-3 py-2.5 text-right font-medium">Confirmed Net</th>
+                  <KpiHeaderCell label="Confirmed In" help={KPI_COLUMN_HELP.confirmedIn} />
+                  <KpiHeaderCell label="Confirmed Out" help={KPI_COLUMN_HELP.confirmedOut} />
+                  <KpiHeaderCell label="Scheduled In" help={KPI_COLUMN_HELP.scheduledIn} />
+                  <KpiHeaderCell label="Scheduled Out" help={KPI_COLUMN_HELP.scheduledOut} />
+                  <KpiHeaderCell label="Receivable" help={KPI_COLUMN_HELP.receivable} />
+                  <KpiHeaderCell label="Payable" help={KPI_COLUMN_HELP.payable} />
+                  <KpiHeaderCell label="Confirmed Net" help={KPI_COLUMN_HELP.confirmedNet} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -684,6 +747,19 @@ export function ParticipantConfirmedKpiPanel({ formula }: { formula: Formula }) 
         </>
       )}
     </div>
+  )
+}
+
+function KpiHeaderCell({ label, help }: { label: string; help: string }) {
+  return (
+    <th scope="col" className="px-3 py-2.5 text-right font-medium">
+      <Tooltip content={help}>
+        <span className="inline-flex cursor-help items-center gap-1 border-b border-dotted border-muted-foreground/40">
+          {label}
+          <Info className="size-3 text-muted-foreground/60" />
+        </span>
+      </Tooltip>
+    </th>
   )
 }
 

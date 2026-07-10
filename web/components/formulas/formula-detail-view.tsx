@@ -19,14 +19,17 @@ import {
 } from "lucide-react"
 import { formatCurrency, formatRelative, cn } from "@/lib/utils"
 import { statusConfig, tradeTypeConfig } from "@/lib/status"
-import { deriveSettlement, buildTimeline } from "@/lib/formula-math"
-import { StatusBadge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+  import { deriveSettlement, buildTimeline, sixStatuses } from "@/lib/formula-math"
+  import { StatusBadge } from "@/components/ui/badge"
+  import { Button } from "@/components/ui/button"
+  import { Tooltip } from "@/components/ui/tooltip"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FormulaEquation } from "./formula-equation"
 import {
   ParticipantsPanel,
   ParticipantConfirmedKpiPanel,
+  FormulaLifecycleGuide,
+  CloseReadinessPanel,
   PaymentsPanel,
   InvoicesPanel,
   LogisticsPanel,
@@ -34,8 +37,8 @@ import {
   SharesPanel,
   SettlementPanel,
 } from "./detail-panels"
-import { VersionsPanel } from "./versions-panel"
-import { VersionTriggerFieldsPanel } from "./version-trigger-fields-panel"
+  import { VersionsTabLayout } from "./versions-tab-layout"
+  import { FormulaDetailMobileNav } from "./formula-detail-mobile-nav"
 import { useFormulaWorkflow } from "./workflows/formula-workflow-context"
 import {
   PaymentWorkflowActions,
@@ -119,15 +122,28 @@ export function FormulaDetailView() {
               <Ban className="size-4" />
               Cancel Formula
             </Button>
-            <Button
-              variant="accent"
-              className="gap-2"
-              disabled={!formula.closeable || formula.isClosed}
-              onClick={() => setCloseOpen(true)}
-            >
-              <CheckCircle2 className="size-4" />
-              {formula.isClosed ? "Closed" : formula.closeable ? "Close Formula" : "Not Closeable"}
-            </Button>
+            {!formula.closeable && !formula.isClosed ? (
+              <Tooltip
+                content={`Not closeable — ${sixStatuses(formula).filter((s) => !s.done).length} status(es) incomplete. See Close Readiness on Overview.`}
+              >
+                <span className="inline-flex">
+                  <Button variant="accent" className="gap-2" disabled>
+                    <CheckCircle2 className="size-4" />
+                    Not Closeable
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="accent"
+                className="gap-2"
+                disabled={formula.isClosed}
+                onClick={() => setCloseOpen(true)}
+              >
+                <CheckCircle2 className="size-4" />
+                {formula.isClosed ? "Closed" : "Close Formula"}
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -151,7 +167,7 @@ export function FormulaDetailView() {
 
       <div className="mt-6">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
+          <TabsList showScrollHints>
             <TabsTrigger value="overview">
               <LayoutDashboard className="size-4" />
               Overview
@@ -190,10 +206,21 @@ export function FormulaDetailView() {
             </TabsTrigger>
           </TabsList>
 
+          <div className="mt-3">
+            <FormulaDetailMobileNav value={tab} onChange={setTab} />
+          </div>
+
           <div className="mt-4">
             <TabsContent value="overview">
               <div className="space-y-4">
+                <FormulaLifecycleGuide
+                  formula={formula}
+                  activeTab={tab}
+                  onNavigate={setTab}
+                  onRequestClose={() => (caps.canCloseOrCancel && formula.closeable ? setCloseOpen(true) : undefined)}
+                />
                 <SixStatusControls onNavigate={setTab} />
+                <CloseReadinessPanel formula={formula} onNavigate={setTab} />
                 <InvoiceCompletionChecklist onNavigate={setTab} />
                 <MetadataWorkflowActions />
                 <OverviewPanel formula={formula} />
@@ -237,10 +264,7 @@ export function FormulaDetailView() {
               <SharesPanel formula={formula} />
             </TabsContent>
             <TabsContent value="versions">
-              <div className="space-y-6">
-                <VersionsPanel formula={formula} versionHistory={versionHistory} />
-                <VersionTriggerFieldsPanel formula={formula} />
-              </div>
+              <VersionsTabLayout formula={formula} versionHistory={versionHistory} />
             </TabsContent>
             <TabsContent value="settlement">
               <ClosedSettlementBanner />
