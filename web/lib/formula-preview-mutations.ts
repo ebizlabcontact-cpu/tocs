@@ -550,11 +550,24 @@ export function updateInvoiceExternalAmountPreview(
  * reconcile the external amount so the derived verification badge stays honest —
  * we never let the user hand-toggle verification.
  */
+/** P1-02: canonical formula-level invoice rollup label for Status Log / Timeline. */
+function invoiceRollupLabel(f: Formula): string {
+  const inv = deriveInvoiceClose(f)
+  if (inv.activeCount === 0) return "Missing"
+  if (inv.done) return "Matched"
+  return `${inv.matchedCount}/${inv.activeCount} Matched`
+}
+
 export function updateInvoiceStatusPreview(
   f: Formula,
   invoiceId: string,
   status: InvoiceRecord["statusEnum"],
+  input: StatusActionInput,
 ): Formula {
+  // 1. Capture the rollup label before the change.
+  const beforeLabel = invoiceRollupLabel(f)
+
+  // 2. Apply invoice enum + external amount projection (unchanged switch logic).
   const invoices = f.invoices.map((inv) => {
     if (inv.id !== invoiceId || inv.canceled) return inv
     switch (status) {
@@ -577,7 +590,21 @@ export function updateInvoiceStatusPreview(
         return { ...inv, statusEnum: status, externalAmount: null }
     }
   })
-  return recomputeFormulaPreview({ ...f, invoices })
+
+  // 3. Recompute derived rollups.
+  const next = recomputeFormulaPreview({ ...f, invoices })
+
+  // 4. Only append one formula-level StatusLog when the rollup label flips (D-04).
+  const afterLabel = invoiceRollupLabel(next)
+  if (beforeLabel !== afterLabel) {
+    const log = appendStatusLog(f, "invoice", beforeLabel, afterLabel, {
+      reason: input.reason,
+      memo: input.memo,
+    })
+    return { ...next, statusLogs: [...next.statusLogs, log] }
+  }
+
+  return next
 }
 
 export type VersionCommitInput = {

@@ -43,6 +43,7 @@ import {
 import { deriveExpected, deriveInvoiceClose, sixStatuses } from "@/lib/formula-math"
 import type { Formula, FormulaShare, PaymentRecord } from "@/lib/types"
 import { useFormulaWorkflow } from "./formula-workflow-context"
+import { CloseBlockingList } from "../detail-panels"
 import { BACKEND_ROUTE_GAPS, MockPreviewNote } from "./mock-preview-note"
 import { StatusLifecycleCard } from "./status-lifecycle-card"
 import { StatusCompletionModal, type BackendGapId, type StatusActionSubmit } from "./status-completion-modal"
@@ -955,10 +956,19 @@ export function InvoiceCompletionChecklist({ onNavigate }: { onNavigate?: (tab: 
 /* Close & Cancel dialogs                                                     */
 /* -------------------------------------------------------------------------- */
 
-export function CloseFormulaDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { formula, applyPreview } = useFormulaWorkflow()
+export function CloseFormulaDialog({
+  open,
+  onClose,
+  onNavigate,
+}: {
+  open: boolean
+  onClose: () => void
+  onNavigate?: (tab: string) => void
+}) {
+  const { formula, caps, applyPreview } = useFormulaWorkflow()
   const statuses = sixStatuses(formula)
   const settlement = deriveExpected(formula)
+  const blocked = !formula.closeable && !formula.isClosed
 
   function submit() {
     applyPreview(closeFormulaPreview)
@@ -977,7 +987,11 @@ export function CloseFormulaDialog({ open, onClose }: { open: boolean; onClose: 
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="accent" onClick={submit} disabled={!formula.closeable || formula.isClosed}>
+          <Button
+            variant="accent"
+            onClick={submit}
+            disabled={!formula.closeable || formula.isClosed || !caps.canCloseOrCancel}
+          >
             Close Formula (Preview)
           </Button>
         </>
@@ -996,6 +1010,30 @@ export function CloseFormulaDialog({ open, onClose }: { open: boolean; onClose: 
             ))}
           </div>
         </div>
+
+        {/* P1-03: blocking guidance when not closeable — mirrors CloseReadinessPanel. */}
+        {blocked && (
+          <div className="rounded-lg border border-warning/30 bg-warning-soft p-3">
+            <p className="text-sm font-semibold text-foreground">Not ready to close</p>
+            <p className="mb-3 mt-1 text-xs leading-relaxed text-muted-foreground">
+              All six Formula statuses must be manually completed before close (DL-015).
+            </p>
+            <CloseBlockingList
+              formula={formula}
+              onNavigate={(t) => {
+                onNavigate?.(t)
+                onClose()
+              }}
+            />
+          </div>
+        )}
+
+        {formula.closeable && !formula.isClosed && (
+          <p className="rounded-lg border border-success/30 bg-success-soft p-3 text-sm text-success">
+            All six statuses are complete.
+          </p>
+        )}
+
         <div className="rounded-lg border border-border bg-secondary/30 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review KPI (not blockers)</p>
           <p className="mt-1 text-sm text-muted-foreground">

@@ -277,13 +277,68 @@ export function FormulaLifecycleGuide({
 
 /* ---------------- Close Readiness Panel (P1-4) ---------------- */
 
-const CLOSE_LIFECYCLE_HINTS: Record<string, { notDone: string; tab: string }> = {
+/**
+ * P1-03/P1-4 shared close-blocking lifecycle hints. Single source of truth for
+ * both `CloseReadinessPanel` (Overview) and `CloseFormulaDialog` blocking list.
+ */
+export const CLOSE_LIFECYCLE_HINTS: Record<string, { notDone: string; tab: string }> = {
   trade: { notDone: "Complete (Preview) in Formula Status — G2", tab: "overview" },
   cashIn: { notDone: "Complete (Preview) — G3; records do not auto-complete", tab: "overview" },
   cashOut: { notDone: "Complete (Preview) — G4; records do not auto-complete", tab: "overview" },
   invoice: { notDone: "Review Invoices — derive match via row status/amounts", tab: "invoices" },
   logistics: { notDone: "Mark Delivered with reason", tab: "logistics" },
   delivery: { notDone: "Complete (Preview) — G1", tab: "overview" },
+}
+
+/**
+ * P1-03 shared blocking-status list. Rendered inside both `CloseReadinessPanel`
+ * and `CloseFormulaDialog` so the G1–G4 guidance stays in sync. Read-only; each
+ * row's Go button calls `onNavigate` with the target tab.
+ */
+export function CloseBlockingList({
+  formula,
+  onNavigate,
+}: {
+  formula: Formula
+  onNavigate: (tab: string) => void
+}) {
+  const blocking = sixStatuses(formula).filter((s) => !s.done)
+  return (
+    <>
+      <ul className="space-y-2">
+        {blocking.map((s) => {
+          const hint = CLOSE_LIFECYCLE_HINTS[s.key]
+          return (
+            <li
+              key={s.key}
+              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  {s.label} <span className="font-normal text-muted-foreground">· {s.value}</span>
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{hint?.notDone}</p>
+              </div>
+              {hint && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 gap-1 text-xs"
+                  onClick={() => onNavigate(hint.tab)}
+                >
+                  {hint.tab === "overview" ? "Fix on Overview" : `Open ${hint.tab}`}
+                </Button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        Receivable, payable, and unmatched payment records are review only — they do not block close.
+      </p>
+    </>
+  )
 }
 
 /**
@@ -342,8 +397,6 @@ export function CloseReadinessPanel({
     )
   }
 
-  const blocking = sixStatuses(formula).filter((s) => !s.done)
-
   return (
     <div className="rounded-lg border border-warning/30 bg-warning-soft p-4">
       <p className="text-sm font-semibold text-foreground">Not ready to close</p>
@@ -351,38 +404,9 @@ export function CloseReadinessPanel({
         All six Formula statuses must be manually completed before close (DL-015).
       </p>
 
-      <ul className="mt-3 space-y-2">
-        {blocking.map((s) => {
-          const hint = CLOSE_LIFECYCLE_HINTS[s.key]
-          return (
-            <li
-              key={s.key}
-              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  {s.label} <span className="font-normal text-muted-foreground">· {s.value}</span>
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{hint?.notDone}</p>
-              </div>
-              {hint && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 gap-1 text-xs"
-                  onClick={() => onNavigate(hint.tab)}
-                >
-                  {hint.tab === "overview" ? "Fix on Overview" : `Open ${hint.tab}`}
-                </Button>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        Receivable, payable, and unmatched payment records are review only — they do not block close.
-      </p>
+      <div className="mt-3">
+        <CloseBlockingList formula={formula} onNavigate={onNavigate} />
+      </div>
     </div>
   )
 }
@@ -584,20 +608,13 @@ const KPI_COLUMN_HELP: Record<string, string> = {
 }
 
 /**
- * P1-2 KPI Explainer. Collapsible glossary of every KPI column and its cash-basis
- * derivation. Read-only; no data mutation. Complements the per-header tooltips.
+ * P1-01 Participant KPI Explainer (UX spec P1-2). Collapsible narrative that
+ * explains Confirmed / Scheduled / Receivable / Payable and the relationship to
+ * Settlement. Read-only; default collapsed; no KPI math changes. Block 5 links to
+ * the Settlement tab via `onNavigate`.
  */
-function KpiExplainer() {
+function ParticipantKpiExplainer({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const [open, setOpen] = useState(false)
-  const items: [string, string][] = [
-    ["Confirmed In", KPI_COLUMN_HELP.confirmedIn],
-    ["Confirmed Out", KPI_COLUMN_HELP.confirmedOut],
-    ["Scheduled In", KPI_COLUMN_HELP.scheduledIn],
-    ["Scheduled Out", KPI_COLUMN_HELP.scheduledOut],
-    ["Receivable", KPI_COLUMN_HELP.receivable],
-    ["Payable", KPI_COLUMN_HELP.payable],
-    ["Confirmed Net", KPI_COLUMN_HELP.confirmedNet],
-  ]
   return (
     <div className="mb-3 rounded-lg border border-border bg-secondary/30">
       <button
@@ -608,26 +625,49 @@ function KpiExplainer() {
       >
         <span className="flex items-center gap-2 text-xs font-medium text-foreground">
           <Info className="size-3.5 text-muted-foreground" />
-          How these figures are calculated
+          What do these numbers mean?
         </span>
         <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
       {open && (
-        <dl className="grid gap-x-6 gap-y-2 border-t border-border px-3 py-3 text-xs sm:grid-cols-2">
-          {items.map(([term, def]) => (
-            <div key={term} className="flex flex-col gap-0.5">
-              <dt className="font-medium text-foreground">{term}</dt>
-              <dd className="leading-relaxed text-muted-foreground">{def}</dd>
-            </div>
-          ))}
-          <div className="flex flex-col gap-0.5 sm:col-span-2">
-            <dt className="font-medium text-foreground">Cash vs. schedule</dt>
-            <dd className="leading-relaxed text-muted-foreground">
-              Confirmed columns count only actual payment records. Scheduled columns reflect plans. Completing a Cash
-              status does not change these numbers — status and cash are independent.
-            </dd>
+        <div className="space-y-3 border-t border-border px-3 py-3 text-xs leading-relaxed text-muted-foreground">
+          <p>
+            <span className="font-medium text-foreground">Confirmed In / Out</span> — Sum of{" "}
+            <span className="font-medium text-foreground">actual payment records</span> (bank movements) for this
+            participant&apos;s company. Canceled records are excluded. This is cash-based, not planned.
+          </p>
+          <p>
+            <span className="font-medium text-foreground">Scheduled In / Out</span> — Sum of{" "}
+            <span className="font-medium text-foreground">payment schedules</span> (planned amounts) for this
+            counterparty. Schedules are not confirmed money.
+          </p>
+          <p>
+            <span className="font-medium text-foreground">Receivable</span> — Money still expected in
+            (scheduled/receipts minus confirmed receipts). <span className="font-medium text-foreground">Payable</span>{" "}
+            — Money still owed out. These are outstanding balances, not profit.
+          </p>
+          <p>
+            <span className="font-medium text-foreground">Confirmed Net</span> — Confirmed In minus Confirmed Out for
+            this participant hop. Illustrative per-participant cash result.
+          </p>
+          <div className="rounded-lg border border-border bg-secondary/30 p-3">
+            <p>
+              Formula-level <span className="font-medium text-foreground">Settlement</span> tab rolls up the same cash
+              tiers for the whole Formula (scheduled vs actual, receivable, payable, close readiness). Participant KPI is{" "}
+              <span className="font-medium text-foreground">per-hop detail</span>; Settlement is{" "}
+              <span className="font-medium text-foreground">Formula-level totals and close gate</span>.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3 gap-1 text-xs"
+              onClick={() => onNavigate?.("settlement")}
+            >
+              <Scale className="size-3.5" />
+              View Formula Settlement
+            </Button>
           </div>
-        </dl>
+        </div>
       )}
     </div>
   )
@@ -638,7 +678,13 @@ function KpiExplainer() {
  * `v_participant_confirmed_kpi`. Confirmed figures derive from actual payment
  * records (cash), never schedules — computed locally as a preview.
  */
-export function ParticipantConfirmedKpiPanel({ formula }: { formula: Formula }) {
+export function ParticipantConfirmedKpiPanel({
+  formula,
+  onNavigate,
+}: {
+  formula: Formula
+  onNavigate?: (tab: string) => void
+}) {
   const rows = deriveParticipantConfirmedKpi(formula)
   const canceled = isFormulaCanceled(formula)
 
@@ -653,12 +699,13 @@ export function ParticipantConfirmedKpiPanel({ formula }: { formula: Formula }) 
           <StatusBadge tone="info">Cash-based · Preview</StatusBadge>
         </div>
       </div>
+
+      {rows.length > 0 && <ParticipantKpiExplainer onNavigate={onNavigate} />}
+
       <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
         Confirmed figures derive from actual payment records (cash movements), not schedules. Mirrors{" "}
         <code className="text-[10px]">v_participant_confirmed_kpi</code> — preview computed locally.
       </p>
-
-      <KpiExplainer />
 
       {rows.length === 0 ? (
         <SectionEmpty label="No participants — confirmed KPI unavailable." />
@@ -706,8 +753,8 @@ export function ParticipantConfirmedKpiPanel({ formula }: { formula: Formula }) 
                   <th scope="col" className="px-3 py-2.5 font-medium">Role</th>
                   <KpiHeaderCell label="Confirmed In" help={KPI_COLUMN_HELP.confirmedIn} />
                   <KpiHeaderCell label="Confirmed Out" help={KPI_COLUMN_HELP.confirmedOut} />
-                  <KpiHeaderCell label="Scheduled In" help={KPI_COLUMN_HELP.scheduledIn} />
-                  <KpiHeaderCell label="Scheduled Out" help={KPI_COLUMN_HELP.scheduledOut} />
+                  <KpiHeaderCell label="Scheduled In" help={KPI_COLUMN_HELP.scheduledIn} muted />
+                  <KpiHeaderCell label="Scheduled Out" help={KPI_COLUMN_HELP.scheduledOut} muted />
                   <KpiHeaderCell label="Receivable" help={KPI_COLUMN_HELP.receivable} />
                   <KpiHeaderCell label="Payable" help={KPI_COLUMN_HELP.payable} />
                   <KpiHeaderCell label="Confirmed Net" help={KPI_COLUMN_HELP.confirmedNet} />
@@ -750,9 +797,9 @@ export function ParticipantConfirmedKpiPanel({ formula }: { formula: Formula }) 
   )
 }
 
-function KpiHeaderCell({ label, help }: { label: string; help: string }) {
+function KpiHeaderCell({ label, help, muted }: { label: string; help: string; muted?: boolean }) {
   return (
-    <th scope="col" className="px-3 py-2.5 text-right font-medium">
+    <th scope="col" className={cn("px-3 py-2.5 text-right font-medium", muted && "text-muted-foreground/70")}>
       <Tooltip content={help}>
         <span className="inline-flex cursor-help items-center gap-1 border-b border-dotted border-muted-foreground/40">
           {label}

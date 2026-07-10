@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Pencil, FileText, MessageSquare, Plus, Filter, History, Lock } from "lucide-react"
 import { Modal } from "@/components/ui/modal"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import {
 import { deriveInvoiceVerification } from "@/lib/formula-math"
 import { useFormulaWorkflow } from "./formula-workflow-context"
 import { MockPreviewNote } from "./mock-preview-note"
+import { ReasonMemoFields, isReasonValid } from "./status-completion-modal"
 import type { InvoiceRecord } from "@/lib/types"
 
 function WorkflowToolbar({ children }: { children: React.ReactNode }) {
@@ -166,13 +167,28 @@ function InvoiceStatusModal({
         ? "matched"
         : "mismatched")
   const [status, setStatus] = useState<NonNullable<InvoiceRecord["statusEnum"]>>(initial)
+  const [reason, setReason] = useState("")
+  const [memo, setMemo] = useState("")
+
+  // Reset fields whenever the modal (re)opens — same pattern as the six-status modals.
+  useEffect(() => {
+    if (open) {
+      setStatus(initial)
+      setReason("")
+      setMemo("")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   // amount_verified is DB-derived — we preview it from the projected external amount, never a manual toggle.
   const projected = useMemo(() => projectedExternal(invoice, status), [invoice, status])
   const v = deriveInvoiceVerification({ ...invoice, externalAmount: projected })
 
   function save() {
-    applyPreview((f) => updateInvoiceStatusPreview(f, invoice.id, status))
+    if (!isReasonValid(reason)) return
+    applyPreview((f) =>
+      updateInvoiceStatusPreview(f, invoice.id, status, { reason: reason.trim(), memo: memo.trim() || undefined }),
+    )
     onClose()
   }
 
@@ -187,7 +203,7 @@ function InvoiceStatusModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="accent" onClick={save}>
+          <Button variant="accent" onClick={save} disabled={!isReasonValid(reason)}>
             Update (Preview)
           </Button>
         </>
@@ -217,6 +233,10 @@ function InvoiceStatusModal({
         <p className="text-xs text-muted-foreground">
           Derived status: {v.status}
           {v.blocksClose && " — blocks close"}. Verification is computed from amounts, not set directly.
+        </p>
+        <ReasonMemoFields reason={reason} memo={memo} onReason={setReason} onMemo={setMemo} />
+        <p className="text-xs text-muted-foreground">
+          Reason is recorded when the formula-level invoice rollup changes.
         </p>
       </div>
     </Modal>

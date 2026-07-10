@@ -217,7 +217,7 @@ export function FormulaDetailView() {
                   formula={formula}
                   activeTab={tab}
                   onNavigate={setTab}
-                  onRequestClose={() => (caps.canCloseOrCancel && formula.closeable ? setCloseOpen(true) : undefined)}
+                  onRequestClose={() => setCloseOpen(true)}
                 />
                 <SixStatusControls onNavigate={setTab} />
                 <CloseReadinessPanel formula={formula} onNavigate={setTab} />
@@ -232,7 +232,7 @@ export function FormulaDetailView() {
             <TabsContent value="participants">
               <ParticipantWorkflowActions />
               <div className="space-y-5">
-                <ParticipantConfirmedKpiPanel formula={formula} />
+                <ParticipantConfirmedKpiPanel formula={formula} onNavigate={setTab} />
                 <ParticipantsPanel formula={formula} />
               </div>
             </TabsContent>
@@ -277,7 +277,14 @@ export function FormulaDetailView() {
         </Tabs>
       </div>
 
-      <CloseFormulaDialog open={closeOpen} onClose={() => setCloseOpen(false)} />
+      <CloseFormulaDialog
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
+        onNavigate={(t) => {
+          setTab(t)
+          setCloseOpen(false)
+        }}
+      />
       <CancelFormulaDialog open={cancelOpen} onClose={() => setCancelOpen(false)} />
     </div>
   )
