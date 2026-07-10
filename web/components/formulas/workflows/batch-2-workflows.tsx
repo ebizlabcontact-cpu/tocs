@@ -243,6 +243,23 @@ export function ClosedSettlementBanner() {
   )
 }
 
+/**
+ * D-10 §3: append-only lifecycle explainer at the top of the Settlement tab for a
+ * closed formula. States the allowed correction actions and that close cannot be
+ * reversed. Guidance only — actions live in `SettlementWorkflowActions`.
+ */
+export function SettlementLifecycleNote() {
+  const { formula } = useFormulaWorkflow()
+  if (!formula.isClosed) return null
+  return (
+    <div className="mb-4 rounded-lg border border-border bg-secondary/30 p-3 text-xs leading-relaxed text-muted-foreground">
+      <span className="font-medium text-foreground">Closed Formula settlement mode: append-only corrections.</span>{" "}
+      You may add schedules, register new records, cancel existing records, and append notes. You cannot modify original
+      trade data or reverse Formula close.
+    </div>
+  )
+}
+
 /* ---- Settlement append closed (B-15, B-16) ---- */
 
 export function SettlementWorkflowActions() {

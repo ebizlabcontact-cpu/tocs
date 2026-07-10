@@ -37,7 +37,6 @@ import {
   addLogisticsLegPreview,
   revokeDomainStatusPreview,
   transitionDomainStatusPreview,
-  updateLogisticsStatusPreview,
   upsertSharePreview,
   type StatusDomain,
 } from "@/lib/formula-preview-mutations"
@@ -289,7 +288,7 @@ function CancelRecordModal({
       open={open}
       onClose={onClose}
       title="Cancel Payment Record"
-      description="Canceled records stay visible but are excluded from realized totals. Re-cancel returns 409 on API."
+      description="Canceled records remain visible but are excluded from confirmed KPI totals. Re-cancel returns 409 on API."
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
@@ -517,15 +516,23 @@ function AddInvoiceModal({ open, onClose }: { open: boolean; onClose: () => void
 /* Logistics controls                                                         */
 /* -------------------------------------------------------------------------- */
 
+const LOGISTICS_TRANSITION_LABELS: Record<string, string> = {
+  not_started: "Not Started",
+  in_transit: "In Transit",
+  delivered: "Delivered",
+}
+
 export function LogisticsWorkflowActions() {
   const { formula, caps, applyPreview } = useFormulaWorkflow()
-  const canLog = caps.canWriteLogistics
+  const canLog = caps.canWriteLogistics && !formula.isClosed && !formula.canceledAt
   const [addOpen, setAddOpen] = useState(false)
   const [mode, setMode] = useState<"sea" | "air" | "land">("sea")
   const [origin, setOrigin] = useState("")
   const [destination, setDestination] = useState("")
   const [eta, setEta] = useState(new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10))
   const [cost, setCost] = useState("")
+  // D-05 §7: select transitions (not_started ↔ in_transit only) route through the transition modal.
+  const [transitionTo, setTransitionTo] = useState<string | null>(null)
 
   function addLeg() {
     if (!origin.trim() || !destination.trim()) return
@@ -544,17 +551,25 @@ export function LogisticsWorkflowActions() {
   return (
     <>
       <WorkflowToolbar>
-        <Field label="Logistics status (preview)" className="min-w-[200px]">
+        <Field
+          label="Logistics status (preview)"
+          className="min-w-[200px]"
+          hint="Delivered is set via Mark Delivered on Overview — not here."
+        >
           <Select
             value={formula.logisticsStatus}
-            disabled={!canLog}
-            onChange={(e) =>
-              applyPreview((f) => updateLogisticsStatusPreview(f, e.target.value as Formula["logisticsStatus"]))
-            }
+            disabled={!canLog || formula.logisticsStatus === "delivered"}
+            onChange={(e) => {
+              const next = e.target.value
+              // D-05 §7: never set delivered from the select; open transition modal for the rest.
+              if (next !== "delivered" && next !== formula.logisticsStatus) setTransitionTo(next)
+            }}
           >
             <option value="not_started">Not Started</option>
             <option value="in_transit">In Transit</option>
-            <option value="delivered">Delivered</option>
+            <option value="delivered" disabled>
+              Delivered (use Mark Delivered)
+            </option>
           </Select>
         </Field>
         <Tooltip content={BACKEND_ROUTE_GAPS.delivery}>
@@ -614,6 +629,20 @@ export function LogisticsWorkflowActions() {
           </Field>
         </div>
       </Modal>
+
+      {transitionTo && (
+        <StatusTransitionModal
+          open
+          onClose={() => setTransitionTo(null)}
+          domainLabel="Logistics"
+          fromLabel={LOGISTICS_TRANSITION_LABELS[formula.logisticsStatus] ?? formula.logisticsStatus}
+          toLabel={LOGISTICS_TRANSITION_LABELS[transitionTo] ?? transitionTo}
+          onSubmit={(p) => {
+            const to = transitionTo
+            applyPreview((f) => transitionDomainStatusPreview(f, "logistics", to, p))
+          }}
+        />
+      )}
     </>
   )
 }
@@ -758,7 +787,10 @@ export function SixStatusControls({ onNavigate }: { onNavigate?: (tab: string) =
     if (!m) return
     if (m.kind === "complete") applyPreview((f) => completeDomainStatusPreview(f, m.domain.key, payload))
     else if (m.kind === "revoke") applyPreview((f) => revokeDomainStatusPreview(f, m.domain.key, payload))
-    else applyPreview((f) => transitionDomainStatusPreview(f, m.domain.key, m.toStatus, payload))
+    else if (m.kind === "modify") {
+      const toStatus = m.toStatus
+      applyPreview((f) => transitionDomainStatusPreview(f, m.domain.key, toStatus, payload))
+    }
   }
 
   return (
@@ -864,6 +896,61 @@ export function SixStatusControls({ onNavigate }: { onNavigate?: (tab: string) =
   )
 }
 
+/**
+ * D-04 §3: Invoice completion checklist on Overview. Shown only when the invoice
+ * close gate is unmet. Purely guidance — invoice status is derived, never toggled
+ * here. Deep-links to the Invoices tab.
+ */
+export function InvoiceCompletionChecklist({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+  const { formula, caps } = useFormulaWorkflow()
+  const inv = deriveInvoiceClose(formula)
+  if (formula.canceledAt || inv.done) return null
+
+  const noInvoices = inv.activeCount === 0
+
+  return (
+    <div className="rounded-lg border border-warning/30 bg-warning-soft/40 p-4">
+      <div className="flex items-start gap-2">
+        <FileText className="mt-0.5 size-4 shrink-0 text-warning" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-foreground">Invoice status not yet complete</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Invoice status is derived when every active invoice is amount-matched. You cannot toggle verification
+            manually.
+          </p>
+          <ul className="mt-3 space-y-1.5 text-xs text-foreground">
+            <li className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "inline-flex size-4 items-center justify-center rounded-full text-[10px]",
+                  noInvoices ? "bg-secondary text-muted-foreground" : "bg-success text-success-foreground",
+                )}
+              >
+                {noInvoices ? "1" : "✓"}
+              </span>
+              Add at least one invoice on the Invoices tab
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="inline-flex size-4 items-center justify-center rounded-full bg-secondary text-[10px] text-muted-foreground">
+                {noInvoices ? "2" : inv.blocking}
+              </span>
+              {noInvoices
+                ? "Match external amount to expected on each invoice"
+                : `${inv.blocking} invoice${inv.blocking === 1 ? "" : "s"} still need amount matching`}
+            </li>
+          </ul>
+          {caps.canWriteInvoices && (
+            <Button variant="outline" size="sm" className="mt-3 gap-1 text-xs" onClick={() => onNavigate?.("invoices")}>
+              <FileText className="size-3.5" />
+              Go to Invoices
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* -------------------------------------------------------------------------- */
 /* Close & Cancel dialogs                                                     */
 /* -------------------------------------------------------------------------- */
@@ -921,6 +1008,11 @@ export function CloseFormulaDialog({ open, onClose }: { open: boolean; onClose: 
             <span>Realized profit: {formatCurrency(formula.realizedProfit)}</span>
           </div>
         </div>
+        {/* D-07 §13: explicit close irreversibility copy. */}
+        <div className="space-y-1 rounded-lg border border-accent/30 bg-accent-soft/40 p-3 text-xs leading-relaxed text-foreground">
+          <p>Close requires all six statuses complete. Receivable and payable are review-only.</p>
+          <p className="font-medium">Close cannot be undone. Versions do not reopen a closed Formula.</p>
+        </div>
       </div>
     </Modal>
   )
@@ -958,6 +1050,10 @@ export function CancelFormulaDialog({ open, onClose }: { open: boolean; onClose:
     >
       <div className="space-y-4">
         <MockPreviewNote />
+        {/* D-08 §13: cancellation confirmation copy. */}
+        <p className="rounded-lg border border-danger/30 bg-danger-soft/30 p-3 text-xs leading-relaxed text-foreground">
+          This sets all six statuses to CANCELED. Payment and status history are preserved. This cannot be undone.
+        </p>
         <Field label="Cancellation reason">
           <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Required" />
         </Field>
@@ -975,6 +1071,10 @@ export function CancelFormulaDialog({ open, onClose }: { open: boolean; onClose:
             </ul>
           </div>
         )}
+        {/* D-08 §5–6: no undo path in MVP. */}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Formula cancellation cannot be undone in MVP. Payment and status history are preserved.
+        </p>
       </div>
     </Modal>
   )

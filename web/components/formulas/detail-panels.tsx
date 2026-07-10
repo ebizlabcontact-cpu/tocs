@@ -1,7 +1,11 @@
+"use client"
+
 import type { Formula } from "@/lib/types"
 import type { VersionEntry } from "@/lib/types"
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 import { formatCurrency, formatDate, formatNumber, formatRelative, cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Tooltip } from "@/components/ui/tooltip"
 import { StatusBadge, type BadgeTone } from "@/components/ui/badge"
 import { CalculationBreakdown } from "./calculation-breakdown"
 import { FormulaChainView } from "./formula-chain"
@@ -59,14 +63,326 @@ import {
   CalendarClock,
   Repeat,
   ChevronRight,
+  ChevronDown,
   Container,
   Activity,
+  LayoutDashboard,
+  Users,
 } from "lucide-react"
 
 function SectionEmpty({ label }: { label: string }) {
   return (
     <div className="rounded-lg border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
       {label}
+    </div>
+  )
+}
+
+/* ---------------- Formula Lifecycle Guide (P1-1) ---------------- */
+
+type LifecycleStep = {
+  n: number
+  label: string
+  tab: string | null
+  icon: React.ComponentType<{ className?: string }>
+}
+
+const LIFECYCLE_STEPS: LifecycleStep[] = [
+  { n: 1, label: "Formula", tab: "overview", icon: LayoutDashboard },
+  { n: 2, label: "Participants", tab: "participants", icon: Users },
+  { n: 3, label: "Payments", tab: "payments", icon: CalendarClock },
+  { n: 4, label: "Invoices", tab: "invoices", icon: FileText },
+  { n: 5, label: "Logistics", tab: "logistics", icon: Ship },
+  { n: 6, label: "Shares", tab: "shares", icon: PieChart },
+  { n: 7, label: "Versions", tab: "versions", icon: GitCommitVertical },
+  { n: 8, label: "Settlement", tab: "settlement", icon: Scale },
+  { n: 9, label: "Close", tab: null, icon: CheckCircle2 },
+]
+
+function lifecycleStepDone(f: Formula, step: LifecycleStep): boolean {
+  switch (step.tab) {
+    case "overview":
+      return true
+    case "participants":
+      return f.participants.length >= 2
+    case "payments":
+      return f.schedule.length >= 1
+    case "invoices":
+      return f.invoices.length >= 1
+    case "logistics":
+      return f.logistics.length >= 1
+    case "shares":
+      return (f.shares ?? []).length >= 1
+    case "versions":
+      return f.latestVersionNo >= 1
+    case "settlement":
+      return (f.records ?? []).length >= 1
+    case null:
+      return f.isClosed
+    default:
+      return false
+  }
+}
+
+function lifecycleStepChip(f: Formula, step: LifecycleStep): string {
+  const statuses = sixStatuses(f)
+  const doneCount = statuses.filter((s) => s.done).length
+  switch (step.tab) {
+    case "overview":
+      return `${doneCount}/6 statuses ready`
+    case "participants":
+      return `${f.participants.length} participants`
+    case "payments":
+      return `${f.schedule.length} sched · ${(f.records ?? []).length} rec`
+    case "invoices":
+      return deriveInvoiceClose(f).done ? "Matched" : "Incomplete"
+    case "logistics":
+      return f.logisticsStatus === "delivered" ? "Complete" : formulaLogisticsStatusConfig[f.logisticsStatus]?.label ?? f.logisticsStatus
+    case "shares":
+      return `${(f.shares ?? []).length} shares`
+    case "versions":
+      return `v${f.latestVersionNo}`
+    case "settlement":
+      return (f.records ?? []).length > 0 ? "Reviewed" : "Pending"
+    case null:
+      return f.isClosed ? "Closed" : f.closeable ? "Ready" : `Blocked (${6 - doneCount})`
+    default:
+      return ""
+  }
+}
+
+/**
+ * P1-1 Formula Lifecycle Guide. Recommended operating sequence on the Overview
+ * tab. Each step navigates to its tab; the Close step opens the existing Close
+ * dialog. Full status lifecycle (complete/revoke/re-complete) lives in Formula
+ * Status controls — this strip is guidance only. Hidden when canceled.
+ */
+export function FormulaLifecycleGuide({
+  formula,
+  activeTab,
+  onNavigate,
+  onRequestClose,
+}: {
+  formula: Formula
+  activeTab: string
+  onNavigate: (tab: string) => void
+  onRequestClose: () => void
+}) {
+  if (formula.canceledAt) return null
+  const closed = formula.isClosed
+  const doneCount = sixStatuses(formula).filter((s) => s.done).length
+
+  function stepState(step: LifecycleStep): "done" | "current" | "pending" | "blocked" {
+    if (closed) return "done"
+    if (step.tab === null) {
+      if (formula.isClosed) return "done"
+      return formula.closeable ? "current" : "blocked"
+    }
+    if (lifecycleStepDone(formula, step)) return "done"
+    if (step.tab === activeTab) return "current"
+    return "pending"
+  }
+
+  const stateClass: Record<string, string> = {
+    done: "border-success/30 bg-success-soft text-success",
+    current: "border-accent bg-accent-soft text-accent",
+    pending: "border-border bg-secondary/40 text-muted-foreground hover:border-accent/40",
+    blocked: "border-warning/30 bg-warning-soft text-warning",
+  }
+
+  function handleClick(step: LifecycleStep) {
+    if (closed) return
+    if (step.tab === null) onRequestClose()
+    else onNavigate(step.tab)
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recommended Lifecycle</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        Follow this sequence to prepare a Formula for close. Each step opens the related tab. Status completion,
+        revocation, and re-completion are managed in Formula Status controls (see Status Workflow spec).
+      </p>
+
+      {/* Desktop horizontal stepper */}
+      <div className="mt-4 hidden items-stretch gap-1 sm:flex">
+        {LIFECYCLE_STEPS.map((step, i) => {
+          const state = stepState(step)
+          const Icon = step.icon
+          const Tag = closed ? "span" : "button"
+          return (
+            <div key={step.n} className="flex min-w-0 flex-1 items-center gap-1">
+              <Tag
+                type={closed ? undefined : "button"}
+                onClick={() => handleClick(step)}
+                className={cn(
+                  "flex min-w-0 flex-1 flex-col gap-1 rounded-lg border px-2 py-2 text-left transition-colors",
+                  stateClass[state],
+                  closed && "cursor-default",
+                )}
+                title={step.tab === "overview" ? "Complete, revoke, and re-complete individual statuses in Formula Status below." : undefined}
+              >
+                <span className="flex items-center gap-1.5">
+                  {state === "done" ? <CheckCircle2 className="size-3.5 shrink-0" /> : <Icon className="size-3.5 shrink-0" />}
+                  <span className="truncate text-xs font-medium">{step.label}</span>
+                </span>
+                <span className="truncate text-[10px] opacity-80">{lifecycleStepChip(formula, step)}</span>
+              </Tag>
+              {i < LIFECYCLE_STEPS.length - 1 && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Mobile vertical list */}
+      <div className="mt-4 flex flex-col gap-2 sm:hidden">
+        {LIFECYCLE_STEPS.map((step) => {
+          const state = stepState(step)
+          const Icon = step.icon
+          const Tag = closed ? "span" : "button"
+          const chipLabel = state === "done" ? "Done" : state === "current" ? "Next" : state === "blocked" ? "Blocked" : "Pending"
+          return (
+            <Tag
+              key={step.n}
+              type={closed ? undefined : "button"}
+              onClick={() => handleClick(step)}
+              className={cn(
+                "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
+                stateClass[state],
+                closed && "cursor-default",
+              )}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                {state === "done" ? <CheckCircle2 className="size-4 shrink-0" /> : <Icon className="size-4 shrink-0" />}
+                <span className="truncate text-sm font-medium">{step.label}</span>
+              </span>
+              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-80">{chipLabel}</span>
+            </Tag>
+          )
+        })}
+      </div>
+
+      {!closed && !formula.closeable && (
+        <p className="mt-3 text-xs leading-relaxed text-warning">
+          Complete all six Formula statuses before close. Incomplete statuses can be completed or re-completed in Formula
+          Status — revoke completion if marked done in error. See Close Readiness below.
+        </p>
+      )}
+      {!closed && (
+        <p className="sr-only">{doneCount} of 6 statuses complete</p>
+      )}
+    </div>
+  )
+}
+
+/* ---------------- Close Readiness Panel (P1-4) ---------------- */
+
+const CLOSE_LIFECYCLE_HINTS: Record<string, { notDone: string; tab: string }> = {
+  trade: { notDone: "Complete (Preview) in Formula Status — G2", tab: "overview" },
+  cashIn: { notDone: "Complete (Preview) — G3; records do not auto-complete", tab: "overview" },
+  cashOut: { notDone: "Complete (Preview) — G4; records do not auto-complete", tab: "overview" },
+  invoice: { notDone: "Review Invoices — derive match via row status/amounts", tab: "invoices" },
+  logistics: { notDone: "Mark Delivered with reason", tab: "logistics" },
+  delivery: { notDone: "Complete (Preview) — G1", tab: "overview" },
+}
+
+/**
+ * P1-4 Close Readiness. Explains why a Formula cannot close, which statuses
+ * block it, and the lifecycle action for each. Uses `sixStatuses()` only — no
+ * new close rules. Visible to all roles (read-only); Close stays admin-only.
+ */
+export function CloseReadinessPanel({
+  formula,
+  onNavigate,
+}: {
+  formula: Formula
+  onNavigate: (tab: string) => void
+}) {
+  if (formula.isClosed) {
+    return (
+      <div className="rounded-lg border border-success/30 bg-success-soft p-4">
+        <p className="flex items-center gap-2 text-sm font-medium text-success">
+          <CheckCircle2 className="size-4 shrink-0" />
+          Formula closed
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          {formula.closedAt ? `Closed at ${formatDate(formula.closedAt)}. ` : ""}Trade data is locked; use Settlement for
+          append-only corrections.
+        </p>
+      </div>
+    )
+  }
+
+  if (formula.canceledAt) {
+    return (
+      <div className="rounded-lg border border-danger/30 bg-danger-soft/40 p-4">
+        <p className="flex items-center gap-2 text-sm font-medium text-danger">
+          <Ban className="size-4 shrink-0" />
+          Formula canceled
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          Close is not available. All six statuses are CANCELED.
+        </p>
+      </div>
+    )
+  }
+
+  if (formula.closeable) {
+    return (
+      <div className="rounded-lg border border-success/30 bg-success-soft p-4">
+        <p className="flex items-center gap-2 text-sm font-medium text-success">
+          <CheckCircle2 className="size-4 shrink-0" />
+          Ready to close
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          All six statuses are complete. COMPANY_ADMIN can close from the header. Close cannot be undone in MVP. After
+          close, use Settlement for append-only corrections.
+        </p>
+      </div>
+    )
+  }
+
+  const blocking = sixStatuses(formula).filter((s) => !s.done)
+
+  return (
+    <div className="rounded-lg border border-warning/30 bg-warning-soft p-4">
+      <p className="text-sm font-semibold text-foreground">Not ready to close</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        All six Formula statuses must be manually completed before close (DL-015).
+      </p>
+
+      <ul className="mt-3 space-y-2">
+        {blocking.map((s) => {
+          const hint = CLOSE_LIFECYCLE_HINTS[s.key]
+          return (
+            <li
+              key={s.key}
+              className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  {s.label} <span className="font-normal text-muted-foreground">· {s.value}</span>
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{hint?.notDone}</p>
+              </div>
+              {hint && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 gap-1 text-xs"
+                  onClick={() => onNavigate(hint.tab)}
+                >
+                  {hint.tab === "overview" ? "Fix on Overview" : `Open ${hint.tab}`}
+                </Button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        Receivable, payable, and unmatched payment records are review only — they do not block close.
+      </p>
     </div>
   )
 }
@@ -1017,6 +1333,11 @@ export function StatusLogTable({
               </StatusBadge>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">by {log.changedBy}</p>
+            {log.reason && (
+              <p className="mt-1 text-xs text-foreground">
+                <span className="text-muted-foreground">Reason:</span> {log.reason}
+              </p>
+            )}
             {log.memo && <p className="mt-1 text-xs text-muted-foreground">{log.memo}</p>}
           </div>
         ))}
@@ -1024,7 +1345,7 @@ export function StatusLogTable({
 
       {/* Table view (sm+) */}
       <div className="hidden overflow-x-auto rounded-lg border border-border sm:block">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <caption className="sr-only">Canonical status change log</caption>
           <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -1033,6 +1354,7 @@ export function StatusLogTable({
               <th scope="col" className="px-3 py-2.5 font-medium">New</th>
               <th scope="col" className="px-3 py-2.5 font-medium">Changed</th>
               <th scope="col" className="px-3 py-2.5 font-medium">By</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">Reason</th>
               <th scope="col" className="px-3 py-2.5 font-medium">Memo</th>
             </tr>
           </thead>
@@ -1053,7 +1375,10 @@ export function StatusLogTable({
                   <span className="text-xs">{new Date(log.changedAt).toLocaleTimeString()}</span>
                 </td>
                 <td className="px-3 py-3 text-muted-foreground">{log.changedBy}</td>
-                <td className="max-w-[280px] truncate px-3 py-3 text-muted-foreground" title={log.memo || undefined}>
+                <td className="max-w-[240px] truncate px-3 py-3 text-foreground" title={log.reason || undefined}>
+                  {log.reason || "—"}
+                </td>
+                <td className="max-w-[240px] truncate px-3 py-3 text-muted-foreground" title={log.memo || undefined}>
                   {log.memo || "—"}
                 </td>
               </tr>

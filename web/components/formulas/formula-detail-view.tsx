@@ -43,6 +43,7 @@ import {
   InvoiceWorkflowActions,
   LogisticsWorkflowActions,
   SixStatusControls,
+  InvoiceCompletionChecklist,
   CloseFormulaDialog,
   CancelFormulaDialog,
   ShareWorkflowActions,
@@ -54,6 +55,7 @@ import {
   MetadataWorkflowActions,
   InvoiceStatusActions,
   SettlementWorkflowActions,
+  SettlementLifecycleNote,
   ClosedSettlementBanner,
   TimelineWorkflowChrome,
 } from "./workflows/batch-2-workflows"
@@ -191,7 +193,8 @@ export function FormulaDetailView() {
           <div className="mt-4">
             <TabsContent value="overview">
               <div className="space-y-4">
-                <SixStatusControls />
+                <SixStatusControls onNavigate={setTab} />
+                <InvoiceCompletionChecklist onNavigate={setTab} />
                 <MetadataWorkflowActions />
                 <OverviewPanel formula={formula} />
               </div>
@@ -241,6 +244,7 @@ export function FormulaDetailView() {
             </TabsContent>
             <TabsContent value="settlement">
               <ClosedSettlementBanner />
+              <SettlementLifecycleNote />
               <SettlementRecordCancelSection />
               <SettlementWorkflowActions />
               <SettlementPanel formula={formula} />
