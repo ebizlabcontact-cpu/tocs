@@ -12,6 +12,8 @@ import {
   scheduleFulfillment,
 } from "./formula-math"
 import type {
+  CashProgress,
+  DeliveryState,
   Formula,
   FormulaShare,
   InvoiceRecord,
@@ -70,18 +72,128 @@ function appendStatusLog(
   statusType: StatusLogType,
   previousStatus: string | null,
   newStatus: string,
-  memo?: string,
+  opts?: { memo?: string; reason?: string; correlationId?: string },
 ): StatusLog {
+  const id = nextPreviewId("sl")
   return {
-    id: nextPreviewId("sl"),
+    id,
     formulaId: f.id,
     statusType,
     previousStatus,
     newStatus,
     changedAt: new Date().toISOString(),
     changedBy: "Preview User",
-    memo,
+    reason: opts?.reason,
+    // Correlation defaults to the event id for single-domain transitions (§0.2).
+    correlationId: opts?.correlationId ?? id,
+    memo: opts?.memo,
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Unified status lifecycle mutators (Status Workflow spec §0.2, §1.5)        */
+/* -------------------------------------------------------------------------- */
+
+/** Domains that support the unified complete / revoke / modify lifecycle. */
+export type StatusDomain = "trade" | "cashIn" | "cashOut" | "logistics" | "delivery"
+
+/** Shared input for every domain status mutator (§1.5). */
+export type StatusActionInput = {
+  /** Required — maps to backend change_reason. */
+  reason: string
+  /** Optional supplementary note (preview-only until backend adds a column). */
+  memo?: string
+}
+
+/** Terminal "complete" value per domain (§1.5 terminal complete values). */
+const DOMAIN_COMPLETE_VALUE: Record<StatusDomain, string> = {
+  trade: "completed",
+  cashIn: "completed",
+  cashOut: "completed",
+  logistics: "delivered",
+  delivery: "delivered",
+}
+
+/** Revoke target per domain — fixed, not parameterized (§1.5). */
+const DOMAIN_REVOKE_TARGET: Record<StatusDomain, string> = {
+  trade: "confirmed",
+  cashIn: "pending",
+  cashOut: "pending",
+  logistics: "in_transit",
+  delivery: "in_transit",
+}
+
+function currentDomainValue(f: Formula, domain: StatusDomain): string {
+  switch (domain) {
+    case "trade":
+      return f.tradeStatus
+    case "cashIn":
+      return f.cashInStatus
+    case "cashOut":
+      return f.cashOutStatus
+    case "logistics":
+      return f.logisticsStatus
+    case "delivery":
+      return f.deliveryStatus
+  }
+}
+
+function setDomainColumn(f: Formula, domain: StatusDomain, value: string): Formula {
+  switch (domain) {
+    case "trade":
+      return { ...f, tradeStatus: value as TradeProgress }
+    case "cashIn":
+      return { ...f, cashInStatus: value as CashProgress }
+    case "cashOut":
+      return { ...f, cashOutStatus: value as CashProgress }
+    case "logistics": {
+      const logistics = f.logistics.map((leg) => ({
+        ...leg,
+        status:
+          value === "delivered"
+            ? ("cleared" as const)
+            : value === "in_transit"
+              ? ("in_transit" as const)
+              : leg.status,
+      }))
+      return { ...f, logisticsStatus: value as LogisticsState, logistics }
+    }
+    case "delivery":
+      return { ...f, deliveryStatus: value as DeliveryState }
+  }
+}
+
+/**
+ * Core domain status write: compares before/after (no-op if equal → no event),
+ * updates the domain column, appends exactly ONE StatusLog event, and recomputes
+ * formula consistency (§0.2). Never auto-completes Cash In/Out from records.
+ */
+function applyDomainStatus(f: Formula, domain: StatusDomain, newStatus: string, input: StatusActionInput): Formula {
+  const prev = currentDomainValue(f, domain)
+  if (prev === newStatus) return f // idempotent no-op — no duplicate event
+  const log = appendStatusLog(f, domain, prev, newStatus, { reason: input.reason, memo: input.memo })
+  const next = setDomainColumn(f, domain, newStatus)
+  return recomputeFormulaPreview({ ...next, statusLogs: [...f.statusLogs, log] })
+}
+
+/** Non-terminal change (e.g. trade draft→confirmed, cash pending↔partial) + one event. */
+export function transitionDomainStatusPreview(
+  f: Formula,
+  domain: StatusDomain,
+  newStatus: string,
+  input: StatusActionInput,
+): Formula {
+  return applyDomainStatus(f, domain, newStatus, input)
+}
+
+/** Terminal complete + one event. */
+export function completeDomainStatusPreview(f: Formula, domain: StatusDomain, input: StatusActionInput): Formula {
+  return applyDomainStatus(f, domain, DOMAIN_COMPLETE_VALUE[domain], input)
+}
+
+/** Revert terminal → revoke target + one event. */
+export function revokeDomainStatusPreview(f: Formula, domain: StatusDomain, input: StatusActionInput): Formula {
+  return applyDomainStatus(f, domain, DOMAIN_REVOKE_TARGET[domain], input)
 }
 
 /** Recompute derived fields after a preview mutation. Never auto-completes cash statuses from payments. */
@@ -202,7 +314,10 @@ export function updateLogisticsStatusPreview(f: Formula, status: LogisticsState)
   const logs =
     prev === status
       ? f.statusLogs
-      : [...f.statusLogs, appendStatusLog(f, "logistics", prev, status, "Mock preview — logistics status update")]
+      : [
+          ...f.statusLogs,
+          appendStatusLog(f, "logistics", prev, status, { memo: "Mock preview — logistics status update" }),
+        ]
   const logistics = f.logistics.map((leg) => ({
     ...leg,
     status:
@@ -221,14 +336,17 @@ export function updateTradeStatusPreview(f: Formula, status: TradeProgress): For
   const logs =
     prev === status
       ? f.statusLogs
-      : [...f.statusLogs, appendStatusLog(f, "trade", prev, status, "Mock preview — trade status update")]
+      : [...f.statusLogs, appendStatusLog(f, "trade", prev, status, { memo: "Mock preview — trade status update" })]
   return recomputeFormulaPreview({ ...f, tradeStatus: status, statusLogs: logs })
 }
 
 export function closeFormulaPreview(f: Formula): Formula {
   if (f.isClosed || f.canceledAt) return f
   const closedAt = new Date().toISOString()
-  const logs = [...f.statusLogs, appendStatusLog(f, "trade", f.tradeStatus, "closed", "Mock preview — formula closed")]
+  const logs = [
+    ...f.statusLogs,
+    appendStatusLog(f, "trade", f.tradeStatus, "closed", { memo: "Mock preview — formula closed" }),
+  ]
   return recomputeFormulaPreview({
     ...f,
     isClosed: true,
@@ -252,7 +370,9 @@ export function cancelFormulaPreview(f: Formula, reason: string): Formula {
     logistics: f.logisticsStatus,
     delivery: f.deliveryStatus,
   }
-  const newLogs = types.map((t) => appendStatusLog(f, t, prevMap[t], "canceled", reason))
+  // Formula Cancel exception (§0.2): six rows share one correlationId, each with own eventId.
+  const correlationId = nextPreviewId("corr")
+  const newLogs = types.map((t) => appendStatusLog(f, t, prevMap[t], "canceled", { reason, memo: reason, correlationId }))
   return recomputeFormulaPreview({
     ...f,
     canceledAt,

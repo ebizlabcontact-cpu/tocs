@@ -421,6 +421,18 @@ export type StatusLog = {
   newStatus: string
   changedAt: string
   changedBy: string
+  /**
+   * Change reason (Status Workflow spec §0.1). UI-layer field mapping to backend
+   * `change_reason`. Required on unified status transitions (complete / revoke /
+   * modify); optional for legacy/system-generated preview rows.
+   */
+  reason?: string
+  /**
+   * Correlation ID (Status Workflow spec §0.2). Groups related logs from one user
+   * action. Defaults to the log id for single-domain transitions; Formula Cancel
+   * shares one correlationId across its six rows.
+   */
+  correlationId?: string
   memo?: string
 }
 

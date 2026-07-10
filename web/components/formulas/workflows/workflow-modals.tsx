@@ -32,15 +32,23 @@ import {
   cancelFormulaPreview,
   cancelPaymentRecord,
   closeFormulaPreview,
+  completeDomainStatusPreview,
   deleteSharePreview,
   addLogisticsLegPreview,
+  revokeDomainStatusPreview,
+  transitionDomainStatusPreview,
   updateLogisticsStatusPreview,
   upsertSharePreview,
+  type StatusDomain,
 } from "@/lib/formula-preview-mutations"
-import { deriveExpected, sixStatuses } from "@/lib/formula-math"
+import { deriveExpected, deriveInvoiceClose, sixStatuses } from "@/lib/formula-math"
 import type { Formula, FormulaShare, PaymentRecord } from "@/lib/types"
 import { useFormulaWorkflow } from "./formula-workflow-context"
 import { BACKEND_ROUTE_GAPS, MockPreviewNote } from "./mock-preview-note"
+import { StatusLifecycleCard } from "./status-lifecycle-card"
+import { StatusCompletionModal, type BackendGapId, type StatusActionSubmit } from "./status-completion-modal"
+import { StatusRevocationModal } from "./status-revocation-modal"
+import { StatusTransitionModal } from "./status-transition-modal"
 
 /* -------------------------------------------------------------------------- */
 /* Closed-formula payments banner (V0-PAY-04)                                 */
@@ -614,64 +622,144 @@ export function LogisticsWorkflowActions() {
 /* Six-status manual controls                                                 */
 /* -------------------------------------------------------------------------- */
 
-export function SixStatusControls() {
+/* ---- Six-status lifecycle domain config (Status Workflow spec D-01–D-06) ---- */
+
+type LifecycleDomainCfg = {
+  key: StatusDomain
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  gapId?: BackendGapId
+  /** Display label of the terminal complete state. */
+  completeTargetLabel: string
+  /** Display label of the revoke target state. */
+  revokeTargetLabel: string
+  completeLabel?: string
+  completePrimary?: string
+  completeConfirm: string
+  revokeConfirm: string
+  bodyNote?: string
+  revokeWarning?: string
+  /** Raw current status value (drives Modify availability). */
+  currentRaw: (f: Formula) => string
+  /** Intermediate Modify transition for the current state, or null when unavailable. */
+  modify: (f: Formula) => { label: string; toStatus: string; fromLabel: string; toLabel: string } | null
+}
+
+const LIFECYCLE_DOMAINS: LifecycleDomainCfg[] = [
+  {
+    key: "trade",
+    label: "Trade",
+    icon: Handshake,
+    gapId: "G2",
+    completeTargetLabel: "Completed",
+    revokeTargetLabel: "Confirmed",
+    completeConfirm: "I confirm trade status is manually completed.",
+    revokeConfirm: "I confirm revoking trade completion. Status returns to Confirmed.",
+    currentRaw: (f) => f.tradeStatus,
+    modify: (f) =>
+      f.tradeStatus === "draft"
+        ? { label: "Advance to Confirmed", toStatus: "confirmed", fromLabel: "Draft", toLabel: "Confirmed" }
+        : null,
+  },
+  {
+    key: "cashIn",
+    label: "Cash In",
+    icon: ArrowDownLeft,
+    gapId: "G3",
+    completeTargetLabel: "Completed",
+    revokeTargetLabel: "Pending",
+    completeConfirm: "I confirm cash-in status is manually completed.",
+    revokeConfirm: "I confirm revoking cash-in completion.",
+    bodyNote: "Registering payment records does not complete Cash In. Confirm receipts separately.",
+    revokeWarning: "Receivable KPI may change; cash status is independent of payment records.",
+    currentRaw: (f) => f.cashInStatus,
+    modify: (f) =>
+      f.cashInStatus === "pending"
+        ? { label: "Set Partial", toStatus: "partial", fromLabel: "Pending", toLabel: "Partial" }
+        : f.cashInStatus === "partial"
+          ? { label: "Return to Pending", toStatus: "pending", fromLabel: "Partial", toLabel: "Pending" }
+          : null,
+  },
+  {
+    key: "cashOut",
+    label: "Cash Out",
+    icon: ArrowUpRight,
+    gapId: "G4",
+    completeTargetLabel: "Completed",
+    revokeTargetLabel: "Pending",
+    completeConfirm: "I confirm cash-out status is manually completed.",
+    revokeConfirm: "I confirm revoking cash-out completion.",
+    bodyNote: "Payment records do not complete Cash Out. Confirm disbursements separately.",
+    revokeWarning: "Payable KPI may change; cash status is independent of payment records.",
+    currentRaw: (f) => f.cashOutStatus,
+    modify: (f) =>
+      f.cashOutStatus === "pending"
+        ? { label: "Set Partial", toStatus: "partial", fromLabel: "Pending", toLabel: "Partial" }
+        : f.cashOutStatus === "partial"
+          ? { label: "Return to Pending", toStatus: "pending", fromLabel: "Partial", toLabel: "Pending" }
+          : null,
+  },
+  {
+    key: "logistics",
+    label: "Logistics",
+    icon: Truck,
+    // Route exists — no gap strip; still mock.
+    completeTargetLabel: "Delivered",
+    revokeTargetLabel: "In Transit",
+    completeLabel: "Mark Delivered",
+    completePrimary: "Mark Complete (Preview)",
+    completeConfirm: "I confirm logistics transport is complete (delivered).",
+    revokeConfirm: "I confirm revoking logistics completion. Returns to In Transit.",
+    currentRaw: (f) => f.logisticsStatus,
+    modify: (f) =>
+      f.logisticsStatus === "not_started"
+        ? { label: "Set In Transit", toStatus: "in_transit", fromLabel: "Not Started", toLabel: "In Transit" }
+        : f.logisticsStatus === "in_transit"
+          ? { label: "Return to Not Started", toStatus: "not_started", fromLabel: "In Transit", toLabel: "Not Started" }
+          : null,
+  },
+  {
+    key: "delivery",
+    label: "Delivery",
+    icon: PackageCheck,
+    gapId: "G1",
+    completeTargetLabel: "Delivered",
+    revokeTargetLabel: "In Transit",
+    completeConfirm: "I confirm delivery (final hand-off) is complete.",
+    revokeConfirm: "I confirm revoking delivery completion. Returns to In Transit.",
+    bodyNote: "Delivery is final hand-off, not logistics transport.",
+    currentRaw: (f) => f.deliveryStatus,
+    modify: (f) =>
+      f.deliveryStatus === "pending"
+        ? { label: "Set In Transit", toStatus: "in_transit", fromLabel: "Pending", toLabel: "In Transit" }
+        : f.deliveryStatus === "in_transit"
+          ? { label: "Return to Pending", toStatus: "pending", fromLabel: "In Transit", toLabel: "Pending" }
+          : null,
+  },
+]
+
+type ActiveModal =
+  | { kind: "complete" | "revoke"; domain: LifecycleDomainCfg }
+  | { kind: "modify"; domain: LifecycleDomainCfg; toStatus: string; fromLabel: string; toLabel: string }
+  | null
+
+export function SixStatusControls({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const { formula, caps, applyPreview } = useFormulaWorkflow()
-  const canStatus = caps.canWrite
+  const canStatus = caps.canWrite && !formula.isClosed
   const statuses = sixStatuses(formula)
   const canceled = Boolean(formula.canceledAt)
+  const [active, setActive] = useState<ActiveModal>(null)
 
-  const items = [
-    {
-      key: "trade",
-      label: "Trade",
-      icon: Handshake,
-      status: statuses.find((s) => s.key === "trade")!,
-      wired: false,
-      gap: BACKEND_ROUTE_GAPS.trade,
-    },
-    {
-      key: "cashIn",
-      label: "Cash In",
-      icon: ArrowDownLeft,
-      status: statuses.find((s) => s.key === "cashIn")!,
-      wired: false,
-      gap: BACKEND_ROUTE_GAPS.cashIn,
-    },
-    {
-      key: "cashOut",
-      label: "Cash Out",
-      icon: ArrowUpRight,
-      status: statuses.find((s) => s.key === "cashOut")!,
-      wired: false,
-      gap: BACKEND_ROUTE_GAPS.cashOut,
-    },
-    {
-      key: "invoice",
-      label: "Invoice",
-      icon: FileText,
-      status: statuses.find((s) => s.key === "invoice")!,
-      wired: true,
-      hint: "Add invoices on Invoices tab — status is derived from amount verification.",
-    },
-    {
-      key: "logistics",
-      label: "Logistics",
-      icon: Truck,
-      status: statuses.find((s) => s.key === "logistics")!,
-      wired: true,
-      previewAction: () => applyPreview((f) => updateLogisticsStatusPreview(f, "delivered")),
-    },
-    {
-      key: "delivery",
-      label: "Delivery",
-      icon: PackageCheck,
-      status: statuses.find((s) => s.key === "delivery")!,
-      wired: false,
-      gap: BACKEND_ROUTE_GAPS.delivery,
-    },
-  ]
-
+  const invoice = statuses.find((s) => s.key === "invoice")!
+  const invClose = deriveInvoiceClose(formula)
   const done = statuses.filter((s) => s.done).length
+
+  function submitFor(m: ActiveModal, payload: StatusActionSubmit) {
+    if (!m) return
+    if (m.kind === "complete") applyPreview((f) => completeDomainStatusPreview(f, m.domain.key, payload))
+    else if (m.kind === "revoke") applyPreview((f) => revokeDomainStatusPreview(f, m.domain.key, payload))
+    else applyPreview((f) => transitionDomainStatusPreview(f, m.domain.key, m.toStatus, payload))
+  }
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
@@ -681,50 +769,97 @@ export function SixStatusControls() {
           {canceled ? "Canceled (preview)" : `${done}/6 matched`}
         </span>
       </div>
+
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((item) => {
-          const Icon = item.icon
-          const s = item.status
+        {LIFECYCLE_DOMAINS.map((d) => {
+          const s = statuses.find((st) => st.key === d.key)!
+          const modify = !s.done ? d.modify(formula) : null
           return (
-            <div
-              key={item.key}
-              className={cn(
-                "flex items-center justify-between gap-2 rounded-lg border px-3 py-2",
-                s.done ? "border-success/30 bg-success-soft" : "border-border bg-secondary/40",
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                {s.done ? (
-                  <CheckCircle2 className="size-4 shrink-0 text-success" />
-                ) : (
-                  <Icon className="size-4 shrink-0 text-muted-foreground" />
-                )}
-                <div className="min-w-0">
-                  <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">{item.label}</p>
-                  <p className="truncate text-sm font-medium text-foreground">{s.value}</p>
-                </div>
-              </div>
-              {item.wired && item.previewAction && canStatus && !canceled ? (
-                <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={item.previewAction}>
-                  Mark done
-                </Button>
-              ) : item.wired && item.hint ? (
-                <span className="text-[10px] text-muted-foreground">Derived</span>
-              ) : (
-                <Tooltip content={item.gap ?? "Not wired"}>
-                  <button type="button" disabled className="shrink-0 text-[10px] text-muted-foreground opacity-60">
-                    API missing
-                  </button>
-                </Tooltip>
-              )}
-            </div>
+            <StatusLifecycleCard
+              key={d.key}
+              label={d.label}
+              icon={d.icon}
+              currentValue={s.value}
+              isDone={s.done}
+              backendGapId={d.gapId}
+              canWrite={canStatus && !canceled}
+              completeLabel={d.completeLabel ? `${d.completeLabel} (Preview)` : "Complete (Preview)"}
+              modifyLabel={modify?.label}
+              onComplete={() => setActive({ kind: "complete", domain: d })}
+              onRevoke={() => setActive({ kind: "revoke", domain: d })}
+              onModify={
+                modify
+                  ? () =>
+                      setActive({
+                        kind: "modify",
+                        domain: d,
+                        toStatus: modify.toStatus,
+                        fromLabel: modify.fromLabel,
+                        toLabel: modify.toLabel,
+                      })
+                  : undefined
+              }
+            />
           )
         })}
+
+        {/* Invoice — derived; navigate to Invoices tab (D-04). */}
+        <StatusLifecycleCard
+          label="Invoice"
+          icon={FileText}
+          currentValue={invoice.value}
+          isDone={invoice.done}
+          isDerived
+          canWrite={canStatus && !canceled}
+          reviewLabel={invClose.done ? "Review Invoices" : "Review Invoices"}
+          onReview={() => onNavigate?.("invoices")}
+        />
       </div>
+
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Manual status completion only — payment amounts never auto-complete Cash In/Out. Mock preview updates local
-        state; missing backend routes are disabled.
+        Manual status completion only — payment amounts never auto-complete Cash In/Out. Every action records one
+        Status Log event with a reason. Mock preview updates local state; missing backend routes are labeled (G1–G4).
       </p>
+
+      {/* Shared lifecycle modals */}
+      {active?.kind === "complete" && (
+        <StatusCompletionModal
+          open
+          onClose={() => setActive(null)}
+          domainLabel={active.domain.label}
+          currentValue={statuses.find((s) => s.key === active.domain.key)!.value}
+          targetValue={active.domain.completeTargetLabel}
+          gapId={active.domain.gapId}
+          confirmCopy={active.domain.completeConfirm}
+          bodyNote={active.domain.bodyNote}
+          primaryLabel={active.domain.completePrimary}
+          onSubmit={(p) => submitFor(active, p)}
+        />
+      )}
+      {active?.kind === "revoke" && (
+        <StatusRevocationModal
+          open
+          onClose={() => setActive(null)}
+          domainLabel={active.domain.label}
+          completedValue={active.domain.completeTargetLabel}
+          revokeTarget={active.domain.revokeTargetLabel}
+          gapId={active.domain.gapId}
+          confirmCopy={active.domain.revokeConfirm}
+          warning={active.domain.revokeWarning}
+          onSubmit={(p) => submitFor(active, p)}
+        />
+      )}
+      {active?.kind === "modify" && (
+        <StatusTransitionModal
+          open
+          onClose={() => setActive(null)}
+          domainLabel={active.domain.label}
+          fromLabel={active.fromLabel}
+          toLabel={active.toLabel}
+          gapId={active.domain.gapId}
+          onSubmit={(p) => submitFor(active, p)}
+        />
+      )}
     </div>
   )
 }

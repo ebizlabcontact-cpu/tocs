@@ -310,11 +310,15 @@ export function buildTimeline(f: Formula, versions: VersionEntry[] = []): Derive
   // fabricated. Each entry corresponds to a real formula_status_logs row.
   for (const log of f.statusLogs ?? []) {
     const typeLabel = statusLogTypeLabels[log.statusType] ?? log.statusType
+    // §0.1: Timeline description must surface Reason (then Memo) when present.
+    const transition = `${statusLogValue(log.statusType, log.previousStatus)} → ${statusLogValue(log.statusType, log.newStatus)}`
+    const reasonPart = log.reason ? ` · Reason: ${log.reason}` : ""
+    const memoPart = log.memo && log.memo !== log.reason ? ` · Memo: ${log.memo}` : ""
     ev.push({
       id: `tl-status-${log.id}`,
       type: "status",
       title: `${typeLabel} Status Changed`,
-      description: `${statusLogValue(log.statusType, log.previousStatus)} → ${statusLogValue(log.statusType, log.newStatus)}${log.memo ? ` · ${log.memo}` : ""}`,
+      description: `${transition}${reasonPart}${memoPart}`,
       date: log.changedAt,
       actor: log.changedBy,
       linkTab: log.statusType === "logistics" || log.statusType === "delivery" ? "logistics" : "overview",
