@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Modal } from "@/components/ui/modal"
 import { Button } from "@/components/ui/button"
 import { MockPreviewNote } from "./mock-preview-note"
+import { t } from "@/lib/i18n"
 import {
   ReasonMemoFields,
   StatusGapStrip,
@@ -58,15 +59,15 @@ export function StatusTransitionModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Modify ${domainLabel} Status`}
-      description="Intermediate transition — mock preview only."
+      title={t("formulas.detail.sixStatus.modifyTitle", { domain: domainLabel })}
+      description={t("formulas.detail.sixStatus.modifyDescription")}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("formulas.detail.sixStatus.cancel")}
           </Button>
           <Button variant="accent" onClick={submit} disabled={!isReasonValid(reason)}>
-            Apply Transition (Preview)
+            {t("formulas.detail.sixStatus.applyTransition")}
           </Button>
         </>
       }

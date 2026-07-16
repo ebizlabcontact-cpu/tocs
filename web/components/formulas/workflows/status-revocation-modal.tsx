@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react"
 import { Modal } from "@/components/ui/modal"
 import { Button } from "@/components/ui/button"
 import { MockPreviewNote } from "./mock-preview-note"
+import { t } from "@/lib/i18n"
 import {
   ReasonMemoFields,
   StatusGapStrip,
@@ -59,15 +60,15 @@ export function StatusRevocationModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Revoke ${domainLabel} Completion`}
-      description="Reverses a completed status — history is preserved. Mock preview only."
+      title={t("formulas.detail.sixStatus.revokeTitle", { domain: domainLabel })}
+      description={t("formulas.detail.sixStatus.revokeDescription")}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            Back
+            {t("formulas.detail.sixStatus.back")}
           </Button>
           <Button variant="accent" onClick={submit} disabled={!isReasonValid(reason)}>
-            Revoke Completion (Preview)
+            {t("formulas.detail.sixStatus.revokePreview")}
           </Button>
         </>
       }
@@ -78,9 +79,7 @@ export function StatusRevocationModal({
         <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-xs leading-relaxed text-warning">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
           <span>
-            This reverses a completed status. History is preserved in Status Logs. This is not Formula cancel or close
-            undo.
-            {warning ? ` ${warning}` : ""}
+            {t("formulas.detail.sixStatus.revokeWarning", { warning: warning ? ` ${warning}` : "" })}
           </span>
         </div>
         <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm">

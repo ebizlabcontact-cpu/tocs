@@ -3,6 +3,7 @@ import { formatCurrency, formatNumber, cn } from "@/lib/utils"
 import { deriveChainFinancials } from "@/lib/derive"
 import { chainOrderOf } from "@/lib/formula-math"
 import { ArrowRight } from "lucide-react"
+import { t } from "@/lib/i18n"
 
 const roleTone: Record<Participant["role"], string> = {
   seller: "bg-accent-soft text-accent border-accent/30",
@@ -40,10 +41,14 @@ export function FormulaChainView({ formula }: { formula: Formula }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Participant Chain
+          {t("formulas.detail.overview.participantChain")}
         </p>
         <span className="text-xs text-muted-foreground">
-          {chain.length} parties · {formatNumber(formula.quantity)} {formula.unit}
+          {t("formulas.detail.overview.partiesQuantity", {
+            count: chain.length,
+            quantity: formatNumber(formula.quantity),
+            unit: formula.unit,
+          })}
         </span>
       </div>
 
@@ -87,15 +92,15 @@ export function FormulaChainView({ formula }: { formula: Formula }) {
       {/* Per-hop table */}
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[640px] text-sm">
-          <caption className="sr-only">Participant chain pricing by party</caption>
+          <caption className="sr-only">{t("formulas.detail.overview.chainCaption")}</caption>
           <thead>
             <tr className="border-b border-border bg-secondary/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th scope="col" className="px-3 py-2 font-medium">Party</th>
-              <th scope="col" className="px-3 py-2 font-medium">Role</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Quantity</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Buy Price</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Sell Price</th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">Margin</th>
+              <th scope="col" className="px-3 py-2 font-medium">{t("formulas.detail.overview.party")}</th>
+              <th scope="col" className="px-3 py-2 font-medium">{t("formulas.detail.overview.role")}</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">{t("formulas.detail.overview.quantity")}</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">{t("formulas.detail.overview.buyPrice")}</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">{t("formulas.detail.overview.sellPrice")}</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">{t("formulas.detail.overview.margin")}</th>
             </tr>
           </thead>
           <tbody>
@@ -137,25 +142,24 @@ export function FormulaChainView({ formula }: { formula: Formula }) {
       {derived && (
         <div className="rounded-lg border border-border bg-secondary/40 p-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Derived from Chain
+            {t("formulas.detail.overview.derivedFromChain")}
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <DerivedStat label="Expected Revenue" value={derived.expectedRevenue} tone="pos" />
-            <DerivedStat label="Expected Cost" value={derived.expectedCost} />
+            <DerivedStat label={t("formulas.detail.overview.expectedRevenue")} value={derived.expectedRevenue} tone="pos" />
+            <DerivedStat label={t("formulas.detail.overview.expectedCost")} value={derived.expectedCost} />
             <DerivedStat
-              label="Gross Margin"
+              label={t("formulas.detail.overview.grossMargin")}
               value={derived.grossMargin}
               tone={derived.grossMargin >= 0 ? "pos" : "neg"}
             />
             <DerivedStat
-              label="Expected Profit"
+              label={t("formulas.detail.overview.expectedProfit")}
               value={derived.expectedProfit}
               tone={derived.expectedProfit >= 0 ? "pos" : "neg"}
             />
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-            Illustrative preview — figures are derived from Formula inputs (revenue from the end buyer, cost from the
-            origin, margin from the chain spread). Authoritative values come from backend services after integration.
+            {t("formulas.detail.overview.chainPreviewNote")}
           </p>
         </div>
       )}

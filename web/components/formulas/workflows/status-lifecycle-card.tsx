@@ -5,6 +5,7 @@ import { CheckCircle2, RotateCcw, ArrowRight, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 import type { BackendGapId } from "./status-completion-modal"
 
 /**
@@ -26,9 +27,9 @@ export function StatusLifecycleCard({
   isDerived = false,
   backendGapId,
   canWrite,
-  completeLabel = "Complete (Preview)",
+  completeLabel = t("formulas.detail.sixStatus.completePreview"),
   modifyLabel,
-  reviewLabel = "Review Invoices",
+  reviewLabel = t("formulas.detail.sixStatus.reviewInvoices"),
   onComplete,
   onRevoke,
   onModify,
@@ -70,7 +71,7 @@ export function StatusLifecycleCard({
         </div>
         {isDone && !isDerived && (
           <StatusBadge tone="success" className="shrink-0">
-            Complete
+            {t("formulas.detail.sixStatus.complete")}
           </StatusBadge>
         )}
         {backendGapId && (
@@ -90,7 +91,7 @@ export function StatusLifecycleCard({
           ) : isDone ? (
             <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={onRevoke}>
               <RotateCcw className="size-3.5" />
-              Revoke Completion (Preview)
+              {t("formulas.detail.sixStatus.revokePreview")}
             </Button>
           ) : (
             <>

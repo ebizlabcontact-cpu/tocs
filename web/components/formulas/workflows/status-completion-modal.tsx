@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/modal"
 import { Button } from "@/components/ui/button"
 import { Label, inputClass } from "@/components/ui/field"
 import { MockPreviewNote } from "./mock-preview-note"
+import { t } from "@/lib/i18n"
 
 /** Backend gap ids that show an honest "route not shipped" strip in status modals. */
 export type BackendGapId = "G1" | "G2" | "G3" | "G4"
@@ -22,8 +23,8 @@ export function StatusGapStrip({ gapId }: { gapId?: BackendGapId }) {
     <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-xs leading-relaxed text-warning">
       <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
       <span>
-        <span className="font-medium">Backend route not shipped ({gapId}).</span> This action updates preview state
-        only.
+        <span className="font-medium">{t("formulas.detail.sixStatus.backendGap", { gapId })}</span>{" "}
+        {t("formulas.detail.sixStatus.previewStateOnly")}
       </span>
     </div>
   )
@@ -35,7 +36,7 @@ export function ReasonMemoFields({
   memo,
   onReason,
   onMemo,
-  reasonLabel = "Reason",
+  reasonLabel = t("formulas.detail.sixStatus.reason"),
 }: {
   reason: string
   memo: string
@@ -53,21 +54,23 @@ export function ReasonMemoFields({
           rows={2}
           value={reason}
           onChange={(e) => onReason(e.target.value)}
-          placeholder="Required — min 3 characters"
+          placeholder={t("formulas.detail.sixStatus.reasonPlaceholder")}
         />
         {reason.trim().length > 0 && reason.trim().length < REASON_MIN && (
-          <p className="mt-1 text-xs text-warning">Reason must be at least {REASON_MIN} characters.</p>
+          <p className="mt-1 text-xs text-warning">
+            {t("formulas.detail.sixStatus.reasonError", { count: REASON_MIN })}
+          </p>
         )}
       </div>
       <div>
-        <Label htmlFor="status-memo">Memo (optional)</Label>
+        <Label htmlFor="status-memo">{t("formulas.detail.sixStatus.memo")}</Label>
         <textarea
           id="status-memo"
           className={inputClass}
           rows={2}
           value={memo}
           onChange={(e) => onMemo(e.target.value)}
-          placeholder="Supplementary note (preview only)"
+          placeholder={t("formulas.detail.sixStatus.memoPlaceholder")}
         />
       </div>
     </div>
@@ -91,7 +94,7 @@ export function StatusCompletionModal({
   gapId,
   confirmCopy,
   bodyNote,
-  primaryLabel = "Mark Complete (Preview)",
+  primaryLabel = t("formulas.detail.sixStatus.completePreview"),
   onSubmit,
 }: {
   open: boolean
@@ -127,12 +130,12 @@ export function StatusCompletionModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Complete ${domainLabel} Status`}
-      description="Manual completion — mock preview only."
+      title={t("formulas.detail.sixStatus.completeTitle", { domain: domainLabel })}
+      description={t("formulas.detail.sixStatus.completeDescription")}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("formulas.detail.sixStatus.cancel")}
           </Button>
           <Button variant="accent" onClick={submit} disabled={!isReasonValid(reason) || !confirmed}>
             {primaryLabel}
