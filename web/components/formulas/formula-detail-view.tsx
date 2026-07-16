@@ -17,8 +17,10 @@ import {
   GitCommitVertical,
   Scale,
 } from "lucide-react"
-import { formatCurrency, formatRelative, cn } from "@/lib/utils"
-import { statusConfig, tradeTypeConfig } from "@/lib/status"
+import { formatCurrency, cn } from "@/lib/utils"
+import { formulaStatusLabel, statusConfig } from "@/lib/status"
+import { t } from "@/lib/i18n"
+import { detailAttentionLabel, detailRelativeTime, detailTradeTypeLabel } from "@/lib/formula-detail-labels"
   import { deriveSettlement, buildTimeline, sixStatuses } from "@/lib/formula-math"
   import { StatusBadge } from "@/components/ui/badge"
   import { Button } from "@/components/ui/button"
@@ -97,21 +99,27 @@ export function FormulaDetailView() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Back to Formulas
+        {t("formulas.detail.header.back")}
       </Link>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-mono text-2xl font-bold text-foreground">{formula.number}</h1>
-            <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+            <StatusBadge tone={status.tone}>{formulaStatusLabel(formula.status)}</StatusBadge>
             <span className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground">
-              v{formula.latestVersionNo}
+              {t("formulas.detail.header.version", { version: formula.latestVersionNo })}
             </span>
-            {formula.canceledAt && <StatusBadge tone="danger">Canceled (preview)</StatusBadge>}
+            {formula.canceledAt && (
+              <StatusBadge tone="danger">{t("formulas.detail.header.canceledPreview")}</StatusBadge>
+            )}
           </div>
           <p className="mt-1.5 text-muted-foreground">
-            {formula.item} · {tradeTypeConfig[formula.tradeType].label} · updated {formatRelative(formula.updatedAt)}
+            {t("formulas.detail.header.context", {
+              item: formula.item,
+              tradeType: detailTradeTypeLabel(formula.tradeType),
+              time: detailRelativeTime(formula.updatedAt),
+            })}
           </p>
         </div>
         {/* V0-HDR-01: Cancel/Close are COMPANY_ADMIN+ only (cancel:cancel, close:close).
@@ -120,16 +128,18 @@ export function FormulaDetailView() {
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" className="gap-2" onClick={() => setCancelOpen(true)}>
               <Ban className="size-4" />
-              Cancel Formula
+              {t("formulas.detail.header.cancelFormula")}
             </Button>
             {!formula.closeable && !formula.isClosed ? (
               <Tooltip
-                content={`Not closeable — ${sixStatuses(formula).filter((s) => !s.done).length} status(es) incomplete. See Close Readiness on Overview.`}
+                content={t("formulas.detail.header.closeBlockedTooltip", {
+                  count: sixStatuses(formula).filter((s) => !s.done).length,
+                })}
               >
                 <span className="inline-flex">
                   <Button variant="accent" className="gap-2" disabled>
                     <CheckCircle2 className="size-4" />
-                    Not Closeable
+                    {t("formulas.detail.header.notCloseable")}
                   </Button>
                 </span>
               </Tooltip>
@@ -141,7 +151,7 @@ export function FormulaDetailView() {
                 onClick={() => setCloseOpen(true)}
               >
                 <CheckCircle2 className="size-4" />
-                {formula.isClosed ? "Closed" : "Close Formula"}
+                {formula.isClosed ? t("status.closed") : t("formulas.detail.header.closeFormula")}
               </Button>
             )}
           </div>
@@ -151,17 +161,17 @@ export function FormulaDetailView() {
       {formula.attention && (
         <div className="mt-4 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
           <AlertTriangle className="size-4 shrink-0" />
-          {formula.attention}
+          {detailAttentionLabel(formula.attention)}
         </div>
       )}
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <FormulaEquation formula={formula} />
         <div className="grid grid-cols-2 gap-3 self-start">
-          <MetricPill label="Actual Receipts" value={formatCurrency(settlement.actualReceipts)} tone="pos" />
-          <MetricPill label="Actual Payments" value={formatCurrency(settlement.actualPayments)} />
-          <MetricPill label="Receivable" value={formatCurrency(settlement.remainingReceivable)} />
-          <MetricPill label="Payable" value={formatCurrency(settlement.remainingPayable)} />
+          <MetricPill label={t("formulas.detail.header.actualReceipts")} value={formatCurrency(settlement.actualReceipts)} tone="pos" />
+          <MetricPill label={t("formulas.detail.header.actualPayments")} value={formatCurrency(settlement.actualPayments)} />
+          <MetricPill label={t("formulas.detail.header.receivable")} value={formatCurrency(settlement.remainingReceivable)} />
+          <MetricPill label={t("formulas.detail.header.payable")} value={formatCurrency(settlement.remainingPayable)} />
         </div>
       </div>
 
@@ -170,39 +180,39 @@ export function FormulaDetailView() {
           <TabsList showScrollHints>
             <TabsTrigger value="overview">
               <LayoutDashboard className="size-4" />
-              Overview
+              {t("formulas.detail.header.overview")}
             </TabsTrigger>
             <TabsTrigger value="timeline" count={timelineCount}>
               <History className="size-4" />
-              Timeline
+              {t("formulas.detail.header.timeline")}
             </TabsTrigger>
             <TabsTrigger value="participants" count={formula.participants.length}>
               <Users className="size-4" />
-              Participants
+              {t("formulas.detail.header.participants")}
             </TabsTrigger>
             <TabsTrigger value="payments" count={formula.schedule.length}>
               <CalendarClock className="size-4" />
-              Payments
+              {t("formulas.detail.header.payments")}
             </TabsTrigger>
             <TabsTrigger value="invoices" count={formula.invoices.length}>
               <FileText className="size-4" />
-              Invoices
+              {t("formulas.detail.header.invoices")}
             </TabsTrigger>
             <TabsTrigger value="logistics" count={formula.logistics.length}>
               <Ship className="size-4" />
-              Logistics
+              {t("formulas.detail.header.logistics")}
             </TabsTrigger>
             <TabsTrigger value="shares" count={(formula.shares ?? []).length}>
               <PieChart className="size-4" />
-              Shares
+              {t("formulas.detail.header.shares")}
             </TabsTrigger>
             <TabsTrigger value="versions" count={Math.max(1, formula.latestVersionNo)}>
               <GitCommitVertical className="size-4" />
-              Versions
+              {t("formulas.detail.header.versions")}
             </TabsTrigger>
             <TabsTrigger value="settlement">
               <Scale className="size-4" />
-              Settlement
+              {t("formulas.detail.header.settlement")}
             </TabsTrigger>
           </TabsList>
 

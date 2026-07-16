@@ -1,18 +1,19 @@
 "use client"
 
 import { Field, Select } from "@/components/ui/field"
+import { t, type TranslationKey } from "@/lib/i18n"
 
 /** P2-1: tab value → label map. Must mirror the TabsTrigger values in formula-detail-view. */
-const TAB_OPTIONS: { value: string; label: string }[] = [
-  { value: "overview", label: "Overview" },
-  { value: "timeline", label: "Timeline" },
-  { value: "participants", label: "Participants" },
-  { value: "payments", label: "Payments" },
-  { value: "invoices", label: "Invoices" },
-  { value: "logistics", label: "Logistics" },
-  { value: "shares", label: "Shares" },
-  { value: "versions", label: "Versions" },
-  { value: "settlement", label: "Settlement" },
+const TAB_OPTIONS: { value: string; labelKey: TranslationKey }[] = [
+  { value: "overview", labelKey: "formulas.detail.header.overview" },
+  { value: "timeline", labelKey: "formulas.detail.header.timeline" },
+  { value: "participants", labelKey: "formulas.detail.header.participants" },
+  { value: "payments", labelKey: "formulas.detail.header.payments" },
+  { value: "invoices", labelKey: "formulas.detail.header.invoices" },
+  { value: "logistics", labelKey: "formulas.detail.header.logistics" },
+  { value: "shares", labelKey: "formulas.detail.header.shares" },
+  { value: "versions", labelKey: "formulas.detail.header.versions" },
+  { value: "settlement", labelKey: "formulas.detail.header.settlement" },
 ]
 
 /**
@@ -29,11 +30,11 @@ export function FormulaDetailMobileNav({
 }) {
   return (
     <div className="mb-3 lg:hidden">
-      <Field label="Jump to section">
+      <Field label={t("formulas.detail.header.jumpToSection")}>
         <Select value={value} onChange={(e) => onChange(e.target.value)}>
           {TAB_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(o.labelKey)}
             </option>
           ))}
         </Select>

@@ -5,6 +5,7 @@ import { ChevronDown, Calculator } from "lucide-react"
 import type { Formula } from "@/lib/types"
 import { formatCurrency, cn } from "@/lib/utils"
 import { deriveExpected, deriveRealized, deriveSettlement } from "@/lib/formula-math"
+import { t } from "@/lib/i18n"
 
 function ValueRow({
   label,
@@ -80,28 +81,28 @@ export function CalculationBreakdown({ formula }: { formula: Formula }) {
       {/* Full transparency grid */}
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Expected</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.expected")}</p>
           <div className="divide-y divide-border">
-            <ValueRow label="Expected Revenue" value={expectedRevenue} tone="pos" />
-            <ValueRow label="Expected Cost" value={expectedCost} tone="muted" />
-            <ValueRow label="Logistics Cost" value={logisticsCost} tone="muted" />
-            <ValueRow label="Share" value={share} tone="muted" />
-            <ValueRow label="Expected Net Profit" value={expectedNet} tone={expectedNet >= 0 ? "pos" : "neg"} strong />
+            <ValueRow label={t("formulas.detail.overview.expectedRevenue")} value={expectedRevenue} tone="pos" />
+            <ValueRow label={t("formulas.detail.overview.expectedCost")} value={expectedCost} tone="muted" />
+            <ValueRow label={t("formulas.detail.overview.logisticsCost")} value={logisticsCost} tone="muted" />
+            <ValueRow label={t("formulas.detail.overview.share")} value={share} tone="muted" />
+            <ValueRow label={t("formulas.detail.overview.expectedNetProfit")} value={expectedNet} tone={expectedNet >= 0 ? "pos" : "neg"} strong />
           </div>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Realized</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.realized")}</p>
           <div className="divide-y divide-border">
-            <ValueRow label="Actual Receipts" value={realized.actualReceipts} tone="pos" />
-            <ValueRow label="Actual Payments" value={realized.actualPayments} tone="muted" />
+            <ValueRow label={t("formulas.detail.overview.actualReceipts")} value={realized.actualReceipts} tone="pos" />
+            <ValueRow label={t("formulas.detail.overview.actualPayments")} value={realized.actualPayments} tone="muted" />
             <ValueRow
-              label="Realized Profit"
+              label={t("formulas.detail.overview.realizedProfit")}
               value={realized.realizedProfit}
               tone={realized.realizedProfit >= 0 ? "pos" : "neg"}
               strong
             />
-            <ValueRow label="Receivable" value={settlement.remainingReceivable} />
-            <ValueRow label="Payable" value={settlement.remainingPayable} />
+            <ValueRow label={t("formulas.detail.overview.receivable")} value={settlement.remainingReceivable} />
+            <ValueRow label={t("formulas.detail.overview.payable")} value={settlement.remainingPayable} />
           </div>
         </div>
       </div>
@@ -116,7 +117,7 @@ export function CalculationBreakdown({ formula }: { formula: Formula }) {
         >
           <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Calculator className="size-4 text-accent" />
-            Calculation Breakdown
+            {t("formulas.detail.overview.calculationBreakdown")}
           </span>
           <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")} />
         </button>
@@ -124,28 +125,28 @@ export function CalculationBreakdown({ formula }: { formula: Formula }) {
           <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Expected Net Profit
+                {t("formulas.detail.overview.expectedNetProfit")}
               </p>
-              <EqLine label="Expected Revenue" value={expectedRevenue} />
-              <EqLine op="−" label="Expected Cost" value={expectedCost} />
-              <EqLine op="−" label="Logistics Cost" value={logisticsCost} />
-              <EqLine op="−" label="Share" value={share} />
-              <EqLine op="=" label="Expected Net Profit" value={expectedNet} result />
+              <EqLine label={t("formulas.detail.overview.expectedRevenue")} value={expectedRevenue} />
+              <EqLine op="−" label={t("formulas.detail.overview.expectedCost")} value={expectedCost} />
+              <EqLine op="−" label={t("formulas.detail.overview.logisticsCost")} value={logisticsCost} />
+              <EqLine op="−" label={t("formulas.detail.overview.share")} value={share} />
+              <EqLine op="=" label={t("formulas.detail.overview.expectedNetProfit")} value={expectedNet} result />
             </div>
             <div className="space-y-1.5">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Realized Profit
+                {t("formulas.detail.overview.realizedProfit")}
               </p>
-              <EqLine label="Actual Receipts" value={realized.actualReceipts} />
-              <EqLine op="−" label="Actual Payments" value={realized.actualPayments} />
-              <EqLine op="=" label="Realized Profit" value={realized.realizedProfit} result />
+              <EqLine label={t("formulas.detail.overview.actualReceipts")} value={realized.actualReceipts} />
+              <EqLine op="−" label={t("formulas.detail.overview.actualPayments")} value={realized.actualPayments} />
+              <EqLine op="=" label={t("formulas.detail.overview.realizedProfit")} value={realized.realizedProfit} result />
             </div>
           </div>
         )}
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Figures are illustrative mock calculations. Realized profit is recognized at settlement.
+        {t("formulas.detail.overview.calculationNote")}
       </p>
     </div>
   )
