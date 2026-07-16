@@ -7,11 +7,8 @@ import { useAuth } from "@/components/auth/auth-provider"
 import { roleAtLeast } from "@/lib/permissions"
 import { buttonVariants } from "@/components/ui/button"
 import { Tooltip } from "@/components/ui/tooltip"
+import { t } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
-
-const ALL_COMPANIES_HINT = "Select a specific company to create a formula. Creation is disabled in All Companies view."
-
-const VIEWER_HINT = "VIEWER role cannot create formulas. Sign in as MANAGER or higher."
 
 export function CreateFormulaButton({ className }: { className?: string }) {
   const { isAllCompanies } = useCompany()
@@ -20,7 +17,7 @@ export function CreateFormulaButton({ className }: { className?: string }) {
 
   if (isAllCompanies) {
     return (
-      <Tooltip content={ALL_COMPANIES_HINT}>
+      <Tooltip content={t("dashboard.createFormula.specificCompanyHint")}>
         <button
           type="button"
           disabled
@@ -28,7 +25,7 @@ export function CreateFormulaButton({ className }: { className?: string }) {
           className={cn(buttonVariants({ variant: "accent" }), "gap-2 opacity-50", className)}
         >
           <Plus className="size-4" />
-          Create Formula
+          {t("dashboard.quickActions.createFormula")}
         </button>
       </Tooltip>
     )
@@ -36,7 +33,7 @@ export function CreateFormulaButton({ className }: { className?: string }) {
 
   if (!canCreate) {
     return (
-      <Tooltip content={VIEWER_HINT}>
+      <Tooltip content={t("dashboard.createFormula.viewerHint")}>
         <button
           type="button"
           disabled
@@ -44,7 +41,7 @@ export function CreateFormulaButton({ className }: { className?: string }) {
           className={cn(buttonVariants({ variant: "accent" }), "gap-2 opacity-50", className)}
         >
           <Plus className="size-4" />
-          Create Formula
+          {t("dashboard.quickActions.createFormula")}
         </button>
       </Tooltip>
     )

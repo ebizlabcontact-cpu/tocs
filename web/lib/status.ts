@@ -1,3 +1,4 @@
+import { t } from "./i18n"
 import type { FormulaStatus, InvoiceStatus, TradeType } from "./types"
 
 type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "accent" | "outline"
@@ -54,6 +55,30 @@ export const scheduleStatusConfig: Record<string, { label: string; tone: Tone }>
   partial: { label: "Partial", tone: "warning" },
   settled: { label: "Settled", tone: "success" },
   overdue: { label: "Overdue", tone: "danger" },
+  canceled: { label: "Canceled", tone: "outline" },
+}
+
+export function formulaStatusLabel(status: FormulaStatus) {
+  const keys = {
+    draft: "status.draft",
+    active: "status.active",
+    invoicing: "status.invoicing",
+    closeable: "status.closeable",
+    closed: "status.closed",
+  } as const
+  return t(keys[status])
+}
+
+export function scheduleStatusLabel(status: string) {
+  const keys = {
+    scheduled: "status.scheduled",
+    partial: "status.partial",
+    settled: "status.completed",
+    completed: "status.completed",
+    overdue: "status.overdue",
+    canceled: "status.canceled",
+  } as const
+  return t(keys[status as keyof typeof keys] ?? keys.scheduled)
 }
 
 /* ---- Six-status model tones (P0-6) ---- */

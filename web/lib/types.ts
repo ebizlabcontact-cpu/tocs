@@ -531,8 +531,8 @@ export type Formula = {
    * Receivable/payable are KPI metrics only and never affect this.
    */
   closeable: boolean
-  /** UI-derived alert only (P0-2). Not part of the API DTO. */
-  attention?: string
+  /** UI-derived alert identifier only (P0-2). Not part of the API DTO. */
+  attention?: "negativeProfit" | "invoiceUnmatched" | "paymentOverdue" | string
 
   /* ---- Canonical business dates (P0-1) ---- */
   /**

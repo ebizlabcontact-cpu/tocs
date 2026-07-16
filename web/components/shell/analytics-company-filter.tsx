@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Check, ChevronsUpDown, Filter } from "lucide-react"
+import { t } from "@/lib/i18n"
 import { getAccessibleCompanies } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 
@@ -30,7 +31,7 @@ export function AnalyticsCompanyFilter({
 
   const options = React.useMemo(
     () => [
-      { id: operatingId, label: "All in scope", perspective: false },
+      { id: operatingId, label: t("shell.analyticsCompany.allInScope"), perspective: false },
       ...accessible.map((c) => ({ id: c.id, label: c.name, color: c.color, short: c.shortName, perspective: true })),
     ],
     [operatingId, accessible],
@@ -59,7 +60,9 @@ export function AnalyticsCompanyFilter({
 
       {open && (
         <div className="absolute right-0 top-11 z-50 w-64 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-popover p-1.5 shadow-[var(--shadow-lifted)] animate-fade-in">
-          <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Analytics perspective</p>
+          <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+            {t("shell.analyticsCompany.perspectiveLabel")}
+          </p>
           {options.map((o) => (
             <button
               key={o.id}
@@ -77,8 +80,7 @@ export function AnalyticsCompanyFilter({
             </button>
           ))}
           <p className="px-2 pb-1 pt-2 text-[11px] leading-relaxed text-muted-foreground">
-            Company filters analyze formulas from a selected company&apos;s perspective. Options come from the
-            accessible formula set, not the company master.
+            {t("shell.analyticsCompany.helpText")}
           </p>
         </div>
       )}

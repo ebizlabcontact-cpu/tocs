@@ -635,10 +635,10 @@ function finalizeFormula(f: Formula, ctx: { isLoss: boolean; daysAgo: number }):
   else if (f.invoiceStatus !== "complete") status = "invoicing"
   else status = "active"
 
-  let attention: string | undefined
-  if (ctx.isLoss) attention = "Realized profit is negative — review pricing and settlement."
-  else if (f.invoiceStatus === "unmatched") attention = "Invoice unmatched — 1 document needs reconciliation."
-  else if (f.payable > 0 && ctx.daysAgo > 25) attention = "Payment overdue — counterparty settlement pending."
+  let attention: Formula["attention"]
+  if (ctx.isLoss) attention = "negativeProfit"
+  else if (f.invoiceStatus === "unmatched") attention = "invoiceUnmatched"
+  else if (f.payable > 0 && ctx.daysAgo > 25) attention = "paymentOverdue"
 
   return {
     ...f,
@@ -937,6 +937,7 @@ export function getProfitSeries(
   customStart?: string,
   customEnd?: string,
   analyticsCompanyId?: string,
+  weekLabel: (count: number) => string = (count) => String(count),
 ) {
   const list = filterFormulasByRange(
     getAnalyticsFormulas(companyId, analyticsCompanyId),
@@ -973,7 +974,7 @@ export function getProfitSeries(
         return t >= from && t < to
       })
       .reduce((s, f) => s + viewFormula(f, companyId, analyticsCompanyId).realizedProfit, 0)
-    const label = labelFor(from, to) || `Week ${i + 1}`
+    const label = labelFor(from, to) || weekLabel(i + 1)
     series.push({ month: label, profit: Math.round(profit) })
   }
   return series

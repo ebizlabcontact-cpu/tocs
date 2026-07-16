@@ -16,6 +16,7 @@ import { FormulaMiniRow } from "@/components/dashboard/formula-mini-row"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { DateRangeSelector } from "@/components/shell/date-range-selector"
 import { AnalyticsCompanyFilter } from "@/components/shell/analytics-company-filter"
+import { dateRangeLabel } from "@/lib/date-range-labels"
 import { t } from "@/lib/i18n"
 import {
   analyticsCompanyName,
@@ -60,6 +61,7 @@ function SectionCard({
 export default function DashboardPage() {
   const { selected } = useCompany()
   const { range, customStart, customEnd } = useDateRange()
+  const rangeLabel = dateRangeLabel(range)
   const operatingId = selected.id
 
   // Analytical company filter — separate from the operating scope switcher.
@@ -76,7 +78,9 @@ export default function DashboardPage() {
   const ctx = analyticsDrillContext(operatingId, range, analyticsArg)
 
   const kpis = getKpis(operatingId, range, customStart, customEnd, analyticsArg)
-  const profitData = getProfitSeries(operatingId, range, customStart, customEnd, analyticsArg)
+  const profitData = getProfitSeries(operatingId, range, customStart, customEnd, analyticsArg, (count) =>
+    t("dashboard.profit.weekLabel", { count }),
+  )
   const lossRanking = getLossRanking(operatingId, analyticsArg)
   const receipts = getCashflowTimeline(operatingId, "receipt", analyticsArg)
   const payments = getCashflowTimeline(operatingId, "payment", analyticsArg)
@@ -93,9 +97,9 @@ export default function DashboardPage() {
             ? t("dashboard.header.perspectiveDescription", {
                 company: selected.name,
                 analyticsCompany: analyticsCompanyName(companyId),
-                range,
+                range: rangeLabel,
               })
-            : t("dashboard.header.description", { company: selected.name, range })
+            : t("dashboard.header.description", { company: selected.name, range: rangeLabel })
         }
         actions={
           <div className="flex items-center gap-2">
@@ -118,7 +122,7 @@ export default function DashboardPage() {
       {/* 2. Profit area */}
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <SectionCard
-          title={t("dashboard.profit.title", { range })}
+          title={t("dashboard.profit.title", { range: rangeLabel })}
           className="lg:col-span-2"
           action={{ label: t("dashboard.profit.reportsAction"), href: `/reports?${ctx.slice(1)}` }}
         >

@@ -1,6 +1,6 @@
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { scheduleStatusConfig } from "@/lib/status"
+import { scheduleStatusConfig, scheduleStatusLabel } from "@/lib/status"
 import { t } from "@/lib/i18n"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
@@ -56,7 +56,7 @@ export function CashflowTimeline({ items, type }: { items: Item[]; type: "receip
               <p className="text-xs text-muted-foreground">{formatDate(it.scheduledDate, { month: "short", day: "numeric" })}</p>
             </div>
             <Badge tone={cfg.tone as never} className="hidden shrink-0 sm:inline-flex">
-              {cfg.label}
+              {scheduleStatusLabel(it.status)}
             </Badge>
           </div>
         )

@@ -74,6 +74,12 @@ export const en = {
       scopeNote:
         "Sets operating, permission, write, and API scope. Changing operating scope changes the accessible formula set.",
     },
+    analyticsCompany: {
+      allInScope: "All in scope",
+      perspectiveLabel: "Analytics perspective",
+      helpText:
+        "Company filters analyze formulas from a selected company's perspective. Options come from the accessible formula set, not the company master.",
+    },
     dateRange: {
       last7Days: "Last 7 Days",
       last30Days: "Last 30 Days",
@@ -114,6 +120,7 @@ export const en = {
       title: "Realized Profit · {range}",
       reportsAction: "Reports",
       chartSeries: "Realized Profit",
+      weekLabel: "Week {count}",
     },
     lossRanking: {
       title: "Loss Formula Ranking",
@@ -144,6 +151,22 @@ export const en = {
       reviewInvoicing: "Review Invoicing",
       unavailableHint: "Switch to a specific company to use quick actions.",
     },
+    createFormula: {
+      specificCompanyHint: "Select a specific company to create a formula. Creation is disabled in All Companies view.",
+      viewerHint: "VIEWER role cannot create formulas. Sign in as MANAGER or higher.",
+    },
+    relativeTime: {
+      today: "Today",
+      yesterday: "Yesterday",
+      daysAgo: "{count}d ago",
+      weeksAgo: "{count}w ago",
+    },
+    attention: {
+      negativeProfit: "Realized profit is negative — review pricing and settlement.",
+      invoiceUnmatched: "Invoice unmatched — 1 document needs reconciliation.",
+      paymentOverdue: "Payment overdue — counterparty settlement pending.",
+      generic: "Needs attention.",
+    },
   },
 
   // Reserved for later localization batches — intentionally empty (no dead keys).
@@ -152,7 +175,18 @@ export const en = {
   items: {},
   calendar: {},
   reports: {},
-  status: {},
+  status: {
+    draft: "Draft",
+    active: "Active",
+    invoicing: "Invoicing",
+    closeable: "Closeable",
+    closed: "Closed",
+    scheduled: "Scheduled",
+    partial: "Partial",
+    completed: "Completed",
+    overdue: "Overdue",
+    canceled: "Canceled",
+  },
   validation: {},
   tooltips: {},
   comingSoon: {},
