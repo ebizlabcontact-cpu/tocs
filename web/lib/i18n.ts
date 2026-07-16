@@ -13,14 +13,14 @@
 import { en, type EnDictionary } from "@/locales/en"
 import { ko } from "@/locales/ko"
 
-/** Active rendered dictionary (Korean). Keys are typed from `en`. */
-const dictionary = ko
+/** Active rendered dictionary (Korean). Missing leaves fall back to canonical English. */
+const dictionary: LocaleDictionaryShape = ko
 
 type Dictionary = typeof en
 
 /** Leaf values are `string`; nested key structure matches `EnDictionary`. */
 export type LocaleDictionaryShape = {
-  [K in keyof EnDictionary]: EnDictionary[K] extends string
+  [K in keyof EnDictionary]?: EnDictionary[K] extends string
     ? string
     : EnDictionary[K] extends Record<string, unknown>
       ? LocaleDictionaryShapeFor<EnDictionary[K]>
@@ -28,7 +28,11 @@ export type LocaleDictionaryShape = {
 }
 
 type LocaleDictionaryShapeFor<T> = {
-  [K in keyof T]: T[K] extends string ? string : T[K] extends Record<string, unknown> ? LocaleDictionaryShapeFor<T[K]> : never
+  [K in keyof T]?: T[K] extends string
+    ? string
+    : T[K] extends Record<string, unknown>
+      ? LocaleDictionaryShapeFor<T[K]>
+      : never
 }
 
 /** Values that can be substituted into `{placeholder}` tokens. */
@@ -74,7 +78,9 @@ function interpolate(template: string, params: TranslationParams): string {
  *   key so the UI stays visible and the problem is obvious during review.
  */
 export function t(key: TranslationKey, params?: TranslationParams): string {
-  const value = resolvePath(dictionary, key)
+  const localizedValue = resolvePath(dictionary, key)
+  const fallbackValue = resolvePath(en, key)
+  const value = typeof localizedValue === "string" ? localizedValue : fallbackValue
 
   if (typeof value !== "string") {
     if (process.env.NODE_ENV !== "production") {

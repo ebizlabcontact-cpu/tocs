@@ -1,6 +1,7 @@
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { scheduleStatusConfig } from "@/lib/status"
+import { t } from "@/lib/i18n"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
 type Item = {
@@ -21,7 +22,7 @@ export function CashflowTimeline({ items, type }: { items: Item[]; type: "receip
   if (items.length === 0) {
     return (
       <div className="flex h-full min-h-40 items-center justify-center text-sm text-muted-foreground">
-        No upcoming {isReceipt ? "receipts" : "payments"}.
+        {isReceipt ? t("dashboard.cashflow.emptyReceipts") : t("dashboard.cashflow.emptyPayments")}
       </div>
     )
   }

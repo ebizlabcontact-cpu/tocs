@@ -16,6 +16,7 @@ import { FormulaMiniRow } from "@/components/dashboard/formula-mini-row"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { DateRangeSelector } from "@/components/shell/date-range-selector"
 import { AnalyticsCompanyFilter } from "@/components/shell/analytics-company-filter"
+import { t } from "@/lib/i18n"
 import {
   analyticsCompanyName,
   getKpis,
@@ -86,11 +87,15 @@ export default function DashboardPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="Command Center"
+        title={t("dashboard.header.title")}
         description={
           perspective
-            ? `Dashboard figures are derived from formulas — ${selected.name} scope, analyzed from ${analyticsCompanyName(companyId)}'s perspective · ${range}.`
-            : `Dashboard figures are derived from formulas — ${selected.name} · ${range}.`
+            ? t("dashboard.header.perspectiveDescription", {
+                company: selected.name,
+                analyticsCompany: analyticsCompanyName(companyId),
+                range,
+              })
+            : t("dashboard.header.description", { company: selected.name, range })
         }
         actions={
           <div className="flex items-center gap-2">
@@ -113,30 +118,42 @@ export default function DashboardPage() {
       {/* 2. Profit area */}
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <SectionCard
-          title={`Realized Profit · ${range}`}
+          title={t("dashboard.profit.title", { range })}
           className="lg:col-span-2"
-          action={{ label: "Reports", href: `/reports?${ctx.slice(1)}` }}
+          action={{ label: t("dashboard.profit.reportsAction"), href: `/reports?${ctx.slice(1)}` }}
         >
           <ProfitChart data={profitData} />
         </SectionCard>
-        <SectionCard title="Loss Formula Ranking" action={{ label: "View losses", href: `/formulas?filter=loss${ctx}` }}>
+        <SectionCard
+          title={t("dashboard.lossRanking.title")}
+          action={{ label: t("dashboard.lossRanking.viewAction"), href: `/formulas?filter=loss${ctx}` }}
+        >
           <LossRanking formulas={lossRanking} />
         </SectionCard>
       </div>
 
       {/* 3. Cashflow area */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Upcoming Receipts" action={{ label: "All receipts", href: `/calendar?type=receipt${ctx}` }}>
+        <SectionCard
+          title={t("dashboard.cashflow.receiptsTitle")}
+          action={{ label: t("dashboard.cashflow.allReceiptsAction"), href: `/calendar?type=receipt${ctx}` }}
+        >
           <CashflowTimeline items={receipts} type="receipt" />
         </SectionCard>
-        <SectionCard title="Upcoming Payments" action={{ label: "All payments", href: `/calendar?type=payment${ctx}` }}>
+        <SectionCard
+          title={t("dashboard.cashflow.paymentsTitle")}
+          action={{ label: t("dashboard.cashflow.allPaymentsAction"), href: `/calendar?type=payment${ctx}` }}
+        >
           <CashflowTimeline items={payments} type="payment" />
         </SectionCard>
       </div>
 
       {/* 4. Formula area */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Recent Formulas" action={{ label: "All formulas", href: `/formulas?${ctx.slice(1)}` }}>
+        <SectionCard
+          title={t("dashboard.formulas.recentTitle")}
+          action={{ label: t("dashboard.formulas.allAction"), href: `/formulas?${ctx.slice(1)}` }}
+        >
           <div className="flex flex-col gap-0.5">
             {recent.map((f) => (
               <FormulaMiniRow key={f.id} formula={f} />
@@ -144,8 +161,8 @@ export default function DashboardPage() {
           </div>
         </SectionCard>
         <SectionCard
-          title="Attention Required"
-          action={{ label: "Review", href: `/formulas?filter=attention${ctx}` }}
+          title={t("dashboard.formulas.attentionTitle")}
+          action={{ label: t("dashboard.formulas.reviewAction"), href: `/formulas?filter=attention${ctx}` }}
         >
           {attention.length > 0 ? (
             <div className="flex flex-col gap-0.5">
@@ -155,7 +172,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
-              Nothing needs attention right now.
+              {t("dashboard.formulas.attentionEmpty")}
             </div>
           )}
         </SectionCard>
@@ -163,7 +180,7 @@ export default function DashboardPage() {
 
       {/* 5. Quick actions */}
       <div className="mt-6">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Quick Actions</h2>
+        <h2 className="mb-3 text-sm font-semibold text-foreground">{t("dashboard.quickActions.title")}</h2>
         <QuickActions />
       </div>
     </div>

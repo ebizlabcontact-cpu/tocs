@@ -1,5 +1,6 @@
 import Link from "next/link"
 import type { Formula } from "@/lib/types"
+import { t } from "@/lib/i18n"
 import { formatSignedCurrency } from "@/lib/utils"
 import { deriveRealized } from "@/lib/formula-math"
 
@@ -7,8 +8,8 @@ export function LossRanking({ formulas }: { formulas: Formula[] }) {
   if (formulas.length === 0) {
     return (
       <div className="flex h-full min-h-40 flex-col items-center justify-center gap-1 text-center">
-        <p className="text-sm font-medium text-foreground">No loss formulas</p>
-        <p className="text-xs text-muted-foreground">Every formula is currently profitable.</p>
+        <p className="text-sm font-medium text-foreground">{t("dashboard.lossRanking.emptyTitle")}</p>
+        <p className="text-xs text-muted-foreground">{t("dashboard.lossRanking.emptyDescription")}</p>
       </div>
     )
   }

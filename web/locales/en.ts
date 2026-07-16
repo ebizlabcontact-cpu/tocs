@@ -92,8 +92,61 @@ export const en = {
     },
   },
 
+  dashboard: {
+    header: {
+      title: "Command Center",
+      description: "Dashboard figures are derived from formulas — {company} · {range}.",
+      perspectiveDescription:
+        "Dashboard figures are derived from formulas — {company} scope, analyzed from {analyticsCompany}'s perspective · {range}.",
+    },
+    summary: {
+      realizedProfit: "Realized Profit",
+      totalLoss: "Total Loss",
+      receivable: "Accounts Receivable",
+      payable: "Accounts Payable",
+      upcomingReceipts: "Upcoming Receipts",
+      upcomingPayments: "Upcoming Payments",
+      closeableFormulas: "Closeable Formulas",
+      invoiceUnmatched: "Invoice Unmatched",
+      comparedWithPrevious: "{percent}% vs prev.",
+    },
+    profit: {
+      title: "Realized Profit · {range}",
+      reportsAction: "Reports",
+      chartSeries: "Realized Profit",
+    },
+    lossRanking: {
+      title: "Loss Formula Ranking",
+      viewAction: "View losses",
+      emptyTitle: "No loss formulas",
+      emptyDescription: "Every formula is currently profitable.",
+    },
+    cashflow: {
+      receiptsTitle: "Upcoming Receipts",
+      paymentsTitle: "Upcoming Payments",
+      allReceiptsAction: "All receipts",
+      allPaymentsAction: "All payments",
+      emptyReceipts: "No upcoming receipts.",
+      emptyPayments: "No upcoming payments.",
+    },
+    formulas: {
+      recentTitle: "Recent Formulas",
+      allAction: "All formulas",
+      attentionTitle: "Attention Required",
+      reviewAction: "Review",
+      attentionEmpty: "Nothing needs attention right now.",
+    },
+    quickActions: {
+      title: "Quick Actions",
+      createFormula: "Create Formula",
+      upcomingReceipts: "Upcoming Receipts",
+      upcomingPayments: "Upcoming Payments",
+      reviewInvoicing: "Review Invoicing",
+      unavailableHint: "Switch to a specific company to use quick actions.",
+    },
+  },
+
   // Reserved for later localization batches — intentionally empty (no dead keys).
-  dashboard: {},
   formulas: {},
   companies: {},
   items: {},

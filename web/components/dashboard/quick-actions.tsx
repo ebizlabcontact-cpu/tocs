@@ -4,16 +4,17 @@ import Link from "next/link"
 import { Plus, ArrowDownLeft, ArrowUpRight, ReceiptText } from "lucide-react"
 import { useCompany } from "@/components/company-context"
 import { Tooltip } from "@/components/ui/tooltip"
+import { t } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 const actions = [
-  { label: "Create Formula", href: "/formulas/new", icon: Plus, accent: true },
-  { label: "Upcoming Receipts", href: "/calendar?type=receipt", icon: ArrowDownLeft },
-  { label: "Upcoming Payments", href: "/calendar?type=payment", icon: ArrowUpRight },
-  { label: "Review Invoicing", href: "/formulas?filter=invoicing", icon: ReceiptText },
+  { label: t("dashboard.quickActions.createFormula"), href: "/formulas/new", icon: Plus, accent: true },
+  { label: t("dashboard.quickActions.upcomingReceipts"), href: "/calendar?type=receipt", icon: ArrowDownLeft },
+  { label: t("dashboard.quickActions.upcomingPayments"), href: "/calendar?type=payment", icon: ArrowUpRight },
+  { label: t("dashboard.quickActions.reviewInvoicing"), href: "/formulas?filter=invoicing", icon: ReceiptText },
 ]
 
-const ALL_COMPANIES_HINT = "Switch to a specific company to use quick actions."
+const ALL_COMPANIES_HINT = t("dashboard.quickActions.unavailableHint")
 
 export function QuickActions() {
   const { isAllCompanies } = useCompany()
