@@ -50,7 +50,7 @@ export function CreateFormulaButton({ className }: { className?: string }) {
   return (
     <Link href="/formulas/new" className={cn(buttonVariants({ variant: "accent" }), "gap-2", className)}>
       <Plus className="size-4" />
-      Create Formula
+      {t("dashboard.quickActions.createFormula")}
     </Link>
   )
 }
