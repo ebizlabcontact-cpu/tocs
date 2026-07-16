@@ -3,7 +3,14 @@
 import type { Formula } from "@/lib/types"
 import type { VersionEntry } from "@/lib/types"
 import { type ReactNode, useState } from "react"
-import { formatCurrency, formatDate, formatNumber, formatRelative, cn } from "@/lib/utils"
+import { formatCurrency, formatDate, formatNumber, cn } from "@/lib/utils"
+import { t, type TranslationKey } from "@/lib/i18n"
+import {
+  detailRelativeTime,
+  sixStatusLabel,
+  sixStatusValue,
+  detailTradeTypeLabel,
+} from "@/lib/formula-detail-labels"
 import { Button } from "@/components/ui/button"
 import { Tooltip } from "@/components/ui/tooltip"
 import { StatusBadge, type BadgeTone } from "@/components/ui/badge"
@@ -82,21 +89,21 @@ function SectionEmpty({ label }: { label: string }) {
 
 type LifecycleStep = {
   n: number
-  label: string
+  labelKey: TranslationKey
   tab: string | null
   icon: React.ComponentType<{ className?: string }>
 }
 
 const LIFECYCLE_STEPS: LifecycleStep[] = [
-  { n: 1, label: "Formula", tab: "overview", icon: LayoutDashboard },
-  { n: 2, label: "Participants", tab: "participants", icon: Users },
-  { n: 3, label: "Payments", tab: "payments", icon: CalendarClock },
-  { n: 4, label: "Invoices", tab: "invoices", icon: FileText },
-  { n: 5, label: "Logistics", tab: "logistics", icon: Ship },
-  { n: 6, label: "Shares", tab: "shares", icon: PieChart },
-  { n: 7, label: "Versions", tab: "versions", icon: GitCommitVertical },
-  { n: 8, label: "Settlement", tab: "settlement", icon: Scale },
-  { n: 9, label: "Close", tab: null, icon: CheckCircle2 },
+  { n: 1, labelKey: "formulas.detail.lifecycle.formula", tab: "overview", icon: LayoutDashboard },
+  { n: 2, labelKey: "formulas.detail.lifecycle.participants", tab: "participants", icon: Users },
+  { n: 3, labelKey: "formulas.detail.lifecycle.payments", tab: "payments", icon: CalendarClock },
+  { n: 4, labelKey: "formulas.detail.lifecycle.invoices", tab: "invoices", icon: FileText },
+  { n: 5, labelKey: "formulas.detail.lifecycle.logistics", tab: "logistics", icon: Ship },
+  { n: 6, labelKey: "formulas.detail.lifecycle.shares", tab: "shares", icon: PieChart },
+  { n: 7, labelKey: "formulas.detail.lifecycle.versions", tab: "versions", icon: GitCommitVertical },
+  { n: 8, labelKey: "formulas.detail.lifecycle.settlement", tab: "settlement", icon: Scale },
+  { n: 9, labelKey: "formulas.detail.lifecycle.close", tab: null, icon: CheckCircle2 },
 ]
 
 function lifecycleStepDone(f: Formula, step: LifecycleStep): boolean {
@@ -129,23 +136,32 @@ function lifecycleStepChip(f: Formula, step: LifecycleStep): string {
   const doneCount = statuses.filter((s) => s.done).length
   switch (step.tab) {
     case "overview":
-      return `${doneCount}/6 statuses ready`
+      return t("formulas.detail.lifecycle.statusesReady", { count: doneCount })
     case "participants":
-      return `${f.participants.length} participants`
+      return t("formulas.detail.lifecycle.participantCount", { count: f.participants.length })
     case "payments":
-      return `${f.schedule.length} sched · ${(f.records ?? []).length} rec`
+      return t("formulas.detail.lifecycle.paymentCounts", {
+        schedules: f.schedule.length,
+        records: (f.records ?? []).length,
+      })
     case "invoices":
-      return deriveInvoiceClose(f).done ? "Matched" : "Incomplete"
+      return deriveInvoiceClose(f).done ? t("formulas.detail.lifecycle.matched") : t("formulas.detail.lifecycle.incomplete")
     case "logistics":
-      return f.logisticsStatus === "delivered" ? "Complete" : formulaLogisticsStatusConfig[f.logisticsStatus]?.label ?? f.logisticsStatus
+      return f.logisticsStatus === "delivered"
+        ? t("formulas.detail.lifecycle.complete")
+        : sixStatusValue(f, "logistics", formulaLogisticsStatusConfig[f.logisticsStatus]?.label ?? f.logisticsStatus)
     case "shares":
-      return `${(f.shares ?? []).length} shares`
+      return String((f.shares ?? []).length)
     case "versions":
-      return `v${f.latestVersionNo}`
+      return t("formulas.detail.header.version", { version: f.latestVersionNo })
     case "settlement":
-      return (f.records ?? []).length > 0 ? "Reviewed" : "Pending"
+      return (f.records ?? []).length > 0 ? t("formulas.detail.lifecycle.reviewed") : t("formulas.detail.lifecycle.pending")
     case null:
-      return f.isClosed ? "Closed" : f.closeable ? "Ready" : `Blocked (${6 - doneCount})`
+      return f.isClosed
+        ? t("status.closed")
+        : f.closeable
+          ? t("formulas.detail.lifecycle.ready")
+          : t("formulas.detail.lifecycle.blockedCount", { count: 6 - doneCount })
     default:
       return ""
   }
@@ -198,10 +214,9 @@ export function FormulaLifecycleGuide({
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recommended Lifecycle</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.lifecycle.title")}</p>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-        Follow this sequence to prepare a Formula for close. Each step opens the related tab. Status completion,
-        revocation, and re-completion are managed in Formula Status controls (see Status Workflow spec).
+        {t("formulas.detail.lifecycle.description")}
       </p>
 
       {/* Desktop horizontal stepper */}
@@ -220,11 +235,11 @@ export function FormulaLifecycleGuide({
                   stateClass[state],
                   closed && "cursor-default",
                 )}
-                title={step.tab === "overview" ? "Complete, revoke, and re-complete individual statuses in Formula Status below." : undefined}
+                title={step.tab === "overview" ? t("formulas.detail.lifecycle.statusTooltip") : undefined}
               >
                 <span className="flex items-center gap-1.5">
                   {state === "done" ? <CheckCircle2 className="size-3.5 shrink-0" /> : <Icon className="size-3.5 shrink-0" />}
-                  <span className="truncate text-xs font-medium">{step.label}</span>
+                  <span className="truncate text-xs font-medium">{t(step.labelKey)}</span>
                 </span>
                 <span className="truncate text-[10px] opacity-80">{lifecycleStepChip(formula, step)}</span>
               </Tag>
@@ -240,7 +255,14 @@ export function FormulaLifecycleGuide({
           const state = stepState(step)
           const Icon = step.icon
           const Tag = closed ? "span" : "button"
-          const chipLabel = state === "done" ? "Done" : state === "current" ? "Next" : state === "blocked" ? "Blocked" : "Pending"
+          const chipLabel =
+            state === "done"
+              ? t("formulas.detail.lifecycle.done")
+              : state === "current"
+                ? t("formulas.detail.lifecycle.next")
+                : state === "blocked"
+                  ? t("formulas.detail.lifecycle.blocked")
+                  : t("formulas.detail.lifecycle.pending")
           return (
             <Tag
               key={step.n}
@@ -254,7 +276,7 @@ export function FormulaLifecycleGuide({
             >
               <span className="flex min-w-0 items-center gap-2">
                 {state === "done" ? <CheckCircle2 className="size-4 shrink-0" /> : <Icon className="size-4 shrink-0" />}
-                <span className="truncate text-sm font-medium">{step.label}</span>
+                <span className="truncate text-sm font-medium">{t(step.labelKey)}</span>
               </span>
               <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-80">{chipLabel}</span>
             </Tag>
@@ -264,12 +286,11 @@ export function FormulaLifecycleGuide({
 
       {!closed && !formula.closeable && (
         <p className="mt-3 text-xs leading-relaxed text-warning">
-          Complete all six Formula statuses before close. Incomplete statuses can be completed or re-completed in Formula
-          Status — revoke completion if marked done in error. See Close Readiness below.
+          {t("formulas.detail.lifecycle.closeHint")}
         </p>
       )}
       {!closed && (
-        <p className="sr-only">{doneCount} of 6 statuses complete</p>
+        <p className="sr-only">{t("formulas.detail.lifecycle.srProgress", { count: doneCount })}</p>
       )}
     </div>
   )
@@ -281,13 +302,13 @@ export function FormulaLifecycleGuide({
  * P1-03/P1-4 shared close-blocking lifecycle hints. Single source of truth for
  * both `CloseReadinessPanel` (Overview) and `CloseFormulaDialog` blocking list.
  */
-export const CLOSE_LIFECYCLE_HINTS: Record<string, { notDone: string; tab: string }> = {
-  trade: { notDone: "Complete (Preview) in Formula Status — G2", tab: "overview" },
-  cashIn: { notDone: "Complete (Preview) — G3; records do not auto-complete", tab: "overview" },
-  cashOut: { notDone: "Complete (Preview) — G4; records do not auto-complete", tab: "overview" },
-  invoice: { notDone: "Review Invoices — derive match via row status/amounts", tab: "invoices" },
-  logistics: { notDone: "Mark Delivered with reason", tab: "logistics" },
-  delivery: { notDone: "Complete (Preview) — G1", tab: "overview" },
+export const CLOSE_LIFECYCLE_HINTS: Record<string, { notDoneKey: TranslationKey; tab: string }> = {
+  trade: { notDoneKey: "formulas.detail.closeReadiness.tradeHint", tab: "overview" },
+  cashIn: { notDoneKey: "formulas.detail.closeReadiness.cashInHint", tab: "overview" },
+  cashOut: { notDoneKey: "formulas.detail.closeReadiness.cashOutHint", tab: "overview" },
+  invoice: { notDoneKey: "formulas.detail.closeReadiness.invoiceHint", tab: "invoices" },
+  logistics: { notDoneKey: "formulas.detail.closeReadiness.logisticsHint", tab: "logistics" },
+  delivery: { notDoneKey: "formulas.detail.closeReadiness.deliveryHint", tab: "overview" },
 }
 
 /**
@@ -315,9 +336,10 @@ export function CloseBlockingList({
             >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">
-                  {s.label} <span className="font-normal text-muted-foreground">· {s.value}</span>
+                  {sixStatusLabel(s.key)}{" "}
+                  <span className="font-normal text-muted-foreground">· {sixStatusValue(formula, s.key, s.value)}</span>
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{hint?.notDone}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{hint ? t(hint.notDoneKey) : null}</p>
               </div>
               {hint && (
                 <Button
@@ -326,7 +348,9 @@ export function CloseBlockingList({
                   className="shrink-0 gap-1 text-xs"
                   onClick={() => onNavigate(hint.tab)}
                 >
-                  {hint.tab === "overview" ? "Fix on Overview" : `Open ${hint.tab}`}
+                  {hint.tab === "overview"
+                    ? t("formulas.detail.closeReadiness.fixOverview")
+                    : t("formulas.detail.closeReadiness.openTab", { tab: t(`formulas.detail.tabs.${hint.tab}` as TranslationKey) })}
                 </Button>
               )}
             </li>
@@ -335,7 +359,7 @@ export function CloseBlockingList({
       </ul>
 
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        Receivable, payable, and unmatched payment records are review only — they do not block close.
+        {t("formulas.detail.closeReadiness.reviewOnly")}
       </p>
     </>
   )
@@ -358,11 +382,13 @@ export function CloseReadinessPanel({
       <div className="rounded-lg border border-success/30 bg-success-soft p-4">
         <p className="flex items-center gap-2 text-sm font-medium text-success">
           <CheckCircle2 className="size-4 shrink-0" />
-          Formula closed
+          {t("formulas.detail.closeReadiness.closedTitle")}
         </p>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          {formula.closedAt ? `Closed at ${formatDate(formula.closedAt)}. ` : ""}Trade data is locked; use Settlement for
-          append-only corrections.
+          {formula.closedAt
+            ? `${t("formulas.detail.closeReadiness.closedAt", { date: formatDate(formula.closedAt) })} `
+            : ""}
+          {t("formulas.detail.closeReadiness.closedDescription")}
         </p>
       </div>
     )
@@ -373,10 +399,10 @@ export function CloseReadinessPanel({
       <div className="rounded-lg border border-danger/30 bg-danger-soft/40 p-4">
         <p className="flex items-center gap-2 text-sm font-medium text-danger">
           <Ban className="size-4 shrink-0" />
-          Formula canceled
+          {t("formulas.detail.closeReadiness.canceledTitle")}
         </p>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          Close is not available. All six statuses are CANCELED.
+          {t("formulas.detail.closeReadiness.canceledDescription")}
         </p>
       </div>
     )
@@ -387,11 +413,10 @@ export function CloseReadinessPanel({
       <div className="rounded-lg border border-success/30 bg-success-soft p-4">
         <p className="flex items-center gap-2 text-sm font-medium text-success">
           <CheckCircle2 className="size-4 shrink-0" />
-          Ready to close
+          {t("formulas.detail.closeReadiness.readyTitle")}
         </p>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          All six statuses are complete. COMPANY_ADMIN can close from the header. Close cannot be undone in MVP. After
-          close, use Settlement for append-only corrections.
+          {t("formulas.detail.closeReadiness.readyDescription")}
         </p>
       </div>
     )
@@ -399,9 +424,9 @@ export function CloseReadinessPanel({
 
   return (
     <div className="rounded-lg border border-warning/30 bg-warning-soft p-4">
-      <p className="text-sm font-semibold text-foreground">Not ready to close</p>
+      <p className="text-sm font-semibold text-foreground">{t("formulas.detail.closeReadiness.blockedTitle")}</p>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-        All six Formula statuses must be manually completed before close (DL-015).
+        {t("formulas.detail.closeReadiness.blockedDescription")}
       </p>
 
       <div className="mt-3">
@@ -1554,7 +1579,11 @@ function FlowRow({
     <div className="flex items-center justify-between gap-3 py-2">
       <div className="flex items-center gap-2">
         <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide", tagClass)}>
-          {tag}
+          {tag === "Planned"
+            ? t("formulas.detail.overview.planned")
+            : tag === "Actual"
+              ? t("formulas.detail.overview.actual")
+              : t("formulas.detail.overview.remaining")}
         </span>
         <span className="text-sm text-muted-foreground">{label}</span>
       </div>
@@ -1590,14 +1619,14 @@ export function PaymentSummary({
       {showProfit && (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Expected Net Profit</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.expectedNetProfit")}</p>
             <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-foreground">
               {formatCurrency(expected.expectedProfit)}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Total Sell − Total Buy − Costs − Share</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{t("formulas.detail.overview.expectedEquation")}</p>
           </div>
           <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Realized Net Profit</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.realizedNetProfit")}</p>
             <p
               className={cn(
                 "mt-1 font-mono text-lg font-semibold tabular-nums",
@@ -1606,7 +1635,7 @@ export function PaymentSummary({
             >
               {formatCurrency(realized.realizedProfit)}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Actual Receipts − Actual Payments</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{t("formulas.detail.overview.realizedEquation")}</p>
           </div>
         </div>
       )}
@@ -1616,43 +1645,42 @@ export function PaymentSummary({
           <div className="mb-1 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <ArrowDownLeft className="size-3.5 text-success" />
-              Receipts (In)
+              {t("formulas.detail.overview.receiptsIn")}
             </p>
             {showRates && (
               <span className="font-mono text-xs text-muted-foreground">
-                {Math.round(s.receiptRate * 100)}% collected
+                {t("formulas.detail.overview.collected", { rate: Math.round(s.receiptRate * 100) })}
               </span>
             )}
           </div>
           <div className="divide-y divide-border">
-            <FlowRow tag="Planned" label="Scheduled Receipts" value={s.scheduledReceipts} tone="muted" />
-            <FlowRow tag="Actual" label="Actual Receipts" value={s.actualReceipts} tone="pos" />
-            <FlowRow tag="Remaining" label="Receivable" value={s.remainingReceivable} />
+            <FlowRow tag="Planned" label={t("formulas.detail.overview.scheduledReceipts")} value={s.scheduledReceipts} tone="muted" />
+            <FlowRow tag="Actual" label={t("formulas.detail.overview.actualReceipts")} value={s.actualReceipts} tone="pos" />
+            <FlowRow tag="Remaining" label={t("formulas.detail.overview.receivable")} value={s.remainingReceivable} />
           </div>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="mb-1 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <ArrowUpRight className="size-3.5 text-warning" />
-              Payments (Out)
+              {t("formulas.detail.overview.paymentsOut")}
             </p>
             {showRates && (
               <span className="font-mono text-xs text-muted-foreground">
-                {Math.round(s.paymentRate * 100)}% paid
+                {t("formulas.detail.overview.paid", { rate: Math.round(s.paymentRate * 100) })}
               </span>
             )}
           </div>
           <div className="divide-y divide-border">
-            <FlowRow tag="Planned" label="Scheduled Payments" value={s.scheduledPayments} tone="muted" />
-            <FlowRow tag="Actual" label="Actual Payments" value={s.actualPayments} />
-            <FlowRow tag="Remaining" label="Payable" value={s.remainingPayable} />
+            <FlowRow tag="Planned" label={t("formulas.detail.overview.scheduledPayments")} value={s.scheduledPayments} tone="muted" />
+            <FlowRow tag="Actual" label={t("formulas.detail.overview.actualPayments")} value={s.actualPayments} />
+            <FlowRow tag="Remaining" label={t("formulas.detail.overview.payable")} value={s.remainingPayable} />
           </div>
         </div>
       </div>
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Planned = Payment Schedule · Actual = Payment Record · Remaining = Scheduled − Actual. Realized profit is derived
-        from actual payment records.
+        {t("formulas.detail.overview.paymentFootnote")}
       </p>
     </div>
   )
@@ -1666,11 +1694,15 @@ function SixStatusGrid({ formula }: { formula: Formula }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Formula Status</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.sixStatus.title")}</p>
         <span className="text-xs text-muted-foreground">
-          {done}/6 matched ·{" "}
+          {t("formulas.detail.sixStatus.progress", { count: done })} ·{" "}
           <span className={formula.isClosed ? "text-success" : closeable ? "text-success" : "text-muted-foreground"}>
-            {formula.isClosed ? "Closed" : closeable ? "Ready to close" : "Open"}
+            {formula.isClosed
+              ? t("status.closed")
+              : closeable
+                ? t("formulas.detail.closeReadiness.readyTitle")
+                : t("status.active")}
           </span>
         </span>
       </div>
@@ -1689,17 +1721,18 @@ function SixStatusGrid({ formula }: { formula: Formula }) {
               <Circle className="size-4 shrink-0 text-muted-foreground" />
             )}
             <div className="min-w-0">
-              <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</p>
+              <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
+                {sixStatusLabel(s.key)}
+              </p>
               <p className={cn("truncate text-sm font-medium", s.done ? "text-foreground" : "text-muted-foreground")}>
-                {s.value}
+                {sixStatusValue(formula, s.key, s.value)}
               </p>
             </div>
           </div>
         ))}
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Close condition: all six statuses must be completed / matched before a Formula can be closed. Authoritative close
-        logic runs in backend services after integration.
+        {t("formulas.detail.sixStatus.closeRequirement")}
       </p>
     </div>
   )
@@ -1708,16 +1741,16 @@ function SixStatusGrid({ formula }: { formula: Formula }) {
 /* ---------------- Key dates (P0-2) ---------------- */
 function KeyDates({ formula }: { formula: Formula }) {
   const dates: { label: string; value?: string }[] = [
-    { label: "Trade Date", value: formula.tradeDate },
-    { label: "Contract Date", value: formula.contractDate },
-    { label: "Created", value: formula.createdAt },
-    { label: "Updated", value: formula.updatedAt },
-    { label: "Closed", value: formula.closedAt },
-    { label: "Canceled", value: formula.canceledAt },
+    { label: t("formulas.detail.overview.tradeDate"), value: formula.tradeDate },
+    { label: t("formulas.detail.overview.contractDate"), value: formula.contractDate },
+    { label: t("formulas.detail.overview.created"), value: formula.createdAt },
+    { label: t("formulas.detail.overview.updated"), value: formula.updatedAt },
+    { label: t("status.closed"), value: formula.closedAt },
+    { label: t("status.canceled"), value: formula.canceledAt },
   ]
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Key Dates</p>
+      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.keyDates")}</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {dates.map((d) => (
           <div key={d.label} className="rounded-md bg-secondary/40 px-3 py-2">
@@ -1736,28 +1769,30 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-border bg-card px-3 py-2.5">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.status")}</p>
           <div className="mt-1.5">
             <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
           </div>
         </div>
         <div className="rounded-lg border border-border bg-card px-3 py-2.5">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Trade Type</p>
-          <p className="mt-1 text-sm font-medium text-foreground">{tradeTypeConfig[formula.tradeType].label}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.tradeType")}</p>
+          <p className="mt-1 text-sm font-medium text-foreground">
+            {detailTradeTypeLabel(formula.tradeType)}
+          </p>
         </div>
         <div className="rounded-lg border border-border bg-card px-3 py-2.5">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Item</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.item")}</p>
           <p className="mt-1 truncate text-sm font-medium text-foreground">{formula.item}</p>
         </div>
         <div className="rounded-lg border border-border bg-card px-3 py-2.5">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Formula Quantity</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.formulaQuantity")}</p>
           <p className="mt-1 font-mono text-sm font-medium text-foreground">
             {formatNumber(formula.quantity)} {formula.unit}
           </p>
         </div>
         <div className="rounded-lg border border-border bg-card px-3 py-2.5">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Last Updated</p>
-          <p className="mt-1 text-sm font-medium text-foreground">{formatRelative(formula.updatedAt)}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.lastUpdated")}</p>
+          <p className="mt-1 text-sm font-medium text-foreground">{detailRelativeTime(formula.updatedAt)}</p>
         </div>
       </div>
 
