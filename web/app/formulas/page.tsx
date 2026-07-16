@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button"
 import { CreateFormulaButton } from "@/components/formulas/create-formula-button"
 import { FormulaCard } from "@/components/formulas/formula-card"
 import { FormulaTable } from "@/components/formulas/formula-table"
-import { FormulaFilters, filterLabels, type StatusFilter } from "@/components/formulas/formula-filters"
+import { FormulaFilters, filterLabel, type StatusFilter } from "@/components/formulas/formula-filters"
 import { getAnalyticsFormulas, filterFormulasByRange, analyticsCompanyName } from "@/lib/mock-data"
 import { mergeFormulasForScope } from "@/lib/formula-preview-session"
 import { viewFormula, type FormulaMetricsView } from "@/lib/formula-math"
+import { t, type TranslationKey } from "@/lib/i18n"
 import { cn, formatCurrency } from "@/lib/utils"
 import type { DateRange, Formula } from "@/lib/types"
-import { DATE_RANGE_IDS } from "@/lib/date-range-labels"
+import { DATE_RANGE_IDS, dateRangeLabel } from "@/lib/date-range-labels"
 
 type SortKey = "recent" | "profit" | "value"
 type ViewMode = "table" | "cards"
@@ -61,19 +62,19 @@ const VALID_FILTERS: StatusFilter[] = [
   "attention",
 ]
 
-/** Contextual empty-state copy per active filter. */
-const EMPTY_STATES: Record<StatusFilter, { title: string; description: string }> = {
-  all: { title: "No formulas yet", description: "Create your first formula to start tracking deals." },
-  active: { title: "No active formulas", description: "Nothing is currently in progress for this company." },
-  invoicing: { title: "No formulas awaiting invoicing", description: "All invoices are up to date." },
-  closeable: { title: "No formulas ready to close", description: "Formulas appear here once fully settled." },
-  closed: { title: "No closed formulas", description: "Completed formulas will be listed here." },
-  loss: { title: "No loss-making formulas", description: "Great — nothing is currently running at a loss." },
-  profit: { title: "No profitable formulas yet", description: "Realized profit appears here after settlement." },
-  receivable: { title: "No outstanding receivables", description: "Every counterparty is paid up." },
-  payable: { title: "No outstanding payables", description: "You have no pending payments to make." },
-  unmatched: { title: "All invoices matched", description: "No invoice discrepancies to resolve." },
-  attention: { title: "Nothing needs attention", description: "All formulas are healthy right now." },
+/** Contextual empty-state keys per stable filter ID. */
+const EMPTY_STATE_KEYS: Record<StatusFilter, { title: TranslationKey; description: TranslationKey }> = {
+  all: { title: "formulas.list.empty.allTitle", description: "formulas.list.empty.allDescription" },
+  active: { title: "formulas.list.empty.activeTitle", description: "formulas.list.empty.activeDescription" },
+  invoicing: { title: "formulas.list.empty.invoicingTitle", description: "formulas.list.empty.invoicingDescription" },
+  closeable: { title: "formulas.list.empty.closeableTitle", description: "formulas.list.empty.closeableDescription" },
+  closed: { title: "formulas.list.empty.closedTitle", description: "formulas.list.empty.closedDescription" },
+  loss: { title: "formulas.list.empty.lossTitle", description: "formulas.list.empty.lossDescription" },
+  profit: { title: "formulas.list.empty.profitTitle", description: "formulas.list.empty.profitDescription" },
+  receivable: { title: "formulas.list.empty.receivableTitle", description: "formulas.list.empty.receivableDescription" },
+  payable: { title: "formulas.list.empty.payableTitle", description: "formulas.list.empty.payableDescription" },
+  unmatched: { title: "formulas.list.empty.unmatchedTitle", description: "formulas.list.empty.unmatchedDescription" },
+  attention: { title: "formulas.list.empty.attentionTitle", description: "formulas.list.empty.attentionDescription" },
 }
 
 function FormulasContent() {
@@ -172,26 +173,28 @@ function FormulasContent() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="Formulas"
-        description="Every transaction as a formula. Filter, search, and drill into any deal."
+        title={t("formulas.list.header.title")}
+        description={t("formulas.list.header.description")}
         actions={<CreateFormulaButton />}
       />
 
       <FormulaFilters query={query} onQuery={setQuery} status={status} onStatus={setStatus} counts={counts} />
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">Context</span>
-        <ContextChip label="Scope" value={analyticsCompanyName(operatingId)} />
-        {perspective && <ContextChip label="Perspective" value={analyticsCompanyName(analyticsId as string)} />}
-        {range && <ContextChip label="Range" value={range} />}
-        {metric && <ContextChip label="Metric" value={metric} />}
+        <span className="text-xs text-muted-foreground">{t("formulas.list.context.label")}</span>
+        <ContextChip label={t("formulas.list.context.scope")} value={analyticsCompanyName(operatingId)} />
+        {perspective && (
+          <ContextChip label={t("formulas.list.context.perspective")} value={analyticsCompanyName(analyticsId as string)} />
+        )}
+        {range && <ContextChip label={t("formulas.list.context.range")} value={dateRangeLabel(range)} />}
+        {metric && <ContextChip label={t("formulas.list.context.metric")} value={metric} />}
         {status !== "all" && (
           <button
             type="button"
             onClick={() => setStatus("all")}
             className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent transition-colors hover:bg-accent/15"
           >
-            {filterLabels[status]}
+            {filterLabel(status)}
             <span className="tabular-nums text-accent/70">{counts[status] ?? 0}</span>
             <X className="size-3" />
           </button>
@@ -200,8 +203,10 @@ function FormulasContent() {
 
       <div className="mt-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{filtered.length}</span> formulas ·{" "}
-          <span className="font-semibold text-foreground">{formatCurrency(totalValue, { compact: true })}</span> total value
+          {t("formulas.list.results.summary", {
+            count: filtered.length,
+            value: formatCurrency(totalValue, { compact: true }),
+          })}
         </p>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -211,16 +216,16 @@ function FormulasContent() {
               onChange={(e) => setSort(e.target.value as SortKey)}
               className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground outline-none focus:border-accent"
             >
-              <option value="recent">Most recent</option>
-              <option value="profit">Highest profit</option>
-              <option value="value">Largest value</option>
+              <option value="recent">{t("formulas.list.sort.recent")}</option>
+              <option value="profit">{t("formulas.list.sort.highestProfit")}</option>
+              <option value="value">{t("formulas.list.sort.largestValue")}</option>
             </select>
           </div>
           <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
             <button
               type="button"
               onClick={() => setView("table")}
-              aria-label="Table view"
+              aria-label={t("formulas.list.view.table")}
               aria-pressed={view === "table"}
               className={cn(
                 "flex size-7 items-center justify-center rounded-md transition-colors",
@@ -232,7 +237,7 @@ function FormulasContent() {
             <button
               type="button"
               onClick={() => setView("cards")}
-              aria-label="Card view"
+              aria-label={t("formulas.list.view.cards")}
               aria-pressed={view === "cards"}
               className={cn(
                 "flex size-7 items-center justify-center rounded-md transition-colors",
@@ -275,10 +280,12 @@ function FormulasContent() {
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">
-              {query ? "No formulas match your search" : EMPTY_STATES[status].title}
+              {query ? t("formulas.list.empty.noResultsTitle") : t(EMPTY_STATE_KEYS[status].title)}
             </p>
             <p className="text-sm text-muted-foreground">
-              {query ? `Nothing matches “${query}”. Try a different term.` : EMPTY_STATES[status].description}
+              {query
+                ? t("formulas.list.empty.noResultsDescription", { query })
+                : t(EMPTY_STATE_KEYS[status].description)}
             </p>
           </div>
           {(status !== "all" || query) && (
@@ -290,7 +297,7 @@ function FormulasContent() {
                 setQuery("")
               }}
             >
-              Clear filters
+              {t("formulas.list.filters.clear")}
             </Button>
           )}
         </div>

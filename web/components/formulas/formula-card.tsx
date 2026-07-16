@@ -1,9 +1,11 @@
 import Link from "next/link"
 import { ArrowUpRight, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react"
 import type { Formula } from "@/lib/types"
-import { statusConfig, tradeTypeConfig } from "@/lib/status"
+import { formulaStatusLabel, statusConfig } from "@/lib/status"
 import { StatusBadge } from "@/components/ui/badge"
-import { cn, formatCurrency, formatRelative } from "@/lib/utils"
+import { t } from "@/lib/i18n"
+import { formulaListAttentionLabel, formulaListRelativeTime, formulaListTradeTypeLabel } from "@/lib/formula-list-labels"
+import { cn, formatCurrency } from "@/lib/utils"
 import { viewFormula } from "@/lib/formula-math"
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: "profit" | "loss" | "muted" }) {
@@ -51,10 +53,10 @@ export function FormulaCard({
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm font-semibold text-foreground">{formula.number}</span>
-            <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+            <StatusBadge tone={status.tone}>{formulaStatusLabel(formula.status)}</StatusBadge>
           </div>
           <p className="truncate text-sm text-muted-foreground">
-            {formula.item} · {tradeTypeConfig[formula.tradeType].label}
+            {formula.item} · {formulaListTradeTypeLabel(formula.tradeType)}
           </p>
         </div>
         <ArrowUpRight className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-accent" />
@@ -63,15 +65,15 @@ export function FormulaCard({
       {formula.attention && (
         <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-danger/8 px-2.5 py-1.5 text-xs font-medium text-danger">
           <AlertTriangle className="size-3.5 shrink-0" />
-          <span className="truncate">{formula.attention}</span>
+          <span className="truncate">{formulaListAttentionLabel(formula.attention)}</span>
         </div>
       )}
 
       <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-3">
-        <Metric label="Sell" value={formatCurrency(v.totalSell, { compact: true })} />
-        <Metric label="Buy" value={formatCurrency(v.totalBuy, { compact: true })} />
+        <Metric label={t("formulas.list.card.sell")} value={formatCurrency(v.totalSell, { compact: true })} />
+        <Metric label={t("formulas.list.card.buy")} value={formatCurrency(v.totalBuy, { compact: true })} />
         <Metric
-          label={profitIsRealized ? "Realized" : "Expected"}
+          label={profitIsRealized ? t("formulas.list.card.realized") : t("formulas.list.card.expected")}
           value={formatCurrency(profitValue, { compact: true })}
           tone={isLoss ? "loss" : "profit"}
         />
@@ -80,9 +82,9 @@ export function FormulaCard({
       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           {isLoss ? <TrendingDown className="size-3.5 text-danger" /> : <TrendingUp className="size-3.5 text-success" />}
-          Receivable {formatCurrency(v.receivable, { compact: true })}
+          {t("formulas.list.card.receivable", { value: formatCurrency(v.receivable, { compact: true }) })}
         </span>
-        <span>{formatRelative(formula.updatedAt)}</span>
+        <span>{formulaListRelativeTime(formula.updatedAt)}</span>
       </div>
     </Link>
   )

@@ -1,6 +1,7 @@
 "use client"
 
 import { Search, X } from "lucide-react"
+import { t, type TranslationKey } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 export type StatusFilter =
@@ -16,29 +17,27 @@ export type StatusFilter =
   | "unmatched"
   | "attention"
 
-/** Primary filter tabs shown in the bar. Other filters arrive via KPI drill-down. */
-const FILTERS: { key: StatusFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "active", label: "Active" },
-  { key: "invoicing", label: "Invoicing" },
-  { key: "closeable", label: "Closeable" },
-  { key: "closed", label: "Closed" },
-  { key: "loss", label: "Loss" },
-]
+/** Stable filter IDs remain separate from their translated labels. */
+const FILTERS: StatusFilter[] = ["all", "active", "invoicing", "closeable", "closed", "loss"]
 
-/** Human labels for every filter, including drill-down-only ones. */
-export const filterLabels: Record<StatusFilter, string> = {
-  all: "All formulas",
-  active: "Active",
-  invoicing: "Invoicing",
-  closeable: "Closeable",
-  closed: "Closed",
-  loss: "Loss-making",
-  profit: "Profitable",
-  receivable: "Has receivable",
-  payable: "Has payable",
-  unmatched: "Invoice unmatched",
-  attention: "Needs attention",
+const FILTER_LABEL_KEYS: Record<StatusFilter, TranslationKey> = {
+  all: "formulas.list.filters.allFormulas",
+  active: "formulas.list.filters.active",
+  invoicing: "formulas.list.filters.invoicing",
+  closeable: "formulas.list.filters.closeable",
+  closed: "formulas.list.filters.closed",
+  loss: "formulas.list.filters.lossMaking",
+  profit: "formulas.list.filters.profitable",
+  receivable: "formulas.list.filters.hasReceivable",
+  payable: "formulas.list.filters.hasPayable",
+  unmatched: "formulas.list.filters.invoiceUnmatched",
+  attention: "formulas.list.filters.needsAttention",
+}
+
+export function filterLabel(filter: StatusFilter, short = false): string {
+  if (short && filter === "all") return t("formulas.list.filters.all")
+  if (short && filter === "loss") return t("formulas.list.filters.loss")
+  return t(FILTER_LABEL_KEYS[filter])
 }
 
 export function FormulaFilters({
@@ -61,14 +60,14 @@ export function FormulaFilters({
         <input
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="Search by number, item, or counterparty..."
+          placeholder={t("formulas.list.filters.searchPlaceholder")}
           className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-10 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
         {query && (
           <button
             onClick={() => onQuery("")}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label="Clear search"
+            aria-label={t("formulas.list.filters.clearSearch")}
           >
             <X className="size-4" />
           </button>
@@ -76,12 +75,12 @@ export function FormulaFilters({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => {
-          const active = status === f.key
+        {FILTERS.map((filter) => {
+          const active = status === filter
           return (
             <button
-              key={f.key}
-              onClick={() => onStatus(f.key)}
+              key={filter}
+              onClick={() => onStatus(filter)}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                 active
@@ -89,14 +88,14 @@ export function FormulaFilters({
                   : "border-border bg-card text-muted-foreground hover:border-accent/40 hover:text-foreground",
               )}
             >
-              {f.label}
+              {filterLabel(filter, true)}
               <span
                 className={cn(
                   "rounded-full px-1.5 text-[10px] tabular-nums",
                   active ? "bg-accent-foreground/20 text-accent-foreground" : "bg-muted text-muted-foreground",
                 )}
               >
-                {counts[f.key] ?? 0}
+                {counts[filter] ?? 0}
               </span>
             </button>
           )

@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation"
 import { AlertTriangle } from "lucide-react"
 import type { Formula } from "@/lib/types"
-import { statusConfig, tradeTypeConfig } from "@/lib/status"
+import { formulaStatusLabel, statusConfig } from "@/lib/status"
 import { StatusBadge } from "@/components/ui/badge"
+import { t } from "@/lib/i18n"
+import { formulaListTradeTypeLabel } from "@/lib/formula-list-labels"
 import { cn, formatCurrency } from "@/lib/utils"
 import { viewFormula } from "@/lib/formula-math"
 
@@ -28,13 +30,27 @@ export function FormulaTable({
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border text-left">
-              <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Formula No</th>
-              <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Item</th>
-              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Expected Profit</th>
-              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Realized Profit</th>
-              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Receivable</th>
-              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Payable</th>
-              <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
+              <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("formulas.list.table.formulaNumber")}
+              </th>
+              <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("formulas.list.table.item")}
+              </th>
+              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("formulas.list.table.expectedProfit")}
+              </th>
+              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("formulas.list.table.realizedProfit")}
+              </th>
+              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("formulas.list.table.receivable")}
+              </th>
+              <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("formulas.list.table.payable")}
+              </th>
+              <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("formulas.list.table.status")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -57,7 +73,7 @@ export function FormulaTable({
                   <td className="px-4 py-3">
                     <div className="flex flex-col">
                       <span className="font-medium text-foreground">{f.item}</span>
-                      <span className="text-xs text-muted-foreground">{tradeTypeConfig[f.tradeType].label}</span>
+                      <span className="text-xs text-muted-foreground">{formulaListTradeTypeLabel(f.tradeType)}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
@@ -78,7 +94,7 @@ export function FormulaTable({
                     {formatCurrency(v.payable, { compact: true })}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                    <StatusBadge tone={status.tone}>{formulaStatusLabel(f.status)}</StatusBadge>
                   </td>
                 </tr>
               )
