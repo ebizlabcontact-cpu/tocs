@@ -26,7 +26,7 @@ function defaultCustom() {
 }
 
 export function DateRangeProvider({ children }: { children: React.ReactNode }) {
-  const [range, setRange] = React.useState<DateRange>("Last 30 Days")
+  const [range, setRange] = React.useState<DateRange>("last_30_days")
   const initial = React.useMemo(defaultCustom, [])
   const [customStart, setCustomStart] = React.useState(initial.start)
   const [customEnd, setCustomEnd] = React.useState(initial.end)

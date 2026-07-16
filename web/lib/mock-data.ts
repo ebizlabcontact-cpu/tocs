@@ -17,6 +17,7 @@ import type {
   StatusLog,
   CalculationSnapshot,
 } from "./types"
+import { DATE_RANGE_IDS } from "./date-range-labels"
 import { deriveChainFinancials } from "./derive"
 import {
   isCloseable,
@@ -791,14 +792,7 @@ export function getFormula(id: string): Formula | undefined {
   return formulas.find((f) => f.id === id)
 }
 
-export const DATE_RANGES: DateRange[] = [
-  "Last 7 Days",
-  "Last 30 Days",
-  "This Month",
-  "Last Month",
-  "This Year",
-  "Custom Range",
-]
+export const DATE_RANGES: DateRange[] = [...DATE_RANGE_IDS]
 
 /**
  * Real date-window resolution (P0-2). Every range maps to an actual [start, end)
@@ -811,20 +805,20 @@ export function getRangeWindow(range: DateRange, customStart?: string, customEnd
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
 
   switch (range) {
-    case "Last 7 Days":
+    case "last_7_days":
       return { start: end - 7 * DAY, end }
-    case "Last 30 Days":
+    case "last_30_days":
       return { start: end - 30 * DAY, end }
-    case "This Month":
+    case "this_month":
       return { start: new Date(now.getFullYear(), now.getMonth(), 1).getTime(), end }
-    case "Last Month": {
+    case "last_month": {
       const start = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime()
       const monthEnd = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
       return { start, end: monthEnd }
     }
-    case "This Year":
+    case "this_year":
       return { start: new Date(now.getFullYear(), 0, 1).getTime(), end }
-    case "Custom Range": {
+    case "custom_range": {
       const s = customStart ? startOfDay(new Date(customStart)) : end - 30 * DAY
       const e = customEnd ? startOfDay(new Date(customEnd)) + DAY : end
       return { start: s, end: e }
@@ -865,7 +859,7 @@ export function filterFormulasByRange(
  */
 export function getKpis(
   companyId: string,
-  range: DateRange = "This Year",
+  range: DateRange = "this_year",
   customStart?: string,
   customEnd?: string,
   analyticsCompanyId?: string,
@@ -939,7 +933,7 @@ export function analyticsDrillContext(
  */
 export function getProfitSeries(
   companyId: string,
-  range: DateRange = "This Year",
+  range: DateRange = "this_year",
   customStart?: string,
   customEnd?: string,
   analyticsCompanyId?: string,

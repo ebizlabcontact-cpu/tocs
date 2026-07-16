@@ -256,14 +256,14 @@ export type CalendarEvent = {
   status: string
 }
 
-/** Dashboard date-range presets (mock filtering only). */
+/** Dashboard date-range presets (mock filtering only). Internal IDs — labels via i18n. */
 export type DateRange =
-  | "Last 7 Days"
-  | "Last 30 Days"
-  | "This Month"
-  | "Last Month"
-  | "This Year"
-  | "Custom Range"
+  | "last_7_days"
+  | "last_30_days"
+  | "this_month"
+  | "last_month"
+  | "this_year"
+  | "custom_range"
 
 /**
  * Which Formula date a Dashboard/Reports/Calendar view is anchored to (P0-1).

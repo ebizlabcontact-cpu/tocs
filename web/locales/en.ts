@@ -75,6 +75,12 @@ export const en = {
         "Sets operating, permission, write, and API scope. Changing operating scope changes the accessible formula set.",
     },
     dateRange: {
+      last7Days: "Last 7 Days",
+      last30Days: "Last 30 Days",
+      thisMonth: "This Month",
+      lastMonth: "Last Month",
+      thisYear: "This Year",
+      custom: "Custom Range",
       startDate: "Start Date",
       endDate: "End Date",
       apply: "Apply Range",

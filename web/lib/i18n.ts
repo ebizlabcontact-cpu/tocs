@@ -2,17 +2,34 @@
  * TOCS localization helper — TypeScript-only, no framework, no React provider.
  *
  * Works identically in Server Components and Client Components because `t()` is a
- * pure function that reads the static `en` dictionary. When Cursor later adds a
- * `ko.ts`, this is the single place that would choose a dictionary; for now the
- * English source in `en.ts` is both the active locale and the fallback.
+ * pure function that reads the static locale dictionary. `en.ts` remains the
+ * canonical key catalog and English source-copy contract; `ko.ts` is the active
+ * rendered locale.
  *
  * Usage:
- *   t("shell.nav.dashboard")            -> "Dashboard"
+ *   t("shell.nav.dashboard")            -> "대시보드"
  *   t("some.count.key", { count: 3 })   -> interpolates {count}
  */
-import { en } from "@/locales/en"
+import { en, type EnDictionary } from "@/locales/en"
+import { ko } from "@/locales/ko"
+
+/** Active rendered dictionary (Korean). Keys are typed from `en`. */
+const dictionary = ko
 
 type Dictionary = typeof en
+
+/** Leaf values are `string`; nested key structure matches `EnDictionary`. */
+export type LocaleDictionaryShape = {
+  [K in keyof EnDictionary]: EnDictionary[K] extends string
+    ? string
+    : EnDictionary[K] extends Record<string, unknown>
+      ? LocaleDictionaryShapeFor<EnDictionary[K]>
+      : never
+}
+
+type LocaleDictionaryShapeFor<T> = {
+  [K in keyof T]: T[K] extends string ? string : T[K] extends Record<string, unknown> ? LocaleDictionaryShapeFor<T[K]> : never
+}
 
 /** Values that can be substituted into `{placeholder}` tokens. */
 export type TranslationParams = Record<string, string | number>
@@ -50,18 +67,18 @@ function interpolate(template: string, params: TranslationParams): string {
 }
 
 /**
- * Resolve a localization key to its English string.
+ * Resolve a localization key to the active locale string.
  *
  * - Valid key: returns the value (with interpolation applied when params given).
  * - Missing/invalid key: logs a clear error in development and returns the raw
  *   key so the UI stays visible and the problem is obvious during review.
  */
 export function t(key: TranslationKey, params?: TranslationParams): string {
-  const value = resolvePath(en, key)
+  const value = resolvePath(dictionary, key)
 
   if (typeof value !== "string") {
     if (process.env.NODE_ENV !== "production") {
-      console.error(`[v0] i18n: missing or non-string key "${key}"`)
+      console.error(`[i18n] missing or non-string key "${key}"`)
     }
     return key
   }

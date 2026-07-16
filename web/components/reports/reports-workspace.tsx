@@ -24,6 +24,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Select } from "@/components/ui/field"
 import { DATE_RANGES } from "@/lib/mock-data"
+import { dateRangeLabel } from "@/lib/date-range-labels"
 import type { DateRange } from "@/lib/types"
 import {
   METRICS,
@@ -65,7 +66,7 @@ export function ReportsWorkspace() {
   const analyticsArg = analyticsId !== operatingId ? analyticsId : undefined
 
   const [view, setView] = useState<"default" | "custom">("default")
-  const [period, setPeriod] = useState<DateRange>(globalRange === "Custom Range" ? "Last 30 Days" : globalRange)
+  const [period, setPeriod] = useState<DateRange>(globalRange === "custom_range" ? "last_30_days" : globalRange)
 
   return (
     <>
@@ -94,9 +95,9 @@ export function ReportsWorkspace() {
           <label className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Period</span>
             <Select value={period} onChange={(e) => setPeriod(e.target.value as DateRange)} className="h-9 w-40">
-              {DATE_RANGES.filter((r) => r !== "Custom Range").map((r) => (
+              {DATE_RANGES.filter((r) => r !== "custom_range").map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {dateRangeLabel(r)}
                 </option>
               ))}
             </Select>
@@ -395,9 +396,9 @@ function CustomView({
           <label className="block">
             <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Period</span>
             <Select value={period} onChange={(e) => setPeriod(e.target.value as DateRange)}>
-              {DATE_RANGES.filter((r) => r !== "Custom Range").map((r) => (
+              {DATE_RANGES.filter((r) => r !== "custom_range").map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {dateRangeLabel(r)}
                 </option>
               ))}
             </Select>

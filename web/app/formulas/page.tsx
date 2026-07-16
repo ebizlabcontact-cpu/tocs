@@ -15,6 +15,7 @@ import { mergeFormulasForScope } from "@/lib/formula-preview-session"
 import { viewFormula, type FormulaMetricsView } from "@/lib/formula-math"
 import { cn, formatCurrency } from "@/lib/utils"
 import type { DateRange, Formula } from "@/lib/types"
+import { DATE_RANGE_IDS } from "@/lib/date-range-labels"
 
 type SortKey = "recent" | "profit" | "value"
 type ViewMode = "table" | "cards"
@@ -44,14 +45,7 @@ function matchesStatus(f: Formula, status: StatusFilter, v: FormulaMetricsView) 
   }
 }
 
-const VALID_RANGES: DateRange[] = [
-  "Last 7 Days",
-  "Last 30 Days",
-  "This Month",
-  "Last Month",
-  "This Year",
-  "Custom Range",
-]
+const VALID_RANGES: DateRange[] = [...DATE_RANGE_IDS]
 
 const VALID_FILTERS: StatusFilter[] = [
   "all",

@@ -206,7 +206,7 @@ export const repository = {
   listFormulasInRange(scope: OperatingScope, args: RangeArgs = {}, query?: ListFormulasQuery): Promise<Formula[]> {
     assertApiWired("listFormulasInRange", "GET /api/v1/formulas", "Sprint 1 T6")
     const list = mockFormulasByCompany(scope)
-    const ranged = filterFormulasByRange(list, args.range ?? "This Year", args.customStart, args.customEnd)
+    const ranged = filterFormulasByRange(list, args.range ?? "this_year", args.customStart, args.customEnd)
     return ok(applyListQuery(ranged, query))
   },
 
@@ -247,13 +247,13 @@ export const repository = {
   /* ---- Dashboard / Calendar (deferred — Sprint 5) ---- */
   getKpis(scope: OperatingScope, args: RangeArgs = {}): Promise<Kpi[]> {
     assertApiWired("getKpis", "GET /api/v1/analytics/kpis", "Sprint 5")
-    return ok(mockKpis(scope, args.range ?? "This Year", args.customStart, args.customEnd, args.analyticsCompanyId))
+    return ok(mockKpis(scope, args.range ?? "this_year", args.customStart, args.customEnd, args.analyticsCompanyId))
   },
 
   getProfitSeries(scope: OperatingScope, args: RangeArgs = {}) {
     assertApiWired("getProfitSeries", "GET /api/v1/analytics/profit-series", "Sprint 5")
     return ok(
-      mockProfitSeries(scope, args.range ?? "This Year", args.customStart, args.customEnd, args.analyticsCompanyId),
+      mockProfitSeries(scope, args.range ?? "this_year", args.customStart, args.customEnd, args.analyticsCompanyId),
     )
   },
 

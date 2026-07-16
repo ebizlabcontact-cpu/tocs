@@ -4,6 +4,7 @@ import * as React from "react"
 import { Calendar, ChevronDown } from "lucide-react"
 import { cn, formatDate } from "@/lib/utils"
 import { useDateRange } from "@/components/date-range-context"
+import { dateRangeLabel } from "@/lib/date-range-labels"
 import { t } from "@/lib/i18n"
 
 export function DateRangeSelector() {
@@ -19,11 +20,11 @@ export function DateRangeSelector() {
     return () => document.removeEventListener("mousedown", onClick)
   }, [])
 
-  const isCustom = range === "Custom Range"
+  const isCustom = range === "custom_range"
   const label =
     isCustom && customStart && customEnd
       ? `${formatDate(customStart, { month: "short", day: "numeric" })} – ${formatDate(customEnd, { month: "short", day: "numeric" })}`
-      : range
+      : dateRangeLabel(range)
 
   return (
     <div className="relative" ref={ref}>
@@ -42,14 +43,14 @@ export function DateRangeSelector() {
               key={r}
               onClick={() => {
                 setRange(r)
-                if (r !== "Custom Range") setOpen(false)
+                if (r !== "custom_range") setOpen(false)
               }}
               className={cn(
                 "flex w-full items-center rounded-[var(--radius-sm)] px-2 py-2 text-sm transition-colors hover:bg-secondary",
                 r === range && "bg-secondary font-medium",
               )}
             >
-              {r}
+              {dateRangeLabel(r)}
             </button>
           ))}
 
