@@ -4,6 +4,7 @@ import * as React from "react"
 import { Calendar, ChevronDown } from "lucide-react"
 import { cn, formatDate } from "@/lib/utils"
 import { useDateRange } from "@/components/date-range-context"
+import { t } from "@/lib/i18n"
 
 export function DateRangeSelector() {
   const { ranges, range, setRange, customStart, customEnd, setCustomStart, setCustomEnd } = useDateRange()
@@ -56,7 +57,7 @@ export function DateRangeSelector() {
             <div className="mt-1.5 space-y-2 border-t border-border px-2 pb-1 pt-2.5">
               <label className="block">
                 <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Start Date
+                  {t("shell.dateRange.startDate")}
                 </span>
                 <input
                   type="date"
@@ -68,7 +69,7 @@ export function DateRangeSelector() {
               </label>
               <label className="block">
                 <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  End Date
+                  {t("shell.dateRange.endDate")}
                 </span>
                 <input
                   type="date"
@@ -82,11 +83,10 @@ export function DateRangeSelector() {
                 onClick={() => setOpen(false)}
                 className="w-full rounded-[var(--radius-sm)] bg-accent px-2 py-1.5 text-xs font-semibold text-accent-foreground transition-colors hover:opacity-90"
               >
-                Apply Range
+                {t("shell.dateRange.apply")}
               </button>
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                Prototype selector — UI state only. Authoritative period filtering runs in backend services after
-                integration.
+                {t("shell.dateRange.note")}
               </p>
             </div>
           )}

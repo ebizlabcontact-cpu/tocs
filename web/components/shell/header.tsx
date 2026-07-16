@@ -7,6 +7,7 @@ import { CompanySwitcher } from "./company-switcher"
 import { DateRangeSelector } from "./date-range-selector"
 import { Tooltip } from "@/components/ui/tooltip"
 import { useAuth } from "@/components/auth/auth-provider"
+import { t } from "@/lib/i18n"
 
 function roleLabel(role: string) {
   return role.replace(/_/g, " ")
@@ -46,7 +47,7 @@ export function Header() {
           <DateRangeSelector />
         </div>
 
-        <Tooltip content="Search — coming in a future release (preview UI)." className="ml-auto md:ml-2">
+        <Tooltip content={t("shell.search.tooltip")} className="ml-auto md:ml-2">
           <button
             type="button"
             aria-disabled="true"
@@ -54,7 +55,7 @@ export function Header() {
             className="flex h-9 cursor-not-allowed items-center gap-2 rounded-[var(--radius-md)] border border-border bg-secondary/50 px-3 text-sm text-muted-foreground opacity-70 md:w-64 md:justify-start"
           >
             <Search className="size-4" />
-            <span className="hidden md:inline">Search formulas, invoices…</span>
+            <span className="hidden md:inline">{t("shell.search.placeholder")}</span>
             <kbd className="ml-auto hidden rounded border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground opacity-40 md:inline">
               ⌘K
             </kbd>
@@ -63,7 +64,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-1">
-        <Tooltip content="Notifications — not available in preview.">
+        <Tooltip content={t("shell.notifications.tooltip")}>
           <button
             type="button"
             aria-disabled="true"
@@ -72,12 +73,12 @@ export function Header() {
           >
             <Bell className="size-[18px]" />
             <span className="absolute -right-0.5 -top-0.5 rounded-full bg-secondary px-1 text-[9px] font-semibold uppercase text-muted-foreground ring-2 ring-card">
-              Preview
+              {t("common.badges.preview")}
             </span>
-            <span className="sr-only">Notifications</span>
+            <span className="sr-only">{t("shell.notifications.label")}</span>
           </button>
         </Tooltip>
-        <Tooltip content="AI Assistant — preview shell only." className="hidden sm:inline-flex">
+        <Tooltip content={t("shell.ai.tooltip")} className="hidden sm:inline-flex">
           <button
             type="button"
             aria-disabled="true"
@@ -85,7 +86,7 @@ export function Header() {
             className="flex size-9 cursor-not-allowed items-center justify-center rounded-[var(--radius-md)] text-accent opacity-70"
           >
             <Sparkles className="size-[18px]" />
-            <span className="sr-only">AI Assistant</span>
+            <span className="sr-only">{t("shell.ai.label")}</span>
           </button>
         </Tooltip>
 
@@ -106,20 +107,20 @@ export function Header() {
               type="button"
               onClick={handleLogout}
               className="flex size-9 items-center justify-center rounded-[var(--radius-md)] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              title="Sign out"
+              title={t("common.actions.signOut")}
             >
               <LogOut className="size-[18px]" />
-              <span className="sr-only">Sign out</span>
+              <span className="sr-only">{t("common.actions.signOut")}</span>
             </button>
           </div>
         ) : (
           <Link
             href="/login"
             className="ml-1 flex size-9 items-center justify-center rounded-[var(--radius-md)] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            title="Sign in"
+            title={t("common.actions.signIn")}
           >
             <LogIn className="size-[18px]" />
-            <span className="sr-only">Sign in</span>
+            <span className="sr-only">{t("common.actions.signIn")}</span>
           </Link>
         )}
       </div>

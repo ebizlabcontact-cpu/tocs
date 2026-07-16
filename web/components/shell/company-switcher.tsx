@@ -4,6 +4,7 @@ import * as React from "react"
 import { Check, ChevronsUpDown, Building2 } from "lucide-react"
 import { useCompany } from "@/components/company-context"
 import { cn } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 export function CompanySwitcher() {
   const { companies, selected, setCompany, isSuperAdmin } = useCompany()
@@ -38,7 +39,7 @@ export function CompanySwitcher() {
 
       {open && (
         <div className="absolute left-0 top-11 z-50 w-64 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-popover p-1.5 shadow-[var(--shadow-lifted)] animate-fade-in">
-          <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Operating scope</p>
+          <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{t("shell.company.scopeLabel")}</p>
           {visible.map((c) => (
             <button
               key={c.id}
@@ -62,8 +63,7 @@ export function CompanySwitcher() {
             </button>
           ))}
           <p className="px-2 pb-1 pt-2 text-[11px] leading-relaxed text-muted-foreground">
-            Sets operating, permission, write, and API scope. Changing operating scope changes the accessible formula
-            set.
+            {t("shell.company.scopeNote")}
           </p>
         </div>
       )}
