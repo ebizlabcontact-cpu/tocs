@@ -37,7 +37,7 @@ export const en = {
   },
   shell: {
     nav: {
-      sectionLabel: "Operations Hub",
+      sectionLabel: "Operations",
       dashboard: "Dashboard",
       formulas: "Formulas",
       items: "Items",
