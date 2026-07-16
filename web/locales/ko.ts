@@ -194,7 +194,7 @@ export const ko = {
       },
       sort: {
         recent: "최신순",
-        highestProfit: "예상 이익 높은순",
+        highestProfit: "실현 이익 높은순",
         largestValue: "거래액 높은순",
       },
       view: {
@@ -221,7 +221,7 @@ export const ko = {
         import: "수입",
         export: "수출",
         domestic: "내수",
-        triangular: "삼각",
+        triangular: "삼각무역",
       },
       relativeTime: {
         today: "오늘",
