@@ -17,6 +17,7 @@ import { formatCurrency, formatNumber, cn } from "@/lib/utils"
 import { Field, Input } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
+import { t } from "@/lib/i18n"
 
 /**
  * Version Trigger UI Expansion (P1 Feature 3). Exposes all Formula-detail
@@ -52,19 +53,19 @@ export function VersionTriggerFieldsPanel({
 
       <div className="space-y-3">
         {/* A — Formula Quantity & Sell Price */}
-        <NestedDisclosure title="Simulation — Quantity & Sell Price" defaultOpen>
+        <NestedDisclosure title={t("formulas.detail.versions.simulation")} defaultOpen>
           <FormulaEditSimulation formula={formula} hidePreviewNote />
         </NestedDisclosure>
 
         {/* B — Exchange Rates (cross-border only) */}
         {isCrossBorder && (
-          <NestedDisclosure title="Exchange Rates">
+          <NestedDisclosure title={t("formulas.detail.versions.exchangeRates")}>
             <FxVersionTriggerSection formula={formula} />
           </NestedDisclosure>
         )}
 
         {/* C — Logistics Cost */}
-        <NestedDisclosure title="Logistics Cost Rollup">
+        <NestedDisclosure title={t("formulas.detail.versions.logisticsRollup")}>
           <LogisticsCostVersionTriggerSection formula={formula} />
         </NestedDisclosure>
 

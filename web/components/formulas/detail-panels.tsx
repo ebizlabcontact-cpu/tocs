@@ -440,12 +440,12 @@ export function CloseReadinessPanel({
 }
 
 /* ---------------- Participants ---------------- */
-const roleLabels: Record<string, string> = {
-  buyer: "Buyer",
-  seller: "Seller",
-  agent: "Agent",
-  logistics: "Logistics",
-  financier: "Financier",
+const roleLabels: Record<string, TranslationKey> = {
+  buyer: "formulas.detail.participants.buyer",
+  seller: "formulas.detail.participants.seller",
+  agent: "formulas.detail.participants.agent",
+  logistics: "formulas.detail.participants.logistics",
+  financier: "formulas.detail.participants.financier",
 }
 
 function participantMargin(p: Formula["participants"][number]): number | null {
@@ -491,19 +491,19 @@ export function ParticipantsPanel({ formula }: { formula: Formula }) {
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <StatusBadge tone="outline">{roleGroupLabel(p.roleGroup) ?? roleLabels[p.role]}</StatusBadge>
+                  <StatusBadge tone="outline">{roleGroupLabel(p.roleGroup) ?? (roleLabels[p.role] ? t(roleLabels[p.role]) : capitalize(p.role))}</StatusBadge>
                   {(p.isStart || p.isEnd) && (
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      {p.isStart ? "Start" : "End"}
+                      {p.isStart ? t("formulas.detail.participants.start") : t("formulas.detail.participants.end")}
                     </span>
                   )}
                 </div>
               </div>
               <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <ParticipantStat label="Quantity" value={p.quantity != null ? formatNumber(p.quantity) : "—"} />
-                <ParticipantStat label="Margin" value={margin != null ? formatCurrency(margin) : "—"} tone={margin != null && margin > 0 ? "pos" : undefined} />
-                <ParticipantStat label="Buy Unit Price" value={buy ? formatCurrency(buy) : "—"} />
-                <ParticipantStat label="Sell Unit Price" value={sell ? formatCurrency(sell) : "—"} />
+                <ParticipantStat label={t("formulas.detail.participants.quantity")} value={p.quantity != null ? formatNumber(p.quantity) : "—"} />
+                <ParticipantStat label={t("formulas.detail.participants.margin")} value={margin != null ? formatCurrency(margin) : "—"} tone={margin != null && margin > 0 ? "pos" : undefined} />
+                <ParticipantStat label={t("formulas.detail.participants.buyUnitPrice")} value={buy ? formatCurrency(buy) : "—"} />
+                <ParticipantStat label={t("formulas.detail.participants.sellUnitPrice")} value={sell ? formatCurrency(sell) : "—"} />
               </dl>
             </div>
           )
@@ -543,12 +543,12 @@ export function ParticipantsPanel({ formula }: { formula: Formula }) {
                     <span className="font-medium text-foreground">{p.company}</span>
                     {(p.isStart || p.isEnd) && (
                       <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {p.isStart ? "Start" : "End"}
+                        {p.isStart ? t("formulas.detail.participants.start") : t("formulas.detail.participants.end")}
                       </span>
                     )}
                   </td>
                   <td className="px-3 py-3">
-                    <StatusBadge tone="outline">{roleGroupLabel(p.roleGroup) ?? roleLabels[p.role]}</StatusBadge>
+                    <StatusBadge tone="outline">{roleGroupLabel(p.roleGroup) ?? (roleLabels[p.role] ? t(roleLabels[p.role]) : capitalize(p.role))}</StatusBadge>
                   </td>
                   <td className="px-3 py-3 text-muted-foreground">
                     {p.natureGroup ? capitalize(p.natureGroup) : p.nature ?? "—"}
@@ -600,39 +600,39 @@ function capitalize(s: string) {
 
 function roleGroupLabel(rg?: string) {
   if (!rg) return undefined
-  const map: Record<string, string> = {
-    supplier: "Supplier",
-    buyer: "Buyer",
-    carrier: "Carrier",
-    financial: "Financial",
-    other: "Other",
+  const map: Record<string, TranslationKey> = {
+    supplier: "formulas.detail.participants.supplier",
+    buyer: "formulas.detail.participants.buyer",
+    carrier: "formulas.detail.participants.carrier",
+    financial: "formulas.detail.participants.financial",
+    other: "formulas.detail.participants.other",
   }
-  return map[rg] ?? capitalize(rg)
+  return map[rg] ? t(map[rg]) : capitalize(rg)
 }
 
 /* ---------------- Participant Confirmed KPI (P1 Feature 1) ---------------- */
 
-const kpiRoleLabels: Record<string, string> = {
-  supplier: "Supplier",
-  buyer: "Buyer",
-  carrier: "Carrier",
-  financial: "Financial",
-  other: "Other",
-  seller: "Seller",
-  agent: "Agent",
-  logistics: "Logistics",
-  financier: "Financier",
+const kpiRoleLabels: Record<string, TranslationKey> = {
+  supplier: "formulas.detail.participants.supplier",
+  buyer: "formulas.detail.participants.buyer",
+  carrier: "formulas.detail.participants.carrier",
+  financial: "formulas.detail.participants.financial",
+  other: "formulas.detail.participants.other",
+  seller: "formulas.detail.participants.seller",
+  agent: "formulas.detail.participants.agent",
+  logistics: "formulas.detail.participants.logistics",
+  financier: "formulas.detail.participants.financier",
 }
 
 /** P1-2 column definitions for the KPI explainer + header tooltips. */
-const KPI_COLUMN_HELP: Record<string, string> = {
-  confirmedIn: "Sum of confirmed (non-canceled) inbound payment records for this participant. Cash actually received.",
-  confirmedOut: "Sum of confirmed outbound payment records. Cash actually paid.",
-  scheduledIn: "Sum of inbound payment schedule amounts. Planned receipts, not yet cash.",
-  scheduledOut: "Sum of outbound payment schedule amounts. Planned disbursements.",
-  receivable: "Scheduled In − Confirmed In. Outstanding amount still expected to be received.",
-  payable: "Scheduled Out − Confirmed Out. Outstanding amount still to be paid.",
-  confirmedNet: "Confirmed In − Confirmed Out. Realized cash position for this participant.",
+const KPI_COLUMN_HELP: Record<string, TranslationKey> = {
+  confirmedIn: "formulas.detail.participants.confirmedInHelp",
+  confirmedOut: "formulas.detail.participants.confirmedOutHelp",
+  scheduledIn: "formulas.detail.participants.scheduledInHelp",
+  scheduledOut: "formulas.detail.participants.scheduledOutHelp",
+  receivable: "formulas.detail.participants.receivableHelp",
+  payable: "formulas.detail.participants.payableHelp",
+  confirmedNet: "formulas.detail.participants.confirmedNetHelp",
 }
 
 /**
@@ -750,7 +750,7 @@ export function ParticipantConfirmedKpiPanel({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">{r.companyName}</p>
                   </div>
-                  <StatusBadge tone="outline">{kpiRoleLabels[r.roleGroup] ?? capitalize(r.roleGroup)}</StatusBadge>
+                  <StatusBadge tone="outline">{kpiRoleLabels[r.roleGroup] ? t(kpiRoleLabels[r.roleGroup]) : capitalize(r.roleGroup)}</StatusBadge>
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   <KpiStat label="Confirmed In" value={formatCurrency(r.confirmedIn)} />
@@ -779,13 +779,13 @@ export function ParticipantConfirmedKpiPanel({
                   <th scope="col" className="px-3 py-2.5 text-center font-medium">Seq</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Company</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Role</th>
-                  <KpiHeaderCell label="Confirmed In" help={KPI_COLUMN_HELP.confirmedIn} />
-                  <KpiHeaderCell label="Confirmed Out" help={KPI_COLUMN_HELP.confirmedOut} />
-                  <KpiHeaderCell label="Scheduled In" help={KPI_COLUMN_HELP.scheduledIn} muted />
-                  <KpiHeaderCell label="Scheduled Out" help={KPI_COLUMN_HELP.scheduledOut} muted />
-                  <KpiHeaderCell label="Receivable" help={KPI_COLUMN_HELP.receivable} />
-                  <KpiHeaderCell label="Payable" help={KPI_COLUMN_HELP.payable} />
-                  <KpiHeaderCell label="Confirmed Net" help={KPI_COLUMN_HELP.confirmedNet} />
+                  <KpiHeaderCell label={t("formulas.detail.participants.confirmedIn")} help={t(KPI_COLUMN_HELP.confirmedIn)} />
+                  <KpiHeaderCell label={t("formulas.detail.participants.confirmedOut")} help={t(KPI_COLUMN_HELP.confirmedOut)} />
+                  <KpiHeaderCell label={t("formulas.detail.participants.scheduledIn")} help={t(KPI_COLUMN_HELP.scheduledIn)} muted />
+                  <KpiHeaderCell label={t("formulas.detail.participants.scheduledOut")} help={t(KPI_COLUMN_HELP.scheduledOut)} muted />
+                  <KpiHeaderCell label={t("formulas.detail.participants.receivable")} help={t(KPI_COLUMN_HELP.receivable)} />
+                  <KpiHeaderCell label={t("formulas.detail.participants.payable")} help={t(KPI_COLUMN_HELP.payable)} />
+                  <KpiHeaderCell label={t("formulas.detail.participants.confirmedNet")} help={t(KPI_COLUMN_HELP.confirmedNet)} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -798,7 +798,7 @@ export function ParticipantConfirmedKpiPanel({
                     </td>
                     <td className="px-3 py-3 font-medium text-foreground">{r.companyName}</td>
                     <td className="px-3 py-3">
-                      <StatusBadge tone="outline">{kpiRoleLabels[r.roleGroup] ?? capitalize(r.roleGroup)}</StatusBadge>
+                      <StatusBadge tone="outline">{kpiRoleLabels[r.roleGroup] ? t(kpiRoleLabels[r.roleGroup]) : capitalize(r.roleGroup)}</StatusBadge>
                     </td>
                     <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">{formatCurrency(r.confirmedIn)}</td>
                     <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">{formatCurrency(r.confirmedOut)}</td>
@@ -867,19 +867,19 @@ function KpiStat({
 
 /* ---------------- Payment Schedules (Tier 1 / planned) ---------------- */
 export function SchedulePanel({ formula }: { formula: Formula }) {
-  if (formula.schedule.length === 0) return <SectionEmpty label="No payment schedule yet." />
+  if (formula.schedule.length === 0) return <SectionEmpty label={t("formulas.detail.payments.scheduleEmpty")} />
   return (
     <div className="overflow-hidden rounded-lg border border-border">
       <table className="w-full text-sm">
         <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
-            <th className="px-4 py-2.5 font-medium">Type</th>
-            <th className="px-4 py-2.5 font-medium">Company</th>
-            <th className="px-4 py-2.5 font-medium">Scheduled Date</th>
-            <th className="px-4 py-2.5 text-right font-medium">Planned</th>
-            <th className="px-4 py-2.5 text-right font-medium">Linked Actual</th>
-            <th className="px-4 py-2.5 text-right font-medium">Remaining</th>
-            <th className="px-4 py-2.5 font-medium">Status</th>
+            <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.type")}</th>
+            <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.company")}</th>
+            <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.scheduledDate")}</th>
+            <th className="px-4 py-2.5 text-right font-medium">{t("formulas.detail.payments.planned")}</th>
+            <th className="px-4 py-2.5 text-right font-medium">{t("formulas.detail.payments.linkedActual")}</th>
+            <th className="px-4 py-2.5 text-right font-medium">{t("formulas.detail.payments.remaining")}</th>
+            <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.status")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -900,7 +900,7 @@ export function SchedulePanel({ formula }: { formula: Formula }) {
                     ) : (
                       <ArrowUpRight className="size-4" />
                     )}
-                    {s.type === "receipt" ? "Receipt" : "Payment"}
+                    {s.type === "receipt" ? t("formulas.detail.payments.receipt") : t("formulas.detail.payments.payment")}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-foreground">{s.counterparty}</td>
@@ -937,7 +937,7 @@ export function PaymentRecordsPanel({
   onCancelRecord?: (recordId: string) => void
 }) {
   const records = formula.records ?? []
-  if (records.length === 0) return <SectionEmpty label="No actual payment records yet." />
+  if (records.length === 0) return <SectionEmpty label={t("formulas.detail.payments.recordsEmpty")} />
   const active = records.filter((r) => !r.canceled)
   const canceled = records.filter((r) => r.canceled)
   return (
@@ -945,13 +945,13 @@ export function PaymentRecordsPanel({
       <table className="w-full text-sm">
         <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
-            <th className="px-4 py-2.5 font-medium">Type</th>
-            <th className="px-4 py-2.5 font-medium">Company</th>
-            <th className="px-4 py-2.5 font-medium">Actual Date</th>
-            <th className="px-4 py-2.5 font-medium">Linked Schedule</th>
-            <th className="px-4 py-2.5 text-right font-medium">Actual Amount</th>
-            <th className="px-4 py-2.5 font-medium">State</th>
-            {onCancelRecord && <th className="px-4 py-2.5 font-medium">Actions</th>}
+            <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.type")}</th>
+            <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.company")}</th>
+            <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.actualDate")}</th>
+            <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.linkedSchedule")}</th>
+            <th className="px-4 py-2.5 text-right font-medium">{t("formulas.detail.payments.actualAmount")}</th>
+            <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.state")}</th>
+            {onCancelRecord && <th className="px-4 py-2.5 font-medium">{t("formulas.detail.payments.actions")}</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -965,7 +965,7 @@ export function PaymentRecordsPanel({
                   )}
                 >
                   {r.type === "receipt" ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}
-                  {r.type === "receipt" ? "Receipt" : "Payment"}
+                  {r.type === "receipt" ? t("formulas.detail.payments.receipt") : t("formulas.detail.payments.payment")}
                 </span>
               </td>
               <td className="px-4 py-3 text-foreground">{r.counterparty}</td>
@@ -977,7 +977,7 @@ export function PaymentRecordsPanel({
                     {r.scheduleId}
                   </span>
                 ) : (
-                  <span className="text-xs text-warning">Unmatched</span>
+                  <span className="text-xs text-warning">{t("formulas.detail.payments.unmatched")}</span>
                 )}
               </td>
               <td
@@ -991,11 +991,11 @@ export function PaymentRecordsPanel({
               <td className="px-4 py-3">
                 {r.canceled ? (
                   <div className="flex flex-col gap-0.5">
-                    <StatusBadge tone="danger">Canceled</StatusBadge>
+                    <StatusBadge tone="danger">{t("formulas.detail.payments.canceled")}</StatusBadge>
                     {r.cancelReason && <span className="text-[11px] text-muted-foreground">{r.cancelReason}</span>}
                   </div>
                 ) : (
-                  <StatusBadge tone="success">Confirmed</StatusBadge>
+                  <StatusBadge tone="success">{t("formulas.detail.payments.confirmed")}</StatusBadge>
                 )}
               </td>
               {onCancelRecord && (
@@ -1007,7 +1007,7 @@ export function PaymentRecordsPanel({
                       className="inline-flex items-center gap-1 text-xs text-danger hover:underline"
                     >
                       <Ban className="size-3.5" />
-                      Cancel
+                      {t("formulas.detail.payments.cancel")}
                     </button>
                   )}
                 </td>
@@ -1041,7 +1041,7 @@ export function PaymentsPanel({
 
       <section>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Payment Schedules · Planned
+          {t("formulas.detail.payments.schedulesPlanned")}
         </p>
         <SchedulePanel formula={formula} />
       </section>
@@ -1049,9 +1049,9 @@ export function PaymentsPanel({
       <section>
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Payment Records · Actual
+            {t("formulas.detail.payments.recordsActual")}
           </p>
-          <span className="text-[11px] text-muted-foreground">Canceled records are shown but excluded from totals.</span>
+          <span className="text-[11px] text-muted-foreground">{t("formulas.detail.payments.canceledExcluded")}</span>
         </div>
         <PaymentRecordsPanel formula={formula} canWrite={canWrite} onCancelRecord={onCancelRecord} />
       </section>

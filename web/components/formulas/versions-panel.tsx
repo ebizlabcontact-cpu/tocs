@@ -16,6 +16,7 @@ import { tradeTypeConfig } from "@/lib/status"
 import { formatCurrency, formatDate, formatNumber, cn } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/badge"
 import { SidePanel } from "@/components/ui/side-panel"
+import { t } from "@/lib/i18n"
 
 /** A version entry rendered in the snapshot preview. */
 type SnapshotVersion = VersionEntry
@@ -114,7 +115,7 @@ export function VersionsPanel({
   return (
     <div className="space-y-5">
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Version History</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.versions.historyTitle")}</p>
         <div className="space-y-3">
           {versions.map((v, i) => (
             <button
@@ -177,13 +178,13 @@ export function VersionsPanel({
             </div>
 
             <div className="rounded-lg border border-border bg-card px-4">
-              <MetaRow label="Version" value={`v${active.versionNo}`} mono border />
+              <MetaRow label={t("formulas.detail.versions.version")} value={`v${active.versionNo}`} mono border />
               <MetaRow
-                label="Created At"
+                label={t("formulas.detail.versions.createdAt")}
                 value={formatDate(active.createdAt, { month: "short", day: "numeric", year: "numeric" })}
                 border
               />
-              <MetaRow label="Created By" value={active.createdBy} />
+              <MetaRow label={t("formulas.detail.versions.createdBy")} value={active.createdBy} />
             </div>
 
             {/* Change comparison (before → after), grouped by version-trigger (P0-3) */}
@@ -193,32 +194,32 @@ export function VersionsPanel({
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Snapshot</p>
               <div className="space-y-2">
-                <SnapshotSection title="Basic Information">
-                  <SnapItem label="Company" value={company?.name ?? "—"} />
-                  <SnapItem label="Item" value={formula.item} />
-                  <SnapItem label="Trade Type" value={tradeTypeConfig[formula.tradeType].label} />
-                  <SnapItem label="Quantity" value={`${formatNumber(base.quantity)} ${formula.unit}`} />
+                <SnapshotSection title={t("formulas.detail.versions.basicInfo")}>
+                  <SnapItem label={t("formulas.detail.versions.company")} value={company?.name ?? "—"} />
+                  <SnapItem label={t("formulas.detail.versions.item")} value={formula.item} />
+                  <SnapItem label={t("formulas.detail.versions.tradeType")} value={tradeTypeConfig[formula.tradeType].label} />
+                  <SnapItem label={t("formulas.detail.versions.quantity")} value={`${formatNumber(base.quantity)} ${formula.unit}`} />
                 </SnapshotSection>
 
-                <SnapshotSection title="Trade Chain">
-                  <SnapItem label="Parties" value={`${chain.length}`} />
+                <SnapshotSection title={t("formulas.detail.versions.tradeChain")}>
+                  <SnapItem label={t("formulas.detail.versions.parties")} value={`${chain.length}`} />
                   <p className="text-xs leading-relaxed text-muted-foreground">
                     {chain.map((p) => p.company).join(" → ")}
                   </p>
                 </SnapshotSection>
 
-                <SnapshotSection title="Settlement Terms">
-                  <SnapItem label="Scheduled Receipts" value={formatCurrency(fin.scheduledReceipts)} />
-                  <SnapItem label="Actual Receipts" value={formatCurrency(fin.actualReceipts)} />
-                  <SnapItem label="Receivable" value={formatCurrency(fin.receivable)} />
-                  <SnapItem label="Scheduled Payments" value={formatCurrency(fin.scheduledPayments)} />
-                  <SnapItem label="Actual Payments" value={formatCurrency(fin.actualPayments)} />
-                  <SnapItem label="Payable" value={formatCurrency(fin.payable)} />
-                  <SnapItem label="Share" value={formatCurrency(fin.share)} />
+                <SnapshotSection title={t("formulas.detail.versions.settlementTerms")}>
+                  <SnapItem label={t("formulas.detail.versions.scheduledReceipts")} value={formatCurrency(fin.scheduledReceipts)} />
+                  <SnapItem label={t("formulas.detail.versions.actualReceipts")} value={formatCurrency(fin.actualReceipts)} />
+                  <SnapItem label={t("formulas.detail.versions.receivable")} value={formatCurrency(fin.receivable)} />
+                  <SnapItem label={t("formulas.detail.versions.scheduledPayments")} value={formatCurrency(fin.scheduledPayments)} />
+                  <SnapItem label={t("formulas.detail.versions.actualPayments")} value={formatCurrency(fin.actualPayments)} />
+                  <SnapItem label={t("formulas.detail.versions.payable")} value={formatCurrency(fin.payable)} />
+                  <SnapItem label={t("formulas.detail.versions.share")} value={formatCurrency(fin.share)} />
                 </SnapshotSection>
 
-                <SnapshotSection title="Logistics">
-                  <SnapItem label="Shipment Legs" value={`${formula.logistics.length}`} />
+                <SnapshotSection title={t("formulas.detail.versions.logistics")}>
+                  <SnapItem label={t("formulas.detail.versions.shipmentLegs")} value={`${formula.logistics.length}`} />
                   {formula.logistics.length > 0 && (
                     <p className="text-xs capitalize text-muted-foreground">
                       {formula.logistics.map((l) => l.mode).join(", ")}
@@ -226,13 +227,13 @@ export function VersionsPanel({
                   )}
                 </SnapshotSection>
 
-                <SnapshotSection title={useSnap ? "Snapshot Financial Summary (Frozen)" : "Derived Financial Summary (Live)"}>
-                  <SnapItem label="Total Sell" value={formatCurrency(fin.totalSell)} />
-                  <SnapItem label="Total Buy" value={formatCurrency(fin.totalBuy)} />
-                  <SnapItem label="Costs" value={formatCurrency(fin.cost)} />
-                  <SnapItem label="Share" value={formatCurrency(fin.share)} />
-                  <SnapItem label="Expected Net Profit" value={formatCurrency(fin.expectedProfit)} strong />
-                  <SnapItem label="Realized Net Profit" value={formatCurrency(fin.realizedProfit)} strong />
+                <SnapshotSection title={useSnap ? t("formulas.detail.versions.frozenSummary") : t("formulas.detail.versions.liveSummary")}>
+                  <SnapItem label={t("formulas.detail.versions.totalSell")} value={formatCurrency(fin.totalSell)} />
+                  <SnapItem label={t("formulas.detail.versions.totalBuy")} value={formatCurrency(fin.totalBuy)} />
+                  <SnapItem label={t("formulas.detail.versions.costs")} value={formatCurrency(fin.cost)} />
+                  <SnapItem label={t("formulas.detail.versions.share")} value={formatCurrency(fin.share)} />
+                  <SnapItem label={t("formulas.detail.versions.expectedProfit")} value={formatCurrency(fin.expectedProfit)} strong />
+                  <SnapItem label={t("formulas.detail.versions.realizedProfit")} value={formatCurrency(fin.realizedProfit)} strong />
                   {useSnap && (
                     <p className="pt-1 text-[11px] leading-relaxed text-muted-foreground">
                       Frozen at version creation (formula_calculation_snapshots). Current live figures may differ.
