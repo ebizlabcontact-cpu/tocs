@@ -1,25 +1,26 @@
-"use client"
+"use client";
 
-import { useMemo, useState } from "react"
-import { ArrowDownLeft, ArrowUpRight, Landmark } from "lucide-react"
-import { formatCurrency, cn } from "@/lib/utils"
+import { useMemo, useState } from "react";
+import { ArrowDownLeft, ArrowUpRight, Landmark } from "lucide-react";
+import { formatCurrency, cn } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 
 /** A single planned money-flow line in a settlement scenario. */
 type ScenarioRow = {
-  label: string
-  flow: "receipt" | "payment"
+  label: string;
+  flow: "receipt" | "payment";
   /** Portion of the expected total this line represents (0–1). */
-  portion: number
+  portion: number;
   /** Portion of this line that has actually settled so far (0–1). */
-  settled: number
-}
+  settled: number;
+};
 
 type Scenario = {
-  id: string
-  label: string
-  note: string
-  build: (receipts: number, payments: number) => ScenarioRow[]
-}
+  id: string;
+  label: string;
+  note: string;
+  build: (receipts: number, payments: number) => ScenarioRow[];
+};
 
 /**
  * Demonstration-only TOCS settlement scenarios. Each scenario is a planned
@@ -29,98 +30,178 @@ type Scenario = {
 const scenarios: Scenario[] = [
   {
     id: "advance",
-    label: "Advance Payment",
-    note: "Buyer prepays part of the order before delivery.",
+    label: t("formulaWizard.scenarios.advance"),
+    note: t("formulaWizard.scenarios.advanceNote"),
     build: () => [
-      { label: "Advance receipt", flow: "receipt", portion: 0.3, settled: 1 },
-      { label: "Balance on delivery", flow: "receipt", portion: 0.7, settled: 0 },
-      { label: "Supplier payment", flow: "payment", portion: 1, settled: 1 },
+      {
+        label: t("formulaWizard.scenarios.advanceReceipt"),
+        flow: "receipt",
+        portion: 0.3,
+        settled: 1,
+      },
+      {
+        label: t("formulaWizard.scenarios.balanceDelivery"),
+        flow: "receipt",
+        portion: 0.7,
+        settled: 0,
+      },
+      {
+        label: t("formulaWizard.scenarios.supplierPayment"),
+        flow: "payment",
+        portion: 1,
+        settled: 1,
+      },
     ],
   },
   {
     id: "final",
-    label: "Final Payment",
-    note: "Whole amount settles at the end of the deal.",
+    label: t("formulaWizard.scenarios.final"),
+    note: t("formulaWizard.scenarios.finalNote"),
     build: () => [
-      { label: "Final receipt (on close)", flow: "receipt", portion: 1, settled: 0 },
-      { label: "Final payment (on close)", flow: "payment", portion: 1, settled: 0 },
+      {
+        label: t("formulaWizard.scenarios.finalReceipt"),
+        flow: "receipt",
+        portion: 1,
+        settled: 0,
+      },
+      {
+        label: t("formulaWizard.scenarios.finalPayment"),
+        flow: "payment",
+        portion: 1,
+        settled: 0,
+      },
     ],
   },
   {
     id: "credit",
-    label: "Credit Terms",
-    note: "Buyer pays on Net-30 credit while we settle the supplier now.",
+    label: t("formulaWizard.scenarios.credit"),
+    note: t("formulaWizard.scenarios.creditNote"),
     build: () => [
-      { label: "Receipt (Net-30, credit)", flow: "receipt", portion: 1, settled: 0 },
-      { label: "Supplier payment (now)", flow: "payment", portion: 1, settled: 1 },
+      {
+        label: t("formulaWizard.scenarios.creditReceipt"),
+        flow: "receipt",
+        portion: 1,
+        settled: 0,
+      },
+      {
+        label: t("formulaWizard.scenarios.supplierNow"),
+        flow: "payment",
+        portion: 1,
+        settled: 1,
+      },
     ],
   },
   {
     id: "split",
-    label: "Split Payments",
-    note: "Both sides settle across two equal installments.",
+    label: t("formulaWizard.scenarios.split"),
+    note: t("formulaWizard.scenarios.splitNote"),
     build: () => [
-      { label: "Receipt installment 1", flow: "receipt", portion: 0.5, settled: 1 },
-      { label: "Receipt installment 2", flow: "receipt", portion: 0.5, settled: 0 },
-      { label: "Payment installment 1", flow: "payment", portion: 0.5, settled: 1 },
-      { label: "Payment installment 2", flow: "payment", portion: 0.5, settled: 0 },
+      {
+        label: t("formulaWizard.scenarios.receiptInstallment1"),
+        flow: "receipt",
+        portion: 0.5,
+        settled: 1,
+      },
+      {
+        label: t("formulaWizard.scenarios.receiptInstallment2"),
+        flow: "receipt",
+        portion: 0.5,
+        settled: 0,
+      },
+      {
+        label: t("formulaWizard.scenarios.paymentInstallment1"),
+        flow: "payment",
+        portion: 0.5,
+        settled: 1,
+      },
+      {
+        label: t("formulaWizard.scenarios.paymentInstallment2"),
+        flow: "payment",
+        portion: 0.5,
+        settled: 0,
+      },
     ],
   },
   {
     id: "partial-receipt",
-    label: "Partial Receipts",
-    note: "Buyer has paid part of what they owe.",
+    label: t("formulaWizard.scenarios.partialReceipts"),
+    note: t("formulaWizard.scenarios.partialReceiptsNote"),
     build: () => [
-      { label: "Receipt (60% collected)", flow: "receipt", portion: 1, settled: 0.6 },
-      { label: "Supplier payment", flow: "payment", portion: 1, settled: 1 },
+      {
+        label: t("formulaWizard.scenarios.receiptCollected"),
+        flow: "receipt",
+        portion: 1,
+        settled: 0.6,
+      },
+      {
+        label: t("formulaWizard.scenarios.supplierPayment"),
+        flow: "payment",
+        portion: 1,
+        settled: 1,
+      },
     ],
   },
   {
     id: "partial-payment",
-    label: "Partial Payments",
-    note: "We have paid part of what we owe the supplier.",
+    label: t("formulaWizard.scenarios.partialPayments"),
+    note: t("formulaWizard.scenarios.partialPaymentsNote"),
     build: () => [
-      { label: "Receipt", flow: "receipt", portion: 1, settled: 1 },
-      { label: "Payment (60% paid)", flow: "payment", portion: 1, settled: 0.6 },
+      {
+        label: t("formulaWizard.scenarios.receipt"),
+        flow: "receipt",
+        portion: 1,
+        settled: 1,
+      },
+      {
+        label: t("formulaWizard.scenarios.paymentPaid"),
+        flow: "payment",
+        portion: 1,
+        settled: 0.6,
+      },
     ],
   },
-]
+];
 
 export function SettlementScenarios({
   expectedReceipts,
   expectedPayments,
 }: {
-  expectedReceipts: number
-  expectedPayments: number
+  expectedReceipts: number;
+  expectedPayments: number;
 }) {
-  const [activeId, setActiveId] = useState(scenarios[0].id)
-  const active = scenarios.find((s) => s.id === activeId)!
+  const [activeId, setActiveId] = useState(scenarios[0].id);
+  const active = scenarios.find((s) => s.id === activeId)!;
 
   const { rows, received, paid } = useMemo(() => {
-    const built = active.build(expectedReceipts, expectedPayments)
+    const built = active.build(expectedReceipts, expectedPayments);
     const rows = built.map((r) => {
-      const base = r.flow === "receipt" ? expectedReceipts : expectedPayments
-      const amount = Math.round(base * r.portion)
-      return { ...r, amount, settledAmount: Math.round(amount * r.settled) }
-    })
-    const received = rows.filter((r) => r.flow === "receipt").reduce((s, r) => s + r.settledAmount, 0)
-    const paid = rows.filter((r) => r.flow === "payment").reduce((s, r) => s + r.settledAmount, 0)
-    return { rows, received, paid }
-  }, [active, expectedReceipts, expectedPayments])
+      const base = r.flow === "receipt" ? expectedReceipts : expectedPayments;
+      const amount = Math.round(base * r.portion);
+      return { ...r, amount, settledAmount: Math.round(amount * r.settled) };
+    });
+    const received = rows
+      .filter((r) => r.flow === "receipt")
+      .reduce((s, r) => s + r.settledAmount, 0);
+    const paid = rows
+      .filter((r) => r.flow === "payment")
+      .reduce((s, r) => s + r.settledAmount, 0);
+    return { rows, received, paid };
+  }, [active, expectedReceipts, expectedPayments]);
 
-  const receivable = Math.max(0, expectedReceipts - received)
-  const payable = Math.max(0, expectedPayments - paid)
-  const realized = received - paid
+  const receivable = Math.max(0, expectedReceipts - received);
+  const payable = Math.max(0, expectedPayments - paid);
+  const realized = received - paid;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Landmark className="size-3.5 text-accent" />
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Settlement Scenario</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("formulaWizard.scenarios.title")}
+        </p>
       </div>
       <p className="text-xs text-muted-foreground">
-        Preview how a payment schedule eventually produces receivable, payable, and realized profit. Demonstration
-        only — nothing here creates a real payment record.
+        {t("formulaWizard.scenarios.description")}
       </p>
 
       {/* Scenario picker */}
@@ -150,10 +231,18 @@ export function SettlementScenarios({
         <table className="w-full text-sm">
           <thead className="bg-secondary/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 font-medium">Line</th>
-              <th className="px-3 py-2 text-right font-medium">Amount</th>
-              <th className="px-3 py-2 text-right font-medium">Settled</th>
-              <th className="px-3 py-2 text-right font-medium">Outstanding</th>
+              <th className="px-3 py-2 font-medium">
+                {t("formulaWizard.scenarios.line")}
+              </th>
+              <th className="px-3 py-2 text-right font-medium">
+                {t("formulaWizard.scenarios.amount")}
+              </th>
+              <th className="px-3 py-2 text-right font-medium">
+                {t("formulaWizard.scenarios.settled")}
+              </th>
+              <th className="px-3 py-2 text-right font-medium">
+                {t("formulaWizard.scenarios.outstanding")}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -191,23 +280,39 @@ export function SettlementScenarios({
 
       {/* Derived outcomes */}
       <div className="grid grid-cols-3 gap-2">
-        <Outcome label="Receivable" value={receivable} />
-        <Outcome label="Payable" value={payable} />
-        <Outcome label="Realized Profit" value={realized} tone={realized >= 0 ? "pos" : "neg"} />
+        <Outcome
+          label={t("formulaWizard.common.receivable")}
+          value={receivable}
+        />
+        <Outcome label={t("formulaWizard.common.payable")} value={payable} />
+        <Outcome
+          label={t("formulaWizard.common.realizedProfit")}
+          value={realized}
+          tone={realized >= 0 ? "pos" : "neg"}
+        />
       </div>
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Receivables and payables originate from payment schedules. Realized profit is derived from actual receipts and
-        payments.
+        {t("formulaWizard.scenarios.help")}
       </p>
     </div>
-  )
+  );
 }
 
-function Outcome({ label, value, tone }: { label: string; value: number; tone?: "pos" | "neg" }) {
+function Outcome({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "pos" | "neg";
+}) {
   return (
     <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
       <p
         className={cn(
           "mt-0.5 font-mono text-sm font-semibold tabular-nums",
@@ -219,5 +324,5 @@ function Outcome({ label, value, tone }: { label: string; value: number; tone?: 
         {formatCurrency(value)}
       </p>
     </div>
-  )
+  );
 }
