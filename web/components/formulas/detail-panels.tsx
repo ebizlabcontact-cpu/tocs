@@ -41,6 +41,7 @@ import {
   formulaLogisticsStatusConfig,
   scheduleStatusConfig,
   statusConfig,
+  formulaStatusLabel,
   tradeStatusConfig,
   tradeTypeConfig,
 } from "@/lib/status"
@@ -349,8 +350,10 @@ export function CloseBlockingList({
                   onClick={() => onNavigate(hint.tab)}
                 >
                   {hint.tab === "overview"
-                    ? t("formulas.detail.closeReadiness.fixOverview")
-                    : t("formulas.detail.closeReadiness.openTab", { tab: t(`formulas.detail.tabs.${hint.tab}` as TranslationKey) })}
+              ? t("formulas.detail.closeReadiness.fixOverview")
+              : t("formulas.detail.closeReadiness.openTab", {
+                  tab: t(`formulas.detail.header.${hint.tab}` as TranslationKey),
+                })}
                 </Button>
               )}
             </li>
@@ -1030,7 +1033,9 @@ export function PaymentsPanel({
   return (
     <div className="space-y-5">
       <section>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment Summary</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("formulas.detail.overview.paymentSummary")}
+        </p>
         <PaymentSummary formula={formula} showRates />
       </section>
 
@@ -1771,7 +1776,7 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
         <div className="rounded-lg border border-border bg-card px-3 py-2.5">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.status")}</p>
           <div className="mt-1.5">
-            <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+            <StatusBadge tone={status.tone}>{formulaStatusLabel(formula.status)}</StatusBadge>
           </div>
         </div>
         <div className="rounded-lg border border-border bg-card px-3 py-2.5">
@@ -1801,34 +1806,36 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
       <FormulaChainView formula={formula} />
 
       <div>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payment Summary</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("formulas.detail.overview.paymentSummary")}
+        </p>
         <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
-          Planned receipts/payments versus actual records, and what remains outstanding.
+          {t("formulas.detail.overview.paymentSummaryDescription")}
         </p>
         <PaymentSummary formula={formula} showProfit showRates />
       </div>
 
       <div>
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Profit Transparency
+          {t("formulas.detail.overview.profitTransparency")}
         </p>
         <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
-          Expected profit is derived from formula inputs. Realized profit is derived from actual receipts and payments.
+          {t("formulas.detail.overview.profitTransparencyDescription")}
         </p>
         <CalculationBreakdown formula={formula} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <OverviewStat label="Participants" value={`${formula.participants.length}`} />
-        <OverviewStat label="Schedule Items" value={`${formula.schedule.length}`} />
-        <OverviewStat label="Invoices" value={`${formula.invoices.length}`} />
-        <OverviewStat label="Logistics Legs" value={`${formula.logistics.length}`} />
+        <OverviewStat label={t("formulas.detail.overview.participants")} value={`${formula.participants.length}`} />
+        <OverviewStat label={t("formulas.detail.overview.scheduleItems")} value={`${formula.schedule.length}`} />
+        <OverviewStat label={t("formulas.detail.overview.invoices")} value={`${formula.invoices.length}`} />
+        <OverviewStat label={t("formulas.detail.overview.logisticsLegs")} value={`${formula.logistics.length}`} />
       </div>
 
       {formula.specMemo && (
         <div className="rounded-lg border border-border bg-card px-4 py-3">
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Spec / Quality Memo
+            {t("formulas.detail.overview.specMemo")}
           </p>
           <p className="text-sm leading-relaxed text-foreground">{formula.specMemo}</p>
         </div>

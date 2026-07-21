@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Field, Input, Select } from "@/components/ui/field"
 import { Tooltip } from "@/components/ui/tooltip"
 import { formatCurrency, cn } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 import {
   addSettlementNotePreview,
   addPaymentSchedule,
@@ -37,8 +38,8 @@ export function MetadataWorkflowActions() {
 
   if (!caps.canEditMetadata) {
     return (
-      <Tooltip content="Requires MANAGER+ role and an open formula.">
-        <span className="mb-4 inline-block text-xs text-muted-foreground opacity-60">Metadata edit unavailable</span>
+      <Tooltip content={t("formulas.detail.metadata.unavailableTooltip")}>
+        <span className="mb-4 inline-block text-xs text-muted-foreground opacity-60">{t("formulas.detail.metadata.unavailable")}</span>
       </Tooltip>
     )
   }
@@ -47,7 +48,7 @@ export function MetadataWorkflowActions() {
     <>
       <Button variant="outline" size="sm" className="mb-4 gap-1.5" onClick={() => setOpen(true)}>
         <Pencil className="size-3.5" />
-        Edit metadata (Preview)
+        {t("formulas.detail.metadata.editPreview")}
       </Button>
       <MetadataModal open={open} onClose={() => setOpen(false)} formula={formula} applyPreview={applyPreview} />
     </>
@@ -78,28 +79,28 @@ function MetadataModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Edit Formula Metadata"
-      description="PATCH /formulas/:id — non-version fields only (mock preview)."
+      title={t("formulas.detail.metadata.title")}
+      description={t("formulas.detail.metadata.description")}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("formulas.detail.metadata.cancel")}
           </Button>
           <Button variant="accent" onClick={save}>
-            Save (Preview)
+            {t("formulas.detail.metadata.savePreview")}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <MockPreviewNote />
-        <Field label="Unit">
+        <Field label={t("formulas.detail.metadata.unit")}>
           <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
         </Field>
-        <Field label="Spec / Quality memo (content)">
+        <Field label={t("formulas.detail.metadata.specMemo")}>
           <Input value={specMemo} onChange={(e) => setSpecMemo(e.target.value)} />
         </Field>
-        <Field label="Internal note">
+        <Field label={t("formulas.detail.metadata.internalNote")}>
           <Input value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
       </div>

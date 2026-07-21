@@ -1,5 +1,6 @@
 import type { Formula, InvoiceRecord, InvoiceStatus, PaymentScheduleItem, VersionEntry } from "./types"
 import { formatCurrency } from "./utils"
+import { t } from "./i18n"
 
 /**
  * Canonical Formula derivation adapter (P0-4).
@@ -444,29 +445,20 @@ export type StatusItem = {
   done: boolean
 }
 
-const cashLabel: Record<string, string> = {
-  pending: "Pending",
-  partial: "Partial",
-  completed: "Completed",
-  canceled: "Canceled",
+const statusValueLabel: Record<string, () => string> = {
+  pending: () => t("formulas.detail.sixStatus.pending"),
+  partial: () => t("formulas.detail.sixStatus.partial"),
+  completed: () => t("formulas.detail.sixStatus.completed"),
+  canceled: () => t("status.canceled"),
+  not_started: () => t("formulas.detail.sixStatus.notStarted"),
+  in_transit: () => t("formulas.detail.sixStatus.inTransit"),
+  delivered: () => t("formulas.detail.sixStatus.delivered"),
+  draft: () => t("formulas.detail.sixStatus.draft"),
+  confirmed: () => t("formulas.detail.sixStatus.confirmed"),
 }
-const logisticsLabel: Record<string, string> = {
-  not_started: "Not Started",
-  in_transit: "In Transit",
-  delivered: "Delivered",
-  canceled: "Canceled",
-}
-const deliveryLabel: Record<string, string> = {
-  pending: "Pending",
-  in_transit: "In Transit",
-  delivered: "Delivered",
-  canceled: "Canceled",
-}
-const tradeLabel: Record<string, string> = {
-  draft: "Draft",
-  confirmed: "Confirmed",
-  completed: "Completed",
-  canceled: "Canceled",
+
+function localizedStatusValue(value: string) {
+  return statusValueLabel[value]?.() ?? value
 }
 
 /** True when the Formula has been canceled (preview or backend six CANCELED statuses). */
@@ -476,55 +468,39 @@ export function isFormulaCanceled(f: Formula): boolean {
 
 /** The six canonical Formula statuses, in display order. */
 export function sixStatuses(f: Formula): StatusItem[] {
+  const labels = {
+    trade: t("formulas.detail.sixStatus.trade"),
+    cashIn: t("formulas.detail.sixStatus.cashIn"),
+    cashOut: t("formulas.detail.sixStatus.cashOut"),
+    invoice: t("formulas.detail.sixStatus.invoice"),
+    logistics: t("formulas.detail.sixStatus.logistics"),
+    delivery: t("formulas.detail.sixStatus.delivery"),
+  }
   if (isFormulaCanceled(f)) {
+    const canceled = t("status.canceled")
     return [
-      { key: "trade", label: "Trade", value: tradeLabel[f.tradeStatus] ?? "Canceled", done: false },
-      { key: "cashIn", label: "Cash In", value: cashLabel[f.cashInStatus] ?? "Canceled", done: false },
-      { key: "cashOut", label: "Cash Out", value: cashLabel[f.cashOutStatus] ?? "Canceled", done: false },
-      { key: "invoice", label: "Invoice", value: "Canceled", done: false },
-      { key: "logistics", label: "Logistics", value: logisticsLabel[f.logisticsStatus] ?? "Canceled", done: false },
-      { key: "delivery", label: "Delivery", value: deliveryLabel[f.deliveryStatus] ?? "Canceled", done: false },
+      { key: "trade", label: labels.trade, value: canceled, done: false },
+      { key: "cashIn", label: labels.cashIn, value: canceled, done: false },
+      { key: "cashOut", label: labels.cashOut, value: canceled, done: false },
+      { key: "invoice", label: labels.invoice, value: canceled, done: false },
+      { key: "logistics", label: labels.logistics, value: canceled, done: false },
+      { key: "delivery", label: labels.delivery, value: canceled, done: false },
     ]
   }
 
   const inv = deriveInvoiceClose(f)
   const invoiceValue = inv.done
-    ? "Matched"
+    ? t("formulas.detail.sixStatus.matched")
     : inv.activeCount === 0
-      ? "Missing"
-      : `${inv.matchedCount}/${inv.activeCount} Matched`
+      ? t("formulas.detail.sixStatus.missing")
+      : t("formulas.detail.sixStatus.matchedCount", { matched: inv.matchedCount, total: inv.activeCount })
   return [
-    {
-      key: "trade",
-      label: "Trade",
-      value: tradeLabel[f.tradeStatus] ?? f.tradeStatus,
-      done: f.tradeStatus === "completed",
-    },
-    {
-      key: "cashIn",
-      label: "Cash In",
-      value: cashLabel[f.cashInStatus] ?? f.cashInStatus,
-      done: f.cashInStatus === "completed",
-    },
-    {
-      key: "cashOut",
-      label: "Cash Out",
-      value: cashLabel[f.cashOutStatus] ?? f.cashOutStatus,
-      done: f.cashOutStatus === "completed",
-    },
-    { key: "invoice", label: "Invoice", value: invoiceValue, done: inv.done },
-    {
-      key: "logistics",
-      label: "Logistics",
-      value: logisticsLabel[f.logisticsStatus] ?? f.logisticsStatus,
-      done: f.logisticsStatus === "delivered",
-    },
-    {
-      key: "delivery",
-      label: "Delivery",
-      value: deliveryLabel[f.deliveryStatus] ?? f.deliveryStatus,
-      done: f.deliveryStatus === "delivered",
-    },
+    { key: "trade", label: labels.trade, value: localizedStatusValue(f.tradeStatus), done: f.tradeStatus === "completed" },
+    { key: "cashIn", label: labels.cashIn, value: localizedStatusValue(f.cashInStatus), done: f.cashInStatus === "completed" },
+    { key: "cashOut", label: labels.cashOut, value: localizedStatusValue(f.cashOutStatus), done: f.cashOutStatus === "completed" },
+    { key: "invoice", label: labels.invoice, value: invoiceValue, done: inv.done },
+    { key: "logistics", label: labels.logistics, value: localizedStatusValue(f.logisticsStatus), done: f.logisticsStatus === "delivered" },
+    { key: "delivery", label: labels.delivery, value: localizedStatusValue(f.deliveryStatus), done: f.deliveryStatus === "delivered" },
   ]
 }
 

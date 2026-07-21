@@ -3,7 +3,7 @@ import { formatCurrency, formatNumber, cn } from "@/lib/utils"
 import { deriveChainFinancials } from "@/lib/derive"
 import { chainOrderOf } from "@/lib/formula-math"
 import { ArrowRight } from "lucide-react"
-import { t } from "@/lib/i18n"
+import { t, type TranslationKey } from "@/lib/i18n"
 
 const roleTone: Record<Participant["role"], string> = {
   seller: "bg-accent-soft text-accent border-accent/30",
@@ -11,6 +11,10 @@ const roleTone: Record<Participant["role"], string> = {
   agent: "bg-secondary text-foreground border-border",
   logistics: "bg-warning-soft text-warning border-warning/30",
   financier: "bg-success-soft text-success border-success/30",
+}
+
+function participantRoleLabel(role: Participant["role"]) {
+  return t(`formulas.detail.overview.participantRoles.${role}` as TranslationKey)
 }
 
 function marginOf(p: Participant): number | null {
@@ -67,7 +71,7 @@ export function FormulaChainView({ formula }: { formula: Formula }) {
                     roleTone[p.role],
                   )}
                 >
-                  {p.role}
+                  {participantRoleLabel(p.role)}
                 </span>
               </div>
               <p className="mt-2 truncate text-sm font-semibold text-foreground" title={p.company}>
@@ -114,7 +118,7 @@ export function FormulaChainView({ formula }: { formula: Formula }) {
                       <span className="ml-1 text-xs text-muted-foreground">· {p.nature}</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 capitalize text-muted-foreground">{p.role}</td>
+                  <td className="px-3 py-2 capitalize text-muted-foreground">{participantRoleLabel(p.role)}</td>
                   <td className="px-3 py-2 text-right font-mono text-xs">
                     {p.quantity != null ? formatNumber(p.quantity) : "—"}
                   </td>

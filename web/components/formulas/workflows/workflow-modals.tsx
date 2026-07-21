@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button"
 import { Field, Input, Select } from "@/components/ui/field"
 import { Tooltip } from "@/components/ui/tooltip"
 import { formatCurrency, cn } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 import {
   addInvoice,
   addParticipantPreview,
@@ -678,92 +679,92 @@ type LifecycleDomainCfg = {
 const LIFECYCLE_DOMAINS: LifecycleDomainCfg[] = [
   {
     key: "trade",
-    label: "Trade",
+    label: t("formulas.detail.sixStatus.trade"),
     icon: Handshake,
     gapId: "G2",
-    completeTargetLabel: "Completed",
-    revokeTargetLabel: "Confirmed",
-    completeConfirm: "I confirm trade status is manually completed.",
-    revokeConfirm: "I confirm revoking trade completion. Status returns to Confirmed.",
+    completeTargetLabel: t("formulas.detail.sixStatus.completed"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.confirmed"),
+    completeConfirm: t("formulas.detail.sixStatus.completeTradeConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeTradeConfirm"),
     currentRaw: (f) => f.tradeStatus,
     modify: (f) =>
       f.tradeStatus === "draft"
-        ? { label: "Advance to Confirmed", toStatus: "confirmed", fromLabel: "Draft", toLabel: "Confirmed" }
+        ? { label: t("formulas.detail.sixStatus.advanceConfirmed"), toStatus: "confirmed", fromLabel: t("formulas.detail.sixStatus.draft"), toLabel: t("formulas.detail.sixStatus.confirmed") }
         : null,
   },
   {
     key: "cashIn",
-    label: "Cash In",
+    label: t("formulas.detail.sixStatus.cashIn"),
     icon: ArrowDownLeft,
     gapId: "G3",
-    completeTargetLabel: "Completed",
-    revokeTargetLabel: "Pending",
-    completeConfirm: "I confirm cash-in status is manually completed.",
-    revokeConfirm: "I confirm revoking cash-in completion.",
-    bodyNote: "Registering payment records does not complete Cash In. Confirm receipts separately.",
-    revokeWarning: "Receivable KPI may change; cash status is independent of payment records.",
+    completeTargetLabel: t("formulas.detail.sixStatus.completed"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.pending"),
+    completeConfirm: t("formulas.detail.sixStatus.completeCashInConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeCashInConfirm"),
+    bodyNote: t("formulas.detail.sixStatus.cashInNote"),
+    revokeWarning: t("formulas.detail.sixStatus.cashInRevokeWarning"),
     currentRaw: (f) => f.cashInStatus,
     modify: (f) =>
       f.cashInStatus === "pending"
-        ? { label: "Set Partial", toStatus: "partial", fromLabel: "Pending", toLabel: "Partial" }
+        ? { label: t("formulas.detail.sixStatus.setPartial"), toStatus: "partial", fromLabel: t("formulas.detail.sixStatus.pending"), toLabel: t("formulas.detail.sixStatus.partial") }
         : f.cashInStatus === "partial"
-          ? { label: "Return to Pending", toStatus: "pending", fromLabel: "Partial", toLabel: "Pending" }
+          ? { label: t("formulas.detail.sixStatus.returnPending"), toStatus: "pending", fromLabel: t("formulas.detail.sixStatus.partial"), toLabel: t("formulas.detail.sixStatus.pending") }
           : null,
   },
   {
     key: "cashOut",
-    label: "Cash Out",
+    label: t("formulas.detail.sixStatus.cashOut"),
     icon: ArrowUpRight,
     gapId: "G4",
-    completeTargetLabel: "Completed",
-    revokeTargetLabel: "Pending",
-    completeConfirm: "I confirm cash-out status is manually completed.",
-    revokeConfirm: "I confirm revoking cash-out completion.",
-    bodyNote: "Payment records do not complete Cash Out. Confirm disbursements separately.",
-    revokeWarning: "Payable KPI may change; cash status is independent of payment records.",
+    completeTargetLabel: t("formulas.detail.sixStatus.completed"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.pending"),
+    completeConfirm: t("formulas.detail.sixStatus.completeCashOutConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeCashOutConfirm"),
+    bodyNote: t("formulas.detail.sixStatus.cashOutNote"),
+    revokeWarning: t("formulas.detail.sixStatus.cashOutRevokeWarning"),
     currentRaw: (f) => f.cashOutStatus,
     modify: (f) =>
       f.cashOutStatus === "pending"
-        ? { label: "Set Partial", toStatus: "partial", fromLabel: "Pending", toLabel: "Partial" }
+        ? { label: t("formulas.detail.sixStatus.setPartial"), toStatus: "partial", fromLabel: t("formulas.detail.sixStatus.pending"), toLabel: t("formulas.detail.sixStatus.partial") }
         : f.cashOutStatus === "partial"
-          ? { label: "Return to Pending", toStatus: "pending", fromLabel: "Partial", toLabel: "Pending" }
+          ? { label: t("formulas.detail.sixStatus.returnPending"), toStatus: "pending", fromLabel: t("formulas.detail.sixStatus.partial"), toLabel: t("formulas.detail.sixStatus.pending") }
           : null,
   },
   {
     key: "logistics",
-    label: "Logistics",
+    label: t("formulas.detail.sixStatus.logistics"),
     icon: Truck,
     // Route exists — no gap strip; still mock.
-    completeTargetLabel: "Delivered",
-    revokeTargetLabel: "In Transit",
-    completeLabel: "Mark Delivered",
-    completePrimary: "Mark Complete (Preview)",
-    completeConfirm: "I confirm logistics transport is complete (delivered).",
-    revokeConfirm: "I confirm revoking logistics completion. Returns to In Transit.",
+    completeTargetLabel: t("formulas.detail.sixStatus.delivered"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.inTransit"),
+    completeLabel: t("formulas.detail.sixStatus.delivered"),
+    completePrimary: t("formulas.detail.sixStatus.markDeliveredPreview"),
+    completeConfirm: t("formulas.detail.sixStatus.completeLogisticsConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeLogisticsConfirm"),
     currentRaw: (f) => f.logisticsStatus,
     modify: (f) =>
       f.logisticsStatus === "not_started"
-        ? { label: "Set In Transit", toStatus: "in_transit", fromLabel: "Not Started", toLabel: "In Transit" }
+        ? { label: t("formulas.detail.sixStatus.setInTransit"), toStatus: "in_transit", fromLabel: t("formulas.detail.sixStatus.notStarted"), toLabel: t("formulas.detail.sixStatus.inTransit") }
         : f.logisticsStatus === "in_transit"
-          ? { label: "Return to Not Started", toStatus: "not_started", fromLabel: "In Transit", toLabel: "Not Started" }
+          ? { label: t("formulas.detail.sixStatus.returnNotStarted"), toStatus: "not_started", fromLabel: t("formulas.detail.sixStatus.inTransit"), toLabel: t("formulas.detail.sixStatus.notStarted") }
           : null,
   },
   {
     key: "delivery",
-    label: "Delivery",
+    label: t("formulas.detail.sixStatus.delivery"),
     icon: PackageCheck,
     gapId: "G1",
-    completeTargetLabel: "Delivered",
-    revokeTargetLabel: "In Transit",
-    completeConfirm: "I confirm delivery (final hand-off) is complete.",
-    revokeConfirm: "I confirm revoking delivery completion. Returns to In Transit.",
-    bodyNote: "Delivery is final hand-off, not logistics transport.",
+    completeTargetLabel: t("formulas.detail.sixStatus.delivered"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.inTransit"),
+    completeConfirm: t("formulas.detail.sixStatus.completeDeliveryConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeDeliveryConfirm"),
+    bodyNote: t("formulas.detail.sixStatus.deliveryNote"),
     currentRaw: (f) => f.deliveryStatus,
     modify: (f) =>
       f.deliveryStatus === "pending"
-        ? { label: "Set In Transit", toStatus: "in_transit", fromLabel: "Pending", toLabel: "In Transit" }
+        ? { label: t("formulas.detail.sixStatus.setInTransit"), toStatus: "in_transit", fromLabel: t("formulas.detail.sixStatus.pending"), toLabel: t("formulas.detail.sixStatus.inTransit") }
         : f.deliveryStatus === "in_transit"
-          ? { label: "Return to Pending", toStatus: "pending", fromLabel: "In Transit", toLabel: "Pending" }
+          ? { label: t("formulas.detail.sixStatus.returnPending"), toStatus: "pending", fromLabel: t("formulas.detail.sixStatus.inTransit"), toLabel: t("formulas.detail.sixStatus.pending") }
           : null,
   },
 ]
@@ -781,7 +782,6 @@ export function SixStatusControls({ onNavigate }: { onNavigate?: (tab: string) =
   const [active, setActive] = useState<ActiveModal>(null)
 
   const invoice = statuses.find((s) => s.key === "invoice")!
-  const invClose = deriveInvoiceClose(formula)
   const done = statuses.filter((s) => s.done).length
 
   function submitFor(m: ActiveModal, payload: StatusActionSubmit) {
@@ -797,9 +797,9 @@ export function SixStatusControls({ onNavigate }: { onNavigate?: (tab: string) =
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Formula Status</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.sixStatus.title")}</p>
         <span className="text-xs text-muted-foreground">
-          {canceled ? "Canceled (preview)" : `${done}/6 matched`}
+          {canceled ? t("formulas.detail.sixStatus.canceledPreview") : t("formulas.detail.sixStatus.progress", { count: done })}
         </span>
       </div>
 
@@ -816,7 +816,7 @@ export function SixStatusControls({ onNavigate }: { onNavigate?: (tab: string) =
               isDone={s.done}
               backendGapId={d.gapId}
               canWrite={canStatus && !canceled}
-              completeLabel={d.completeLabel ? `${d.completeLabel} (Preview)` : "Complete (Preview)"}
+              completeLabel={d.completeLabel ? t("formulas.detail.sixStatus.markDeliveredPreview") : t("formulas.detail.sixStatus.completePreview")}
               modifyLabel={modify?.label}
               onComplete={() => setActive({ kind: "complete", domain: d })}
               onRevoke={() => setActive({ kind: "revoke", domain: d })}
@@ -838,20 +838,19 @@ export function SixStatusControls({ onNavigate }: { onNavigate?: (tab: string) =
 
         {/* Invoice — derived; navigate to Invoices tab (D-04). */}
         <StatusLifecycleCard
-          label="Invoice"
+          label={t("formulas.detail.sixStatus.invoice")}
           icon={FileText}
           currentValue={invoice.value}
           isDone={invoice.done}
           isDerived
           canWrite={canStatus && !canceled}
-          reviewLabel={invClose.done ? "Review Invoices" : "Review Invoices"}
+          reviewLabel={t("formulas.detail.sixStatus.reviewInvoices")}
           onReview={() => onNavigate?.("invoices")}
         />
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Manual status completion only — payment amounts never auto-complete Cash In/Out. Every action records one
-        Status Log event with a reason. Mock preview updates local state; missing backend routes are labeled (G1–G4).
+        {t("formulas.detail.sixStatus.manualNote")}
       </p>
 
       {/* Shared lifecycle modals */}
@@ -914,10 +913,9 @@ export function InvoiceCompletionChecklist({ onNavigate }: { onNavigate?: (tab: 
       <div className="flex items-start gap-2">
         <FileText className="mt-0.5 size-4 shrink-0 text-warning" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground">Invoice status not yet complete</p>
+          <p className="text-sm font-medium text-foreground">{t("formulas.detail.sixStatus.invoiceIncompleteTitle")}</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Invoice status is derived when every active invoice is amount-matched. You cannot toggle verification
-            manually.
+            {t("formulas.detail.sixStatus.invoiceIncompleteDescription")}
           </p>
           <ul className="mt-3 space-y-1.5 text-xs text-foreground">
             <li className="flex items-center gap-2">
@@ -929,21 +927,21 @@ export function InvoiceCompletionChecklist({ onNavigate }: { onNavigate?: (tab: 
               >
                 {noInvoices ? "1" : "✓"}
               </span>
-              Add at least one invoice on the Invoices tab
+              {t("formulas.detail.sixStatus.addInvoice")}
             </li>
             <li className="flex items-center gap-2">
               <span className="inline-flex size-4 items-center justify-center rounded-full bg-secondary text-[10px] text-muted-foreground">
                 {noInvoices ? "2" : inv.blocking}
               </span>
               {noInvoices
-                ? "Match external amount to expected on each invoice"
-                : `${inv.blocking} invoice${inv.blocking === 1 ? "" : "s"} still need amount matching`}
+                ? t("formulas.detail.sixStatus.matchInvoices")
+                : t("formulas.detail.sixStatus.invoicesNeedMatching", { count: inv.blocking })}
             </li>
           </ul>
           {caps.canWriteInvoices && (
             <Button variant="outline" size="sm" className="mt-3 gap-1 text-xs" onClick={() => onNavigate?.("invoices")}>
               <FileText className="size-3.5" />
-              Go to Invoices
+              {t("formulas.detail.sixStatus.goInvoices")}
             </Button>
           )}
         </div>
@@ -979,20 +977,20 @@ export function CloseFormulaDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Close Formula"
-      description="Manual final approval — mock preview only (no POST /close)."
+      title={t("formulas.detail.header.closeFormula")}
+      description={t("formulas.detail.sixStatus.closeDialogDescription")}
       size="lg"
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("formulas.detail.sixStatus.cancel")}
           </Button>
           <Button
             variant="accent"
             onClick={submit}
             disabled={!formula.closeable || formula.isClosed || !caps.canCloseOrCancel}
           >
-            Close Formula (Preview)
+            {t("formulas.detail.sixStatus.closePreview")}
           </Button>
         </>
       }
@@ -1000,12 +998,12 @@ export function CloseFormulaDialog({
       <div className="space-y-4">
         <MockPreviewNote />
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Six-status readiness</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.sixStatus.readiness")}</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {statuses.map((s) => (
               <div key={s.key} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
                 <span>{s.label}</span>
-                <span className={s.done ? "text-success" : "text-warning"}>{s.done ? "Ready" : s.value}</span>
+                <span className={s.done ? "text-success" : "text-warning"}>{s.done ? t("formulas.detail.sixStatus.ready") : s.value}</span>
               </div>
             ))}
           </div>
@@ -1014,9 +1012,9 @@ export function CloseFormulaDialog({
         {/* P1-03: blocking guidance when not closeable — mirrors CloseReadinessPanel. */}
         {blocked && (
           <div className="rounded-lg border border-warning/30 bg-warning-soft p-3">
-            <p className="text-sm font-semibold text-foreground">Not ready to close</p>
+            <p className="text-sm font-semibold text-foreground">{t("formulas.detail.closeReadiness.blockedTitle")}</p>
             <p className="mb-3 mt-1 text-xs leading-relaxed text-muted-foreground">
-              All six Formula statuses must be manually completed before close (DL-015).
+              {t("formulas.detail.closeReadiness.blockedDescription")}
             </p>
             <CloseBlockingList
               formula={formula}
@@ -1030,26 +1028,26 @@ export function CloseFormulaDialog({
 
         {formula.closeable && !formula.isClosed && (
           <p className="rounded-lg border border-success/30 bg-success-soft p-3 text-sm text-success">
-            All six statuses are complete.
+            {t("formulas.detail.sixStatus.allComplete")}
           </p>
         )}
 
         <div className="rounded-lg border border-border bg-secondary/30 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review KPI (not blockers)</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.sixStatus.reviewKpi")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Receivable and payable are for review only — they do not gate closing.
+            {t("formulas.detail.sixStatus.reviewKpiDescription")}
           </p>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-            <span>Receivable: {formatCurrency(formula.receivable)}</span>
-            <span>Payable: {formatCurrency(formula.payable)}</span>
-            <span>Expected profit: {formatCurrency(settlement.expectedProfit)}</span>
-            <span>Realized profit: {formatCurrency(formula.realizedProfit)}</span>
+            <span>{t("formulas.detail.sixStatus.receivable", { value: formatCurrency(formula.receivable) })}</span>
+            <span>{t("formulas.detail.sixStatus.payable", { value: formatCurrency(formula.payable) })}</span>
+            <span>{t("formulas.detail.sixStatus.expectedProfit", { value: formatCurrency(settlement.expectedProfit) })}</span>
+            <span>{t("formulas.detail.sixStatus.realizedProfit", { value: formatCurrency(formula.realizedProfit) })}</span>
           </div>
         </div>
         {/* D-07 §13: explicit close irreversibility copy. */}
         <div className="space-y-1 rounded-lg border border-accent/30 bg-accent-soft/40 p-3 text-xs leading-relaxed text-foreground">
-          <p>Close requires all six statuses complete. Receivable and payable are review-only.</p>
-          <p className="font-medium">Close cannot be undone. Versions do not reopen a closed Formula.</p>
+          <p>{t("formulas.detail.sixStatus.closeRequirement")}</p>
+          <p className="font-medium">{t("formulas.detail.sixStatus.closeIrreversible")}</p>
         </div>
       </div>
     </Modal>
@@ -1073,15 +1071,15 @@ export function CancelFormulaDialog({ open, onClose }: { open: boolean; onClose:
     <Modal
       open={open}
       onClose={onClose}
-      title="Cancel Formula"
-      description="Sets all six statuses to CANCELED in preview — no undo in MVP."
+      title={t("formulas.detail.header.cancelFormula")}
+      description={t("formulas.detail.sixStatus.cancelDescription")}
       footer={
         <>
           <Button variant="outline" onClick={onClose}>
-            Back
+            {t("formulas.detail.sixStatus.back")}
           </Button>
           <Button variant="accent" onClick={submit} disabled={!reason.trim() || Boolean(formula.canceledAt)}>
-            Cancel Formula (Preview)
+            {t("formulas.detail.sixStatus.cancelPreview")}
           </Button>
         </>
       }
@@ -1090,15 +1088,15 @@ export function CancelFormulaDialog({ open, onClose }: { open: boolean; onClose:
         <MockPreviewNote />
         {/* D-08 §13: cancellation confirmation copy. */}
         <p className="rounded-lg border border-danger/30 bg-danger-soft/30 p-3 text-xs leading-relaxed text-foreground">
-          This sets all six statuses to CANCELED. Payment and status history are preserved. This cannot be undone.
+          {t("formulas.detail.sixStatus.cancelWarning")}
         </p>
-        <Field label="Cancellation reason">
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Required" />
+        <Field label={t("formulas.detail.sixStatus.cancellationReason")}>
+          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("formulas.detail.sixStatus.required")} />
         </Field>
         {formula.canceledAt && (
           <div className="rounded-lg border border-danger/30 bg-danger-soft/30 p-3 text-sm">
-            <p className="font-medium text-danger">Formula canceled (preview)</p>
-            <p className="mt-1 text-xs text-muted-foreground">All six statuses show CANCELED. Status log preview:</p>
+            <p className="font-medium text-danger">{t("formulas.detail.sixStatus.canceledTitle")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("formulas.detail.sixStatus.canceledLog")}</p>
             <ul className="mt-2 space-y-1 text-xs">
               {canceledLogs.map((l) => (
                 <li key={l.id}>
@@ -1111,7 +1109,7 @@ export function CancelFormulaDialog({ open, onClose }: { open: boolean; onClose:
         )}
         {/* D-08 §5–6: no undo path in MVP. */}
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Formula cancellation cannot be undone in MVP. Payment and status history are preserved.
+          {t("formulas.detail.sixStatus.cancelFootnote")}
         </p>
       </div>
     </Modal>

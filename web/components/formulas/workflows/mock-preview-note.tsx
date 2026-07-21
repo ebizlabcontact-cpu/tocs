@@ -1,6 +1,7 @@
 "use client"
 
 import { Info } from "lucide-react"
+import { t } from "@/lib/i18n"
 
 /**
  * Shown on workflow surfaces that mutate mock preview state only.
@@ -15,7 +16,8 @@ export function MockPreviewNote({ className, compact = false }: { className?: st
       >
         <Info className="size-3.5 shrink-0 text-accent" />
         <span>
-          <span className="font-medium text-foreground">Preview only</span> — local state, no persistence.
+          <span className="font-medium text-foreground">{t("formulas.detail.sixStatus.previewOnly")}</span>{" "}
+          {t("formulas.detail.sixStatus.previewStateOnly")}
         </span>
       </div>
     )
@@ -26,8 +28,8 @@ export function MockPreviewNote({ className, compact = false }: { className?: st
     >
       <Info className="mt-0.5 size-3.5 shrink-0 text-accent" />
       <span>
-        <span className="font-medium text-foreground">Mock preview only.</span> Changes update local preview state —
-        no API call, no persistence. Authoritative writes run through backend services after integration.
+        <span className="font-medium text-foreground">{t("formulas.detail.sixStatus.previewOnly")}</span>{" "}
+        {t("formulas.detail.sixStatus.previewDescription")}
       </span>
     </div>
   )
