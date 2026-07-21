@@ -1067,15 +1067,15 @@ function invoiceCloseImpact(status: ReturnType<typeof deriveInvoiceVerification>
 } {
   switch (status) {
     case "amount_matched":
-      return { label: "Allows close", tone: "success" }
+      return { label: t("formulas.detail.invoices.allowsClose"), tone: "success" }
     case "amount_mismatched":
-      return { label: "Blocks close", tone: "danger" }
+      return { label: t("formulas.detail.invoices.blocksClose"), tone: "danger" }
     case "pending":
-      return { label: "Pending — blocks close", tone: "warning" }
+      return { label: t("formulas.detail.invoices.pendingBlocks"), tone: "warning" }
     case "canceled":
-      return { label: "Canceled — excluded", tone: "outline" }
+      return { label: t("formulas.detail.invoices.canceledExcluded"), tone: "outline" }
     default:
-      return { label: "Missing — blocks close", tone: "warning" }
+      return { label: t("formulas.detail.invoices.missingBlocks"), tone: "warning" }
   }
 }
 
@@ -1090,7 +1090,7 @@ export function InvoicesPanel({
     return (
       <div className="space-y-3">
         <InvoiceCloseRuleNote />
-        <SectionEmpty label="No invoices recorded — invoice is a close condition, so this Formula cannot close yet." />
+        <SectionEmpty label={t("formulas.detail.invoices.empty")} />
       </div>
     )
   return (
@@ -1121,11 +1121,11 @@ export function InvoicesPanel({
               {/* Amount verification: system-derived expected vs external (P0-1) */}
               <div className="mt-3 space-y-1.5 border-t border-border pt-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Expected Amount</span>
+                  <span className="text-xs text-muted-foreground">{t("formulas.detail.invoices.expectedAmount")}</span>
                   <span className="font-mono tabular-nums text-foreground">{formatCurrency(v.expectedAmount)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">External Invoice Amount</span>
+                  <span className="text-xs text-muted-foreground">{t("formulas.detail.invoices.externalAmount")}</span>
                   <span className="font-mono tabular-nums text-foreground">
                     {v.externalAmount == null ? "—" : formatCurrency(v.externalAmount)}
                   </span>
@@ -1149,7 +1149,7 @@ export function InvoicesPanel({
                       v.matched ? "text-success" : v.status === "canceled" ? "text-muted-foreground" : "text-danger",
                     )}
                   >
-                    {v.status === "canceled" ? "N/A" : v.matched ? "Matched" : "Mismatched"}
+                    {v.status === "canceled" ? t("formulas.detail.invoices.notApplicable") : v.matched ? t("formulas.detail.invoices.matched") : t("formulas.detail.invoices.mismatched")}
                   </span>
                 </div>
               </div>
@@ -1216,7 +1216,7 @@ export function LogisticsPanel({ formula }: { formula: Formula }) {
       </div>
 
       {formula.logistics.length === 0 ? (
-        <SectionEmpty label="No logistics legs planned." />
+        <SectionEmpty label={t("formulas.detail.logistics.empty")} />
       ) : (
         <div className="space-y-3">
           {formula.logistics.map((leg) => {
@@ -1237,16 +1237,16 @@ export function LogisticsPanel({ formula }: { formula: Formula }) {
                   <StatusBadge tone={cfg.tone}>{cfg.label}</StatusBadge>
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-3 text-sm sm:grid-cols-3">
-                  <LegField label="Carrier" value={leg.carrier} />
-                  <LegField label="Mode" value={leg.mode} capitalize />
-                  <LegField label="Cost Bearer" value={leg.costBearer} />
-                  <LegField label="ETA" value={formatDate(leg.eta)} />
-                  <LegField label="Actual Arrival" value={leg.actualArrival ? formatDate(leg.actualArrival) : "—"} />
+                  <LegField label={t("formulas.detail.logistics.carrier")} value={leg.carrier} />
+                  <LegField label={t("formulas.detail.logistics.mode")} value={leg.mode} capitalize />
+                  <LegField label={t("formulas.detail.logistics.costBearer")} value={leg.costBearer} />
+                  <LegField label={t("formulas.detail.logistics.eta")} value={formatDate(leg.eta)} />
+                  <LegField label={t("formulas.detail.logistics.actualArrival")} value={leg.actualArrival ? formatDate(leg.actualArrival) : "—"} />
                   <LegField
-                    label="Actual Delivery"
+                    label={t("formulas.detail.logistics.actualDelivery")}
                     value={leg.actualDelivery ? formatDate(leg.actualDelivery) : "—"}
                   />
-                  <LegField label="Logistics Cost" value={formatCurrency(leg.cost)} mono />
+                  <LegField label={t("formulas.detail.logistics.cost")} value={formatCurrency(leg.cost)} mono />
                 </dl>
 
                 {/* Linked Logistics Vehicles (canonical formula_logistics_vehicles) */}
@@ -1336,13 +1336,13 @@ const timelineIcons: Record<string, React.ComponentType<{ className?: string }>>
   share: Handshake,
 }
 
-const tabLabels: Record<string, string> = {
-  overview: "Overview",
-  payments: "Payments",
-  invoices: "Invoices",
-  logistics: "Logistics",
-  versions: "Versions",
-  settlement: "Settlement",
+const tabLabels: Record<string, TranslationKey> = {
+  overview: "formulas.detail.timeline.overview",
+  payments: "formulas.detail.timeline.payments",
+  invoices: "formulas.detail.timeline.invoices",
+  logistics: "formulas.detail.timeline.logistics",
+  versions: "formulas.detail.timeline.versions",
+  settlement: "formulas.detail.timeline.settlement",
 }
 
 export function TimelinePanel({
@@ -1359,7 +1359,7 @@ export function TimelinePanel({
   const events = buildTimeline(formula, versionHistory ?? getVersionHistory(formula))
   const filtered = eventFilter === "all" ? events : events.filter((e) => e.type === eventFilter)
   if (filtered.length === 0)
-    return <SectionEmpty label={eventFilter === "all" ? "No activity yet." : `No ${eventFilter} events.`} />
+    return <SectionEmpty label={eventFilter === "all" ? t("formulas.detail.timeline.empty") : t("formulas.detail.timeline.filteredEmpty", { filter: eventFilter })} />
   return (
     <div className="space-y-3">
       <p className="text-xs leading-relaxed text-muted-foreground">
@@ -1371,7 +1371,8 @@ export function TimelinePanel({
         <span className="absolute left-[15px] top-1 bottom-1 w-px bg-border" aria-hidden />
         {filtered.map((ev) => {
           const Icon = timelineIcons[ev.type] ?? Clock
-          const linkLabel = ev.linkTab ? tabLabels[ev.linkTab] : undefined
+          const linkLabelKey = ev.linkTab ? tabLabels[ev.linkTab] : undefined
+          const linkLabel = linkLabelKey ? t(linkLabelKey) : undefined
           return (
             <li key={ev.id} className="relative">
               <span className="absolute -left-8 flex size-8 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
@@ -1847,7 +1848,7 @@ export function OverviewPanel({ formula }: { formula: Formula }) {
 /* ---------------- Shares ---------------- */
 export function SharesPanel({ formula }: { formula: Formula }) {
   const shares = formula.shares ?? []
-  if (shares.length === 0) return <SectionEmpty label="No formula share defined for this formula." />
+  if (shares.length === 0) return <SectionEmpty label={t("formulas.detail.shares.empty")} />
   const total = shares.reduce((s, x) => s + x.amount, 0)
   return (
     <div className="space-y-3">

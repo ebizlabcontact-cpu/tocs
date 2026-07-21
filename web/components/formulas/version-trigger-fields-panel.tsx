@@ -70,7 +70,7 @@ export function VersionTriggerFieldsPanel({
         </NestedDisclosure>
 
         {/* D — Participant Unit Economics */}
-        <NestedDisclosure title="Participant Unit Economics">
+        <NestedDisclosure title={t("formulas.detail.versions.participantEconomics")}>
           <ParticipantEconomicsVersionTriggerSection formula={formula} />
         </NestedDisclosure>
       </div>
@@ -170,10 +170,10 @@ function FxVersionTriggerSection({ formula }: { formula: Formula }) {
   return (
     <>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Contract Exchange Rate">
+        <Field label={t("formulas.detail.versions.contractRate")}>
           <Input type="number" step="0.01" value={contract} onChange={(e) => setContract(e.target.value)} />
         </Field>
-        <Field label="Adjusted Exchange Rate">
+        <Field label={t("formulas.detail.versions.adjustedRate")}>
           <Input type="number" step="0.01" value={adjusted} onChange={(e) => setAdjusted(e.target.value)} />
         </Field>
       </div>
@@ -220,7 +220,7 @@ function LogisticsCostVersionTriggerSection({ formula }: { formula: Formula }) {
 
   return (
     <>
-      <Field label="Total Logistics Cost (KRW)">
+      <Field label={t("formulas.detail.versions.totalLogisticsCost")}>
         <Input type="number" min={0} value={cost} onChange={(e) => setCost(e.target.value)} />
       </Field>
       <p className="mt-1 text-xs text-muted-foreground">
@@ -358,8 +358,8 @@ function ParticipantEconomicsEditModal({
       <Modal
         open
         onClose={onClose}
-        title="Edit Participant Economics"
-        description="Version-triggering fields for this participant hop."
+        title={t("formulas.detail.versions.editEconomics")}
+        description={t("formulas.detail.versions.editEconomicsDescription")}
         footer={
           <>
             <Button variant="outline" onClick={onClose}>

@@ -9,6 +9,7 @@ import { useFormulaWorkflow } from "./workflows/formula-workflow-context"
 import { MockPreviewNote } from "./workflows/mock-preview-note"
 import { VersionsPanel } from "./versions-panel"
 import { VersionTriggerFieldsPanel } from "./version-trigger-fields-panel"
+import { t } from "@/lib/i18n"
 
 /**
  * P1-3 Versions tab restructure. Groups History, Snapshot helper, and
@@ -31,8 +32,8 @@ export function VersionsTabLayout({
   return (
     <div className="space-y-4">
       <CollapsibleSection
-        title="Version History"
-        description="Chronological list of formula versions."
+        title={t("formulas.detail.versions.historyTitle")}
+        description={t("formulas.detail.versions.historyDescription")}
         defaultOpen
         badge={<StatusBadge tone="outline">{`${versionCount} version${versionCount === 1 ? "" : "s"}`}</StatusBadge>}
         icon={History}
@@ -41,8 +42,8 @@ export function VersionsTabLayout({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Snapshot Viewer"
-        description="Frozen calculation state at each version. Open any row in History."
+        title={t("formulas.detail.versions.snapshotTitle")}
+        description={t("formulas.detail.versions.snapshotDescription")}
         defaultOpen={false}
         icon={Camera}
       >
@@ -55,8 +56,8 @@ export function VersionsTabLayout({
 
       {showEdits && (
         <CollapsibleSection
-          title="Version-Triggering Edits"
-          description="Changes that create a new version and snapshot."
+          title={t("formulas.detail.versions.triggersTitle")}
+          description={t("formulas.detail.versions.triggersDescription")}
           defaultOpen={false}
           badge={<StatusBadge tone="info">Edits available</StatusBadge>}
           icon={GitCommitVertical}
