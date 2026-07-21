@@ -3,12 +3,13 @@
 import * as React from "react"
 import { Sparkles, X, ArrowUp } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { t } from "@/lib/i18n"
 
 const examples = [
-  "Why did profit decrease this month?",
-  "Show unpaid formulas.",
-  "Which company generated the most profit?",
-  "List formulas closeable this week.",
+  t("shell.ai.examples.profitDecrease"),
+  t("shell.ai.examples.unpaidFormulas"),
+  t("shell.ai.examples.topProfitCompany"),
+  t("shell.ai.examples.closeableThisWeek"),
 ]
 
 export function AiAssistant() {
@@ -21,7 +22,7 @@ export function AiAssistant() {
         className={cn(
           "fixed bottom-20 right-4 z-50 flex size-12 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[var(--shadow-lifted)] transition-transform hover:scale-105 lg:bottom-6 lg:right-6 lg:size-14",
         )}
-        aria-label="Open AI Assistant"
+        aria-label={t("shell.ai.openLabel")}
       >
         {open ? <X className="size-5" /> : <Sparkles className="size-5" />}
       </button>
@@ -33,12 +34,12 @@ export function AiAssistant() {
               <Sparkles className="size-4" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-foreground">TOCS Assistant</p>
-              <p className="text-xs text-muted-foreground">Ask about your operations</p>
+              <p className="text-sm font-semibold text-foreground">{t("shell.ai.title")}</p>
+              <p className="text-xs text-muted-foreground">{t("shell.ai.subtitle")}</p>
             </div>
           </div>
           <div className="p-4">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Try asking</p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">{t("shell.ai.tryAsking")}</p>
             <div className="flex flex-col gap-1.5">
               {examples.map((ex) => (
                 <button
@@ -54,7 +55,7 @@ export function AiAssistant() {
             <div className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-card px-3 py-2">
               <input
                 disabled
-                placeholder="Coming soon…"
+                placeholder={t("shell.ai.inputPlaceholder")}
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
               <span className="flex size-6 items-center justify-center rounded-md bg-secondary text-muted-foreground">

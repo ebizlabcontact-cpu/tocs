@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { CompanyProvider } from "@/components/company-context"
-import { AppShell } from "@/components/shell/app-shell"
+import { AuthProvider } from "@/components/auth/auth-provider"
+import { DateRangeProvider } from "@/components/date-range-context"
+import { ShellWrapper } from "@/components/shell/shell-wrapper"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,11 +29,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="bg-background">
+    <html lang="ko" className="bg-background">
       <body className={`${inter.variable} font-sans antialiased`}>
-        <CompanyProvider>
-          <AppShell>{children}</AppShell>
-        </CompanyProvider>
+        <AuthProvider>
+          <CompanyProvider>
+            <DateRangeProvider>
+              <ShellWrapper>{children}</ShellWrapper>
+            </DateRangeProvider>
+          </CompanyProvider>
+        </AuthProvider>
       </body>
     </html>
   )

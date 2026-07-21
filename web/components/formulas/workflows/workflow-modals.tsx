@@ -1,0 +1,1672 @@
+"use client"
+
+import { useMemo, useState } from "react"
+import {
+  CalendarClock,
+  CheckCircle2,
+  FileText,
+  Lock,
+  Ban,
+  Plus,
+  Pencil,
+  Trash2,
+  UserPlus,
+  Truck,
+  PackageCheck,
+  Handshake,
+  ArrowDownLeft,
+  ArrowUpRight,
+  PieChart,
+} from "lucide-react"
+import { Modal } from "@/components/ui/modal"
+import { Button } from "@/components/ui/button"
+import { Field, Input, Select } from "@/components/ui/field"
+import { Tooltip } from "@/components/ui/tooltip"
+import { formatCurrency, cn } from "@/lib/utils"
+import { t } from "@/lib/i18n"
+import {
+  addInvoice,
+  addParticipantPreview,
+  addPaymentRecord,
+  addPaymentSchedule,
+  applyVersionTriggerPreview,
+  cancelFormulaPreview,
+  cancelPaymentRecord,
+  closeFormulaPreview,
+  completeDomainStatusPreview,
+  deleteSharePreview,
+  addLogisticsLegPreview,
+  revokeDomainStatusPreview,
+  transitionDomainStatusPreview,
+  upsertSharePreview,
+  type StatusDomain,
+} from "@/lib/formula-preview-mutations"
+import { deriveExpected, deriveInvoiceClose, sixStatuses } from "@/lib/formula-math"
+import type { Formula, FormulaShare, PaymentRecord } from "@/lib/types"
+import { useFormulaWorkflow } from "./formula-workflow-context"
+import { CloseBlockingList } from "../detail-panels"
+import { BACKEND_ROUTE_GAPS, MockPreviewNote } from "./mock-preview-note"
+import { StatusLifecycleCard } from "./status-lifecycle-card"
+import { StatusCompletionModal, type BackendGapId, type StatusActionSubmit } from "./status-completion-modal"
+import { StatusRevocationModal } from "./status-revocation-modal"
+import { StatusTransitionModal } from "./status-transition-modal"
+
+/* -------------------------------------------------------------------------- */
+/* Closed-formula payments banner (V0-PAY-04)                                 */
+/* -------------------------------------------------------------------------- */
+
+/** DL-033: no open-formula payment writes once closed — corrections happen on Settlement. */
+export function ClosedPaymentsBanner() {
+  return (
+    <div className="mb-4 flex items-start gap-2 rounded-lg border border-accent/30 bg-accent-soft/50 px-4 py-3 text-sm text-foreground">
+      <Lock className="mt-0.5 size-4 shrink-0 text-accent" />
+      <span>
+        <span className="font-medium">Formula closed — payments locked.</span> Post-close payment changes are
+        append-only corrections on the <span className="font-medium">Settlement</span> tab (DL-033). Records below are
+        read-only here.
+      </span>
+    </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Payment modals                                                             */
+/* -------------------------------------------------------------------------- */
+
+export function PaymentWorkflowActions({ onCancelRecord }: { onCancelRecord: (recordId: string) => void }) {
+  const { formula, caps } = useFormulaWorkflow()
+  const canPay = caps.canWritePayments
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [recordOpen, setRecordOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [cancelRecordId, setCancelRecordId] = useState<string | null>(null)
+
+  function requestCancel(id: string) {
+    setCancelRecordId(id)
+    setCancelOpen(true)
+    onCancelRecord(id)
+  }
+
+  return (
+    <>
+      <WorkflowToolbar>
+        <ToolbarButton
+          icon={Plus}
+          label="Add Schedule"
+          disabled={!canPay}
+          onClick={() => setScheduleOpen(true)}
+        />
+        <ToolbarButton
+          icon={Plus}
+          label="Register Record"
+          disabled={!canPay}
+          onClick={() => setRecordOpen(true)}
+        />
+        {/* V0-PAY-02: schedule linking happens only at record registration (CreatePaymentRecordRequest.payment_schedule_id).
+            No post-create "Link to Schedule" action — backend has no record PATCH. */}
+      </WorkflowToolbar>
+
+      <AddScheduleModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} />
+      <RegisterRecordModal open={recordOpen} onClose={() => setRecordOpen(false)} />
+      <CancelRecordModal
+        open={cancelOpen}
+        recordId={cancelRecordId}
+        onClose={() => {
+          setCancelOpen(false)
+          setCancelRecordId(null)
+        }}
+      />
+
+      <PaymentCancelBridge onCancel={requestCancel} />
+    </>
+  )
+}
+
+/** Bridges cancel handler to PaymentRecordsPanel without prop drilling through the panel file. */
+const paymentCancelBridge: { fn?: (id: string) => void } = {}
+
+function PaymentCancelBridge({ onCancel }: { onCancel: (id: string) => void }) {
+  paymentCancelBridge.fn = onCancel
+  return null
+}
+
+export function triggerPaymentRecordCancel(recordId: string) {
+  paymentCancelBridge.fn?.(recordId)
+}
+
+function AddScheduleModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { formula, applyPreview } = useFormulaWorkflow()
+  const [type, setType] = useState<"receipt" | "payment">("receipt")
+  const [counterparty, setCounterparty] = useState("")
+  const [amount, setAmount] = useState("")
+  const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().slice(0, 10))
+
+  function submit() {
+    const amt = Number(amount)
+    if (!counterparty.trim() || !amt || !scheduledDate) return
+    applyPreview((f) =>
+      addPaymentSchedule(f, { type, counterparty: counterparty.trim(), amount: amt, scheduledDate }),
+    )
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Add Payment Schedule"
+      description="Planned receipt or payment — mock preview only."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={submit}>
+            Add Schedule (Preview)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        <Field label="Flow type">
+          <Select value={type} onChange={(e) => setType(e.target.value as "receipt" | "payment")}>
+            <option value="receipt">Receipt (In)</option>
+            <option value="payment">Payment (Out)</option>
+          </Select>
+        </Field>
+        <Field label="Counterparty">
+          <Input
+            value={counterparty}
+            onChange={(e) => setCounterparty(e.target.value)}
+            placeholder={formula.participants[0]?.company ?? "Company name"}
+          />
+        </Field>
+        <Field label="Planned amount (KRW)">
+          <Input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </Field>
+        <Field label="Scheduled date">
+          <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+        </Field>
+      </div>
+    </Modal>
+  )
+}
+
+function RegisterRecordModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { formula, applyPreview } = useFormulaWorkflow()
+  const [type, setType] = useState<"receipt" | "payment">("receipt")
+  const [counterparty, setCounterparty] = useState("")
+  const [amount, setAmount] = useState("")
+  const [paidDate, setPaidDate] = useState(new Date().toISOString().slice(0, 10))
+  const [scheduleId, setScheduleId] = useState("")
+
+  function submit() {
+    const amt = Number(amount)
+    if (!counterparty.trim() || !amt || !paidDate) return
+    applyPreview((f) =>
+      addPaymentRecord(f, {
+        type,
+        counterparty: counterparty.trim(),
+        amount: amt,
+        paidDate,
+        scheduleId: scheduleId || undefined,
+      }),
+    )
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Register Payment Record"
+      description="Actual bank movement — does not auto-complete Cash In/Out statuses."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={submit}>
+            Register (Preview)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        <Field label="Flow type">
+          <Select value={type} onChange={(e) => setType(e.target.value as "receipt" | "payment")}>
+            <option value="receipt">Receipt (In)</option>
+            <option value="payment">Payment (Out)</option>
+          </Select>
+        </Field>
+        <Field label="Counterparty">
+          <Input value={counterparty} onChange={(e) => setCounterparty(e.target.value)} />
+        </Field>
+        <Field label="Actual amount (KRW)">
+          <Input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </Field>
+        <Field label="Actual payment date">
+          <Input type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
+        </Field>
+        <Field label="Link to schedule (optional)" hint="Match this record to a planned schedule item.">
+          <Select value={scheduleId} onChange={(e) => setScheduleId(e.target.value)}>
+            <option value="">— None —</option>
+            {formula.schedule.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.type} · {s.counterparty} · {formatCurrency(s.amount)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+    </Modal>
+  )
+}
+
+function CancelRecordModal({
+  open,
+  recordId,
+  onClose,
+}: {
+  open: boolean
+  recordId: string | null
+  onClose: () => void
+}) {
+  const { formula, applyPreview } = useFormulaWorkflow()
+  const [reason, setReason] = useState("")
+  const record = (formula.records ?? []).find((r) => r.id === recordId)
+
+  function submit() {
+    if (!recordId || !reason.trim() || record?.canceled) return
+    applyPreview((f) => cancelPaymentRecord(f, recordId, reason.trim()))
+    setReason("")
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Cancel Payment Record"
+      description="Canceled records remain visible but are excluded from confirmed KPI totals. Re-cancel returns 409 on API."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Back
+          </Button>
+          <Button variant="accent" onClick={submit} disabled={!reason.trim() || record?.canceled}>
+            Cancel Record (Preview)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        {record && (
+          <p className="text-sm text-muted-foreground">
+            {record.type} · {record.counterparty} · {formatCurrency(record.amount)}
+          </p>
+        )}
+        <Field label="Cancellation reason" hint="Required — mirrors backend payment record cancel policy.">
+          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Duplicate entry" />
+        </Field>
+      </div>
+    </Modal>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Settlement record cancel (V0-PAY-05, closed formula, COMPANY_ADMIN+)       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * DL-033 allowlist: payment_record_cancel is permitted on a CLOSED formula
+ * (COMPANY_ADMIN+ only). Rendered on the Settlement tab so closed formulas keep
+ * cancel out of the (locked) Payments tab. Mock preview only.
+ */
+export function SettlementRecordCancelSection() {
+  const { formula, caps } = useFormulaWorkflow()
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [recordId, setRecordId] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+
+  if (!formula.isClosed || !caps.canCancelPayment) return null
+
+  const records = formula.records ?? []
+  if (records.length === 0) return null
+
+  function requestCancel(r: PaymentRecord) {
+    if (r.canceled) {
+      // Preview mirror of API 409 Conflict on re-cancel.
+      setNote(`${r.counterparty} · ${formatCurrency(r.amount)} is already canceled (API would return 409 Conflict).`)
+      return
+    }
+    setNote(null)
+    setRecordId(r.id)
+    setCancelOpen(true)
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-dashed border-border bg-secondary/20 p-3">
+      <MockPreviewNote className="mb-3 w-full" />
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Manage records — cancel (append-only)
+      </p>
+      <div className="space-y-2">
+        {records.map((r) => (
+          <div
+            key={r.id}
+            className={cn(
+              "flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm",
+              r.canceled && "opacity-60",
+            )}
+          >
+            <span className="min-w-0 truncate">
+              {r.type === "receipt" ? "Receipt" : "Payment"} · {r.counterparty} · {formatCurrency(r.amount)}
+              {r.canceled && <span className="ml-2 text-xs text-danger">Canceled</span>}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1 text-xs"
+              onClick={() => requestCancel(r)}
+              disabled={r.canceled}
+            >
+              <Ban className="size-3.5" />
+              {r.canceled ? "Canceled" : "Cancel (Preview)"}
+            </Button>
+          </div>
+        ))}
+      </div>
+      {note && <p className="mt-2 text-xs text-warning">{note}</p>}
+      <CancelRecordModal
+        open={cancelOpen}
+        recordId={recordId}
+        onClose={() => {
+          setCancelOpen(false)
+          setRecordId(null)
+        }}
+      />
+    </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Invoice modal                                                              */
+/* -------------------------------------------------------------------------- */
+
+export function InvoiceWorkflowActions() {
+  const { caps } = useFormulaWorkflow()
+  const canInv = caps.canWriteInvoices
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <WorkflowToolbar>
+        <ToolbarButton icon={Plus} label="Add Invoice" disabled={!canInv} onClick={() => setOpen(true)} />
+      </WorkflowToolbar>
+      <AddInvoiceModal open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
+function AddInvoiceModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { formula, applyPreview } = useFormulaWorkflow()
+  const expected = deriveExpected(formula)
+  const [direction, setDirection] = useState<"issued" | "received">("issued")
+  const [counterparty, setCounterparty] = useState("")
+  const [expectedAmount, setExpectedAmount] = useState(String(expected.totalSell))
+  const [externalAmount, setExternalAmount] = useState("")
+  const [statusMode, setStatusMode] = useState<"pending" | "matched" | "mismatched" | "custom">("pending")
+  const [dueDate, setDueDate] = useState(new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10))
+
+  const previewExternal = useMemo(() => {
+    const exp = Number(expectedAmount)
+    if (statusMode === "pending") return null
+    if (statusMode === "matched") return exp
+    if (statusMode === "mismatched") return exp + Math.round(exp * 0.05)
+    return externalAmount === "" ? null : Number(externalAmount)
+  }, [expectedAmount, statusMode, externalAmount])
+
+  const delta = previewExternal == null ? null : previewExternal - Number(expectedAmount)
+  const blocksClose = previewExternal == null || previewExternal !== Number(expectedAmount)
+
+  function submit() {
+    const exp = Number(expectedAmount)
+    if (!counterparty.trim() || !exp) return
+    applyPreview((f) =>
+      addInvoice(f, {
+        direction,
+        counterparty: counterparty.trim(),
+        expectedAmount: exp,
+        externalAmount: previewExternal,
+        dueDate,
+      }),
+    )
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Add Invoice"
+      description="External amount drives system-derived verification status."
+      size="lg"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={submit}>
+            Add Invoice (Preview)
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Direction">
+            <Select value={direction} onChange={(e) => setDirection(e.target.value as "issued" | "received")}>
+              <option value="issued">Issued (sales)</option>
+              <option value="received">Received (purchase)</option>
+            </Select>
+          </Field>
+          <Field label="Counterparty">
+            <Input value={counterparty} onChange={(e) => setCounterparty(e.target.value)} />
+          </Field>
+          <Field label="Expected amount (KRW)">
+            <Input type="number" value={expectedAmount} onChange={(e) => setExpectedAmount(e.target.value)} />
+          </Field>
+          <Field label="Verification preview" hint="Status is derived from external vs expected — not user-entered on API.">
+            <Select value={statusMode} onChange={(e) => setStatusMode(e.target.value as typeof statusMode)}>
+              <option value="pending">Pending (no external amount)</option>
+              <option value="matched">Amount matched</option>
+              <option value="mismatched">Amount mismatched</option>
+              <option value="custom">Custom external amount</option>
+            </Select>
+          </Field>
+          {statusMode === "custom" && (
+            <Field label="External invoice amount (KRW)">
+              <Input type="number" value={externalAmount} onChange={(e) => setExternalAmount(e.target.value)} />
+            </Field>
+          )}
+          <Field label="Due date">
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </Field>
+        </div>
+        <div className="rounded-lg border border-border bg-secondary/30 p-3 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Close impact (preview)</p>
+          <div className="mt-2 space-y-1">
+            <p>
+              Difference:{" "}
+              <span className="font-mono">{delta == null ? "—" : formatCurrency(delta)}</span>
+            </p>
+            <p className={blocksClose ? "text-warning" : "text-success"}>
+              {blocksClose ? "Blocks close until amount is matched" : "Allows close (for this invoice)"}
+            </p>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Logistics controls                                                         */
+/* -------------------------------------------------------------------------- */
+
+const LOGISTICS_TRANSITION_LABELS: Record<string, string> = {
+  not_started: "Not Started",
+  in_transit: "In Transit",
+  delivered: "Delivered",
+}
+
+export function LogisticsWorkflowActions() {
+  const { formula, caps, applyPreview } = useFormulaWorkflow()
+  const canLog = caps.canWriteLogistics && !formula.isClosed && !formula.canceledAt
+  const [addOpen, setAddOpen] = useState(false)
+  const [mode, setMode] = useState<"sea" | "air" | "land">("sea")
+  const [origin, setOrigin] = useState("")
+  const [destination, setDestination] = useState("")
+  const [eta, setEta] = useState(new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10))
+  const [cost, setCost] = useState("")
+  // D-05 §7: select transitions (not_started ↔ in_transit only) route through the transition modal.
+  const [transitionTo, setTransitionTo] = useState<string | null>(null)
+
+  function addLeg() {
+    if (!origin.trim() || !destination.trim()) return
+    applyPreview((f) =>
+      addLogisticsLegPreview(f, {
+        mode,
+        origin: origin.trim(),
+        destination: destination.trim(),
+        eta,
+        cost: cost ? Number(cost) : 0,
+      }),
+    )
+    setAddOpen(false)
+  }
+
+  return (
+    <>
+      <WorkflowToolbar>
+        <Field
+          label="Logistics status (preview)"
+          className="min-w-[200px]"
+          hint="Delivered is set via Mark Delivered on Overview — not here."
+        >
+          <Select
+            value={formula.logisticsStatus}
+            disabled={!canLog || formula.logisticsStatus === "delivered"}
+            onChange={(e) => {
+              const next = e.target.value
+              // D-05 §7: never set delivered from the select; open transition modal for the rest.
+              if (next !== "delivered" && next !== formula.logisticsStatus) setTransitionTo(next)
+            }}
+          >
+            <option value="not_started">Not Started</option>
+            <option value="in_transit">In Transit</option>
+            <option value="delivered" disabled>
+              Delivered (use Mark Delivered)
+            </option>
+          </Select>
+        </Field>
+        <Tooltip content={BACKEND_ROUTE_GAPS.delivery}>
+          <span>
+            <Field label="Delivery status" className="min-w-[200px]">
+              <Select value={formula.deliveryStatus} disabled>
+                <option value="pending">Pending</option>
+                <option value="in_transit">In Transit</option>
+                <option value="delivered">Delivered</option>
+              </Select>
+            </Field>
+          </span>
+        </Tooltip>
+        <ToolbarButton icon={Plus} label="Add Leg" disabled={!canLog} onClick={() => setAddOpen(true)} />
+        <p className="w-full text-[11px] text-muted-foreground">
+          Logistics: mock <code className="text-xs">PATCH …/logistics-status</code> · Delivery: {BACKEND_ROUTE_GAPS.delivery}
+          · Vehicles: {BACKEND_ROUTE_GAPS.vehicles}
+        </p>
+      </WorkflowToolbar>
+
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add Logistics Leg"
+        description="Preview row only — no backend vehicle CRUD."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="accent" onClick={addLeg}>
+              Add Leg (Preview)
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <MockPreviewNote />
+          <Field label="Mode">
+            <Select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+              <option value="sea">Sea</option>
+              <option value="air">Air</option>
+              <option value="land">Land</option>
+            </Select>
+          </Field>
+          <Field label="Origin">
+            <Input value={origin} onChange={(e) => setOrigin(e.target.value)} />
+          </Field>
+          <Field label="Destination">
+            <Input value={destination} onChange={(e) => setDestination(e.target.value)} />
+          </Field>
+          <Field label="ETA">
+            <Input type="date" value={eta} onChange={(e) => setEta(e.target.value)} />
+          </Field>
+          <Field label="Leg cost (KRW)">
+            <Input type="number" value={cost} onChange={(e) => setCost(e.target.value)} />
+          </Field>
+        </div>
+      </Modal>
+
+      {transitionTo && (
+        <StatusTransitionModal
+          open
+          onClose={() => setTransitionTo(null)}
+          domainLabel="Logistics"
+          fromLabel={LOGISTICS_TRANSITION_LABELS[formula.logisticsStatus] ?? formula.logisticsStatus}
+          toLabel={LOGISTICS_TRANSITION_LABELS[transitionTo] ?? transitionTo}
+          onSubmit={(p) => {
+            const to = transitionTo
+            applyPreview((f) => transitionDomainStatusPreview(f, "logistics", to, p))
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Six-status manual controls                                                 */
+/* -------------------------------------------------------------------------- */
+
+/* ---- Six-status lifecycle domain config (Status Workflow spec D-01–D-06) ---- */
+
+type LifecycleDomainCfg = {
+  key: StatusDomain
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  gapId?: BackendGapId
+  /** Display label of the terminal complete state. */
+  completeTargetLabel: string
+  /** Display label of the revoke target state. */
+  revokeTargetLabel: string
+  completeLabel?: string
+  completePrimary?: string
+  completeConfirm: string
+  revokeConfirm: string
+  bodyNote?: string
+  revokeWarning?: string
+  /** Raw current status value (drives Modify availability). */
+  currentRaw: (f: Formula) => string
+  /** Intermediate Modify transition for the current state, or null when unavailable. */
+  modify: (f: Formula) => { label: string; toStatus: string; fromLabel: string; toLabel: string } | null
+}
+
+const LIFECYCLE_DOMAINS: LifecycleDomainCfg[] = [
+  {
+    key: "trade",
+    label: t("formulas.detail.sixStatus.trade"),
+    icon: Handshake,
+    gapId: "G2",
+    completeTargetLabel: t("formulas.detail.sixStatus.completed"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.confirmed"),
+    completeConfirm: t("formulas.detail.sixStatus.completeTradeConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeTradeConfirm"),
+    currentRaw: (f) => f.tradeStatus,
+    modify: (f) =>
+      f.tradeStatus === "draft"
+        ? { label: t("formulas.detail.sixStatus.advanceConfirmed"), toStatus: "confirmed", fromLabel: t("formulas.detail.sixStatus.draft"), toLabel: t("formulas.detail.sixStatus.confirmed") }
+        : null,
+  },
+  {
+    key: "cashIn",
+    label: t("formulas.detail.sixStatus.cashIn"),
+    icon: ArrowDownLeft,
+    gapId: "G3",
+    completeTargetLabel: t("formulas.detail.sixStatus.completed"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.pending"),
+    completeConfirm: t("formulas.detail.sixStatus.completeCashInConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeCashInConfirm"),
+    bodyNote: t("formulas.detail.sixStatus.cashInNote"),
+    revokeWarning: t("formulas.detail.sixStatus.cashInRevokeWarning"),
+    currentRaw: (f) => f.cashInStatus,
+    modify: (f) =>
+      f.cashInStatus === "pending"
+        ? { label: t("formulas.detail.sixStatus.setPartial"), toStatus: "partial", fromLabel: t("formulas.detail.sixStatus.pending"), toLabel: t("formulas.detail.sixStatus.partial") }
+        : f.cashInStatus === "partial"
+          ? { label: t("formulas.detail.sixStatus.returnPending"), toStatus: "pending", fromLabel: t("formulas.detail.sixStatus.partial"), toLabel: t("formulas.detail.sixStatus.pending") }
+          : null,
+  },
+  {
+    key: "cashOut",
+    label: t("formulas.detail.sixStatus.cashOut"),
+    icon: ArrowUpRight,
+    gapId: "G4",
+    completeTargetLabel: t("formulas.detail.sixStatus.completed"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.pending"),
+    completeConfirm: t("formulas.detail.sixStatus.completeCashOutConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeCashOutConfirm"),
+    bodyNote: t("formulas.detail.sixStatus.cashOutNote"),
+    revokeWarning: t("formulas.detail.sixStatus.cashOutRevokeWarning"),
+    currentRaw: (f) => f.cashOutStatus,
+    modify: (f) =>
+      f.cashOutStatus === "pending"
+        ? { label: t("formulas.detail.sixStatus.setPartial"), toStatus: "partial", fromLabel: t("formulas.detail.sixStatus.pending"), toLabel: t("formulas.detail.sixStatus.partial") }
+        : f.cashOutStatus === "partial"
+          ? { label: t("formulas.detail.sixStatus.returnPending"), toStatus: "pending", fromLabel: t("formulas.detail.sixStatus.partial"), toLabel: t("formulas.detail.sixStatus.pending") }
+          : null,
+  },
+  {
+    key: "logistics",
+    label: t("formulas.detail.sixStatus.logistics"),
+    icon: Truck,
+    // Route exists — no gap strip; still mock.
+    completeTargetLabel: t("formulas.detail.sixStatus.delivered"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.inTransit"),
+    completeLabel: t("formulas.detail.sixStatus.delivered"),
+    completePrimary: t("formulas.detail.sixStatus.markDeliveredPreview"),
+    completeConfirm: t("formulas.detail.sixStatus.completeLogisticsConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeLogisticsConfirm"),
+    currentRaw: (f) => f.logisticsStatus,
+    modify: (f) =>
+      f.logisticsStatus === "not_started"
+        ? { label: t("formulas.detail.sixStatus.setInTransit"), toStatus: "in_transit", fromLabel: t("formulas.detail.sixStatus.notStarted"), toLabel: t("formulas.detail.sixStatus.inTransit") }
+        : f.logisticsStatus === "in_transit"
+          ? { label: t("formulas.detail.sixStatus.returnNotStarted"), toStatus: "not_started", fromLabel: t("formulas.detail.sixStatus.inTransit"), toLabel: t("formulas.detail.sixStatus.notStarted") }
+          : null,
+  },
+  {
+    key: "delivery",
+    label: t("formulas.detail.sixStatus.delivery"),
+    icon: PackageCheck,
+    gapId: "G1",
+    completeTargetLabel: t("formulas.detail.sixStatus.delivered"),
+    revokeTargetLabel: t("formulas.detail.sixStatus.inTransit"),
+    completeConfirm: t("formulas.detail.sixStatus.completeDeliveryConfirm"),
+    revokeConfirm: t("formulas.detail.sixStatus.revokeDeliveryConfirm"),
+    bodyNote: t("formulas.detail.sixStatus.deliveryNote"),
+    currentRaw: (f) => f.deliveryStatus,
+    modify: (f) =>
+      f.deliveryStatus === "pending"
+        ? { label: t("formulas.detail.sixStatus.setInTransit"), toStatus: "in_transit", fromLabel: t("formulas.detail.sixStatus.pending"), toLabel: t("formulas.detail.sixStatus.inTransit") }
+        : f.deliveryStatus === "in_transit"
+          ? { label: t("formulas.detail.sixStatus.returnPending"), toStatus: "pending", fromLabel: t("formulas.detail.sixStatus.inTransit"), toLabel: t("formulas.detail.sixStatus.pending") }
+          : null,
+  },
+]
+
+type ActiveModal =
+  | { kind: "complete" | "revoke"; domain: LifecycleDomainCfg }
+  | { kind: "modify"; domain: LifecycleDomainCfg; toStatus: string; fromLabel: string; toLabel: string }
+  | null
+
+export function SixStatusControls({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+  const { formula, caps, applyPreview } = useFormulaWorkflow()
+  const canStatus = caps.canWrite && !formula.isClosed
+  const statuses = sixStatuses(formula)
+  const canceled = Boolean(formula.canceledAt)
+  const [active, setActive] = useState<ActiveModal>(null)
+
+  const invoice = statuses.find((s) => s.key === "invoice")!
+  const done = statuses.filter((s) => s.done).length
+
+  function submitFor(m: ActiveModal, payload: StatusActionSubmit) {
+    if (!m) return
+    if (m.kind === "complete") applyPreview((f) => completeDomainStatusPreview(f, m.domain.key, payload))
+    else if (m.kind === "revoke") applyPreview((f) => revokeDomainStatusPreview(f, m.domain.key, payload))
+    else if (m.kind === "modify") {
+      const toStatus = m.toStatus
+      applyPreview((f) => transitionDomainStatusPreview(f, m.domain.key, toStatus, payload))
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.sixStatus.title")}</p>
+        <span className="text-xs text-muted-foreground">
+          {canceled ? t("formulas.detail.sixStatus.canceledPreview") : t("formulas.detail.sixStatus.progress", { count: done })}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {LIFECYCLE_DOMAINS.map((d) => {
+          const s = statuses.find((st) => st.key === d.key)!
+          const modify = !s.done ? d.modify(formula) : null
+          return (
+            <StatusLifecycleCard
+              key={d.key}
+              label={d.label}
+              icon={d.icon}
+              currentValue={s.value}
+              isDone={s.done}
+              backendGapId={d.gapId}
+              canWrite={canStatus && !canceled}
+              completeLabel={d.completeLabel ? t("formulas.detail.sixStatus.markDeliveredPreview") : t("formulas.detail.sixStatus.completePreview")}
+              modifyLabel={modify?.label}
+              onComplete={() => setActive({ kind: "complete", domain: d })}
+              onRevoke={() => setActive({ kind: "revoke", domain: d })}
+              onModify={
+                modify
+                  ? () =>
+                      setActive({
+                        kind: "modify",
+                        domain: d,
+                        toStatus: modify.toStatus,
+                        fromLabel: modify.fromLabel,
+                        toLabel: modify.toLabel,
+                      })
+                  : undefined
+              }
+            />
+          )
+        })}
+
+        {/* Invoice — derived; navigate to Invoices tab (D-04). */}
+        <StatusLifecycleCard
+          label={t("formulas.detail.sixStatus.invoice")}
+          icon={FileText}
+          currentValue={invoice.value}
+          isDone={invoice.done}
+          isDerived
+          canWrite={canStatus && !canceled}
+          reviewLabel={t("formulas.detail.sixStatus.reviewInvoices")}
+          onReview={() => onNavigate?.("invoices")}
+        />
+      </div>
+
+      <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+        {t("formulas.detail.sixStatus.manualNote")}
+      </p>
+
+      {/* Shared lifecycle modals */}
+      {active?.kind === "complete" && (
+        <StatusCompletionModal
+          open
+          onClose={() => setActive(null)}
+          domainLabel={active.domain.label}
+          currentValue={statuses.find((s) => s.key === active.domain.key)!.value}
+          targetValue={active.domain.completeTargetLabel}
+          gapId={active.domain.gapId}
+          confirmCopy={active.domain.completeConfirm}
+          bodyNote={active.domain.bodyNote}
+          primaryLabel={active.domain.completePrimary}
+          onSubmit={(p) => submitFor(active, p)}
+        />
+      )}
+      {active?.kind === "revoke" && (
+        <StatusRevocationModal
+          open
+          onClose={() => setActive(null)}
+          domainLabel={active.domain.label}
+          completedValue={active.domain.completeTargetLabel}
+          revokeTarget={active.domain.revokeTargetLabel}
+          gapId={active.domain.gapId}
+          confirmCopy={active.domain.revokeConfirm}
+          warning={active.domain.revokeWarning}
+          onSubmit={(p) => submitFor(active, p)}
+        />
+      )}
+      {active?.kind === "modify" && (
+        <StatusTransitionModal
+          open
+          onClose={() => setActive(null)}
+          domainLabel={active.domain.label}
+          fromLabel={active.fromLabel}
+          toLabel={active.toLabel}
+          gapId={active.domain.gapId}
+          onSubmit={(p) => submitFor(active, p)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * D-04 §3: Invoice completion checklist on Overview. Shown only when the invoice
+ * close gate is unmet. Purely guidance — invoice status is derived, never toggled
+ * here. Deep-links to the Invoices tab.
+ */
+export function InvoiceCompletionChecklist({ onNavigate }: { onNavigate?: (tab: string) => void }) {
+  const { formula, caps } = useFormulaWorkflow()
+  const inv = deriveInvoiceClose(formula)
+  if (formula.canceledAt || inv.done) return null
+
+  const noInvoices = inv.activeCount === 0
+
+  return (
+    <div className="rounded-lg border border-warning/30 bg-warning-soft/40 p-4">
+      <div className="flex items-start gap-2">
+        <FileText className="mt-0.5 size-4 shrink-0 text-warning" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-foreground">{t("formulas.detail.sixStatus.invoiceIncompleteTitle")}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {t("formulas.detail.sixStatus.invoiceIncompleteDescription")}
+          </p>
+          <ul className="mt-3 space-y-1.5 text-xs text-foreground">
+            <li className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "inline-flex size-4 items-center justify-center rounded-full text-[10px]",
+                  noInvoices ? "bg-secondary text-muted-foreground" : "bg-success text-success-foreground",
+                )}
+              >
+                {noInvoices ? "1" : "✓"}
+              </span>
+              {t("formulas.detail.sixStatus.addInvoice")}
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="inline-flex size-4 items-center justify-center rounded-full bg-secondary text-[10px] text-muted-foreground">
+                {noInvoices ? "2" : inv.blocking}
+              </span>
+              {noInvoices
+                ? t("formulas.detail.sixStatus.matchInvoices")
+                : t("formulas.detail.sixStatus.invoicesNeedMatching", { count: inv.blocking })}
+            </li>
+          </ul>
+          {caps.canWriteInvoices && (
+            <Button variant="outline" size="sm" className="mt-3 gap-1 text-xs" onClick={() => onNavigate?.("invoices")}>
+              <FileText className="size-3.5" />
+              {t("formulas.detail.sixStatus.goInvoices")}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Close & Cancel dialogs                                                     */
+/* -------------------------------------------------------------------------- */
+
+export function CloseFormulaDialog({
+  open,
+  onClose,
+  onNavigate,
+}: {
+  open: boolean
+  onClose: () => void
+  onNavigate?: (tab: string) => void
+}) {
+  const { formula, caps, applyPreview } = useFormulaWorkflow()
+  const statuses = sixStatuses(formula)
+  const settlement = deriveExpected(formula)
+  const blocked = !formula.closeable && !formula.isClosed
+
+  function submit() {
+    applyPreview(closeFormulaPreview)
+    onClose()
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t("formulas.detail.header.closeFormula")}
+      description={t("formulas.detail.sixStatus.closeDialogDescription")}
+      size="lg"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            {t("formulas.detail.sixStatus.cancel")}
+          </Button>
+          <Button
+            variant="accent"
+            onClick={submit}
+            disabled={!formula.closeable || formula.isClosed || !caps.canCloseOrCancel}
+          >
+            {t("formulas.detail.sixStatus.closePreview")}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.sixStatus.readiness")}</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {statuses.map((s) => (
+              <div key={s.key} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                <span>{s.label}</span>
+                <span className={s.done ? "text-success" : "text-warning"}>{s.done ? t("formulas.detail.sixStatus.ready") : s.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* P1-03: blocking guidance when not closeable — mirrors CloseReadinessPanel. */}
+        {blocked && (
+          <div className="rounded-lg border border-warning/30 bg-warning-soft p-3">
+            <p className="text-sm font-semibold text-foreground">{t("formulas.detail.closeReadiness.blockedTitle")}</p>
+            <p className="mb-3 mt-1 text-xs leading-relaxed text-muted-foreground">
+              {t("formulas.detail.closeReadiness.blockedDescription")}
+            </p>
+            <CloseBlockingList
+              formula={formula}
+              onNavigate={(t) => {
+                onNavigate?.(t)
+                onClose()
+              }}
+            />
+          </div>
+        )}
+
+        {formula.closeable && !formula.isClosed && (
+          <p className="rounded-lg border border-success/30 bg-success-soft p-3 text-sm text-success">
+            {t("formulas.detail.sixStatus.allComplete")}
+          </p>
+        )}
+
+        <div className="rounded-lg border border-border bg-secondary/30 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("formulas.detail.sixStatus.reviewKpi")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("formulas.detail.sixStatus.reviewKpiDescription")}
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+            <span>{t("formulas.detail.sixStatus.receivable", { value: formatCurrency(formula.receivable) })}</span>
+            <span>{t("formulas.detail.sixStatus.payable", { value: formatCurrency(formula.payable) })}</span>
+            <span>{t("formulas.detail.sixStatus.expectedProfit", { value: formatCurrency(settlement.expectedProfit) })}</span>
+            <span>{t("formulas.detail.sixStatus.realizedProfit", { value: formatCurrency(formula.realizedProfit) })}</span>
+          </div>
+        </div>
+        {/* D-07 §13: explicit close irreversibility copy. */}
+        <div className="space-y-1 rounded-lg border border-accent/30 bg-accent-soft/40 p-3 text-xs leading-relaxed text-foreground">
+          <p>{t("formulas.detail.sixStatus.closeRequirement")}</p>
+          <p className="font-medium">{t("formulas.detail.sixStatus.closeIrreversible")}</p>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+export function CancelFormulaDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { formula, applyPreview } = useFormulaWorkflow()
+  const [reason, setReason] = useState("")
+
+  function submit() {
+    if (!reason.trim()) return
+    applyPreview((f) => cancelFormulaPreview(f, reason.trim()))
+    setReason("")
+    onClose()
+  }
+
+  const canceledLogs = formula.statusLogs.filter((l) => l.newStatus === "canceled").slice(-6)
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t("formulas.detail.header.cancelFormula")}
+      description={t("formulas.detail.sixStatus.cancelDescription")}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            {t("formulas.detail.sixStatus.back")}
+          </Button>
+          <Button variant="accent" onClick={submit} disabled={!reason.trim() || Boolean(formula.canceledAt)}>
+            {t("formulas.detail.sixStatus.cancelPreview")}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <MockPreviewNote />
+        {/* D-08 §13: cancellation confirmation copy. */}
+        <p className="rounded-lg border border-danger/30 bg-danger-soft/30 p-3 text-xs leading-relaxed text-foreground">
+          {t("formulas.detail.sixStatus.cancelWarning")}
+        </p>
+        <Field label={t("formulas.detail.sixStatus.cancellationReason")}>
+          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("formulas.detail.sixStatus.required")} />
+        </Field>
+        {formula.canceledAt && (
+          <div className="rounded-lg border border-danger/30 bg-danger-soft/30 p-3 text-sm">
+            <p className="font-medium text-danger">{t("formulas.detail.sixStatus.canceledTitle")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("formulas.detail.sixStatus.canceledLog")}</p>
+            <ul className="mt-2 space-y-1 text-xs">
+              {canceledLogs.map((l) => (
+                <li key={l.id}>
+                  {l.statusType}: {l.previousStatus} → {l.newStatus}
+                  {l.memo ? ` — ${l.memo}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {/* D-08 §5–6: no undo path in MVP. */}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {t("formulas.detail.sixStatus.cancelFootnote")}
+        </p>
+      </div>
+    </Modal>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Participant add + version trigger (V0-PART-01)                             */
+/* -------------------------------------------------------------------------- */
+
+/** Mock registered companies — stands in for useRegisteredCompanies() until master data API is wired. */
+const MOCK_REGISTERED_COMPANIES = [
+  "Hanwha Trading Co.",
+  "Samil Logistics",
+  "Daewoo International",
+  "Kospo Materials",
+  "Nexen Global Partners",
+]
+
+const CUSTOM_COMPANY = "__custom__"
+
+export function ParticipantWorkflowActions() {
+  const { caps } = useFormulaWorkflow()
+  const [open, setOpen] = useState(false)
+
+  if (!caps.canWrite) {
+    return (
+      <Tooltip content="Requires MANAGER+ role on an open formula.">
+        <span className="mb-4 inline-block text-xs text-muted-foreground opacity-60">
+          Add participant unavailable
+        </span>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <>
+      <WorkflowToolbar>
+        <ToolbarButton icon={UserPlus} label="Add Participant" onClick={() => setOpen(true)} />
+      </WorkflowToolbar>
+      <AddParticipantModal open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
+function AddParticipantModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { formula, applyPreview, appendVersion } = useFormulaWorkflow()
+
+  const chainCompanies = useMemo(
+    () => Array.from(new Set(formula.participants.map((p) => p.company).filter(Boolean))),
+    [formula.participants],
+  )
+  const companyOptions = useMemo(
+    () => Array.from(new Set([...chainCompanies, ...MOCK_REGISTERED_COMPANIES])),
+    [chainCompanies],
+  )
+
+  const [companySelect, setCompanySelect] = useState("")
+  const [customCompany, setCustomCompany] = useState("")
+  const [roleGroup, setRoleGroup] = useState("buyer")
+  const [natureGroup, setNatureGroup] = useState("trading")
+  const [paymentGroup, setPaymentGroup] = useState("credit")
+  const [quantity, setQuantity] = useState(String(formula.quantity ?? ""))
+  const [buyUnitPrice, setBuyUnitPrice] = useState("")
+  const [sellUnitPrice, setSellUnitPrice] = useState("")
+  const [isStart, setIsStart] = useState(false)
+  const [isEnd, setIsEnd] = useState(false)
+  const [memo, setMemo] = useState("")
+  const [versionOpen, setVersionOpen] = useState(false)
+
+  const company = companySelect === CUSTOM_COMPANY ? customCompany.trim() : companySelect
+  const hasStart = formula.participants.some((p) => p.isStart)
+  const hasEnd = formula.participants.some((p) => p.isEnd)
+  const startConflict = isStart && hasStart
+  const endConflict = isEnd && hasEnd
+  const canContinue = Boolean(company) && !startConflict && !endConflict
+
+  function reset() {
+    setCompanySelect("")
+    setCustomCompany("")
+    setRoleGroup("buyer")
+    setNatureGroup("trading")
+    setPaymentGroup("credit")
+    setQuantity(String(formula.quantity ?? ""))
+    setBuyUnitPrice("")
+    setSellUnitPrice("")
+    setIsStart(false)
+    setIsEnd(false)
+    setMemo("")
+  }
+
+  function save() {
+    if (!company) return
+    const summary = `Participant added: ${company}`
+    applyPreview((f) =>
+      addParticipantPreview(f, {
+        company,
+        roleGroup,
+        natureGroup,
+        paymentGroup,
+        quantity: quantity ? Number(quantity) : undefined,
+        buyUnitPrice: buyUnitPrice ? Number(buyUnitPrice) : undefined,
+        sellUnitPrice: sellUnitPrice ? Number(sellUnitPrice) : undefined,
+        isStart,
+        isEnd,
+        memo: memo.trim() || undefined,
+      }),
+    )
+    const nextNo = formula.latestVersionNo + 1
+    appendVersion({
+      versionNo: nextNo,
+      createdAt: new Date().toISOString(),
+      createdBy: "Preview User",
+      summary,
+      changes: [
+        {
+          field: "participants",
+          label: "Participant",
+          oldValue: formula.participants.length,
+          newValue: formula.participants.length + 1,
+          valueType: "text",
+          versionTriggering: true,
+        },
+      ],
+    })
+    applyPreview((f) => applyVersionTriggerPreview(f, summary))
+    setVersionOpen(false)
+    reset()
+    onClose()
+  }
+
+  return (
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="Add Participant"
+        description="POST /formulas/:id/participants — creates participant + version + snapshot + audit."
+        footer={
+          <>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button variant="accent" disabled={!canContinue} onClick={() => setVersionOpen(true)}>
+              Continue
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <MockPreviewNote />
+          <Field label="Company" hint="Registered companies or an existing chain member.">
+            <Select value={companySelect} onChange={(e) => setCompanySelect(e.target.value)}>
+              <option value="">Select company…</option>
+              {companyOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+              <option value={CUSTOM_COMPANY}>Other (type below)…</option>
+            </Select>
+          </Field>
+          {companySelect === CUSTOM_COMPANY && (
+            <Field label="Company name">
+              <Input value={customCompany} onChange={(e) => setCustomCompany(e.target.value)} />
+            </Field>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Role group">
+              <Select value={roleGroup} onChange={(e) => setRoleGroup(e.target.value)}>
+                <option value="supplier">Supplier</option>
+                <option value="buyer">Buyer</option>
+                <option value="carrier">Carrier</option>
+                <option value="financial">Financial</option>
+                <option value="other">Other</option>
+              </Select>
+            </Field>
+            <Field label="Nature group">
+              <Select value={natureGroup} onChange={(e) => setNatureGroup(e.target.value)}>
+                <option value="manufacturer">Manufacturer</option>
+                <option value="trading">Trading</option>
+                <option value="agent">Agent</option>
+                <option value="logistics">Logistics</option>
+              </Select>
+            </Field>
+            <Field label="Payment group">
+              <Select value={paymentGroup} onChange={(e) => setPaymentGroup(e.target.value)}>
+                <option value="prepaid">Prepaid</option>
+                <option value="credit">Credit</option>
+                <option value="postpaid">Postpaid</option>
+              </Select>
+            </Field>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Quantity">
+              <Input type="number" min={0} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            </Field>
+            <Field label="Buy unit price (KRW)">
+              <Input type="number" min={0} value={buyUnitPrice} onChange={(e) => setBuyUnitPrice(e.target.value)} />
+            </Field>
+            <Field label="Sell unit price (KRW)">
+              <Input type="number" min={0} value={sellUnitPrice} onChange={(e) => setSellUnitPrice(e.target.value)} />
+            </Field>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isStart} onChange={(e) => setIsStart(e.target.checked)} />
+              Start point
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={isEnd} onChange={(e) => setIsEnd(e.target.checked)} />
+              End point
+            </label>
+          </div>
+          {(startConflict || endConflict) && (
+            <p className="text-xs text-danger">
+              {startConflict && "A start point already exists in this chain. "}
+              {endConflict && "An end point already exists in this chain. "}
+              Uncheck to continue.
+            </p>
+          )}
+          <Field label="Memo (optional)">
+            <Input value={memo} onChange={(e) => setMemo(e.target.value)} />
+          </Field>
+        </div>
+      </Modal>
+      <VersionTriggerModal
+        open={versionOpen}
+        onClose={() => setVersionOpen(false)}
+        onConfirm={save}
+        actionLabel="Add participant"
+      />
+    </>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Share CRUD + version trigger                                               */
+/* -------------------------------------------------------------------------- */
+
+export function ShareWorkflowActions() {
+  const { caps } = useFormulaWorkflow()
+  const canShare = caps.canWriteShares
+  const [open, setOpen] = useState(false)
+  const [editShare, setEditShare] = useState<FormulaShare | null>(null)
+
+  return (
+    <>
+      <WorkflowToolbar>
+        <ToolbarButton
+          icon={Plus}
+          label="Add Share"
+          disabled={!canShare}
+          onClick={() => {
+            setEditShare(null)
+            setOpen(true)
+          }}
+        />
+      </WorkflowToolbar>
+      <ShareEditorModal
+        open={open}
+        share={editShare}
+        onClose={() => {
+          setOpen(false)
+          setEditShare(null)
+        }}
+      />
+      <ShareListEditor onEdit={(s) => { setEditShare(s); setOpen(true) }} />
+    </>
+  )
+}
+
+function ShareListEditor({ onEdit }: { onEdit: (s: FormulaShare) => void }) {
+  const { formula, caps, applyPreview, appendVersion } = useFormulaWorkflow()
+  const canShare = caps.canWriteShares
+  const shares = formula.shares ?? []
+  const [versionOpen, setVersionOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+
+  function confirmVersion(mutator: () => void, summary: string, oldTotal: number, newTotal: number) {
+    mutator()
+    const nextNo = formula.latestVersionNo + 1
+    appendVersion({
+      versionNo: nextNo,
+      createdAt: new Date().toISOString(),
+      createdBy: "Preview User",
+      summary,
+      changes: [
+        {
+          field: "totalShare",
+          label: "Total Share",
+          oldValue: oldTotal,
+          newValue: newTotal,
+          valueType: "currency",
+          versionTriggering: true,
+        },
+      ],
+    })
+    applyPreview((f) => applyVersionTriggerPreview(f, summary, { oldTotal, newTotal }))
+    setVersionOpen(false)
+    setPendingDelete(null)
+  }
+
+  if (shares.length === 0) return null
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {shares.map((s) => (
+        <div key={s.id} className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs">
+          <span>{s.companyName}</span>
+          {canShare && (
+            <>
+              <button type="button" className="text-accent" onClick={() => onEdit(s)}>
+                <Pencil className="size-3" />
+              </button>
+              <button
+                type="button"
+                className="text-danger"
+                onClick={() => {
+                  setPendingDelete(s.id)
+                  setVersionOpen(true)
+                }}
+              >
+                <Trash2 className="size-3" />
+              </button>
+            </>
+          )}
+        </div>
+      ))}
+      <VersionTriggerModal
+        open={versionOpen}
+        onClose={() => { setVersionOpen(false); setPendingDelete(null) }}
+        onConfirm={() => {
+          const oldTotal = shares.reduce((sum, x) => sum + x.amount, 0)
+          if (pendingDelete) {
+            const next = shares.filter((x) => x.id !== pendingDelete)
+            const newTotal = next.reduce((sum, x) => sum + x.amount, 0)
+            confirmVersion(
+              () => applyPreview((f) => deleteSharePreview(f, pendingDelete)),
+              "Share row deleted",
+              oldTotal,
+              newTotal,
+            )
+          }
+        }}
+        actionLabel={pendingDelete ? "Delete share" : "Save share"}
+      />
+    </div>
+  )
+}
+
+function ShareEditorModal({
+  open,
+  onClose,
+  share,
+}: {
+  open: boolean
+  onClose: () => void
+  share: FormulaShare | null
+}) {
+  const { formula, applyPreview, appendVersion } = useFormulaWorkflow()
+  const expected = deriveExpected(formula)
+  const [companyName, setCompanyName] = useState(share?.companyName ?? "")
+  const [method, setMethod] = useState<FormulaShare["method"]>(share?.method ?? "fixed")
+  const [amount, setAmount] = useState(String(share?.amount ?? 0))
+  const [rate, setRate] = useState(String(share?.rate ?? 10))
+  const [splitCount, setSplitCount] = useState(String(share?.splitCount ?? 2))
+  const [note, setNote] = useState(share?.note ?? "")
+  const [versionOpen, setVersionOpen] = useState(false)
+
+  const computedAmount = useMemo(() => {
+    if (method === "rate") return Math.round(expected.expectedProfit * (Number(rate) / 100))
+    if (method === "split") {
+      const n = Math.max(1, Number(splitCount))
+      const total = formula.shares?.reduce((s, x) => s + x.amount, 0) ?? formula.share
+      return Math.round(total / n)
+    }
+    return Number(amount)
+  }, [method, amount, rate, splitCount, expected.expectedProfit, formula.shares, formula.share])
+
+  const profitAfter = expected.expectedProfit - computedAmount + (share?.amount ?? 0)
+
+  function save() {
+    const oldTotal = (formula.shares ?? []).reduce((s, x) => s + x.amount, 0)
+    const input = {
+      id: share?.id,
+      companyName: companyName.trim(),
+      amount: computedAmount,
+      note,
+      method,
+      rate: method === "rate" ? Number(rate) : undefined,
+      splitCount: method === "split" ? Number(splitCount) : undefined,
+    }
+    const newTotal = oldTotal - (share?.amount ?? 0) + computedAmount
+    applyPreview((f) => upsertSharePreview(f, input))
+    const nextNo = formula.latestVersionNo + 1
+    appendVersion({
+      versionNo: nextNo,
+      createdAt: new Date().toISOString(),
+      createdBy: "Preview User",
+      summary: share ? "Share updated" : "Share added",
+      changes: [
+        {
+          field: "shareAmount",
+          label: "Share Amount",
+          oldValue: share?.amount ?? 0,
+          newValue: computedAmount,
+          valueType: "currency",
+          versionTriggering: true,
+        },
+      ],
+    })
+    applyPreview((f) => applyVersionTriggerPreview(f, share ? "Share updated" : "Share added", { oldTotal, newTotal }))
+    onClose()
+  }
+
+  return (
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title={share ? "Edit Share" : "Add Share"}
+        description="Share changes trigger a new Formula Version in production."
+        footer={
+          <>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              disabled={!companyName.trim()}
+              onClick={() => setVersionOpen(true)}
+            >
+              Continue
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <MockPreviewNote />
+          <Field label="Company">
+            <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+          </Field>
+          <Field label="Share method">
+            <Select value={method} onChange={(e) => setMethod(e.target.value as FormulaShare["method"])}>
+              <option value="fixed">Fixed amount (KRW)</option>
+              <option value="rate">Percentage of expected profit</option>
+              <option value="split">N/1 split of total share</option>
+            </Select>
+          </Field>
+          {method === "fixed" && (
+            <Field label="Amount (KRW)">
+              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </Field>
+          )}
+          {method === "rate" && (
+            <Field label="Rate (% of expected profit)">
+              <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} />
+            </Field>
+          )}
+          {method === "split" && (
+            <Field label="Split count (N)">
+              <Input type="number" min={1} value={splitCount} onChange={(e) => setSplitCount(e.target.value)} />
+            </Field>
+          )}
+          <Field label="Note">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+          <div className="rounded-lg border border-border bg-secondary/30 p-3 text-sm">
+            <p>Computed share: <span className="font-mono font-semibold">{formatCurrency(computedAmount)}</span></p>
+            <p className="mt-1 text-muted-foreground">
+              Expected profit after share (preview): {formatCurrency(profitAfter)}
+            </p>
+          </div>
+        </div>
+      </Modal>
+      <VersionTriggerModal
+        open={versionOpen}
+        onClose={() => setVersionOpen(false)}
+        onConfirm={save}
+        actionLabel={share ? "Update share" : "Add share"}
+      />
+    </>
+  )
+}
+
+export function VersionTriggerModal({
+  open,
+  onClose,
+  onConfirm,
+  actionLabel,
+}: {
+  open: boolean
+  onClose: () => void
+  onConfirm: () => void
+  actionLabel: string
+}) {
+  const { formula } = useFormulaWorkflow()
+  const expected = deriveExpected(formula)
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Version Trigger Confirmation"
+      description="This change would create formula_versions + calculation_snapshots + audit_logs on the backend."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="accent" onClick={onConfirm}>
+            {actionLabel} (Preview v{formula.latestVersionNo + 1})
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3 text-sm">
+        <MockPreviewNote />
+        <p>Current version: v{formula.latestVersionNo}</p>
+        <p>Expected profit impact (preview): {formatCurrency(expected.expectedProfit)}</p>
+        <p className="text-xs text-muted-foreground">
+          Share, quantity, prices, exchange rates, and logistics cost are version-triggering fields per TOCS policy.
+        </p>
+      </div>
+    </Modal>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared toolbar primitives                                                  */
+/* -------------------------------------------------------------------------- */
+
+function WorkflowToolbar({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-border bg-secondary/20 px-3 py-3">
+      <MockPreviewNote className="w-full" compact />
+      {children}
+    </div>
+  )
+}
+
+function ToolbarButton({
+  icon: Icon,
+  label,
+  disabled,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <Button variant="outline" size="sm" className="gap-1.5" disabled={disabled} onClick={onClick}>
+      <Icon className="size-3.5" />
+      {label}
+    </Button>
+  )
+}

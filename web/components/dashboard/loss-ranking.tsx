@@ -1,18 +1,21 @@
 import Link from "next/link"
 import type { Formula } from "@/lib/types"
+import { t } from "@/lib/i18n"
 import { formatSignedCurrency } from "@/lib/utils"
+import { deriveRealized } from "@/lib/formula-math"
 
 export function LossRanking({ formulas }: { formulas: Formula[] }) {
   if (formulas.length === 0) {
     return (
       <div className="flex h-full min-h-40 flex-col items-center justify-center gap-1 text-center">
-        <p className="text-sm font-medium text-foreground">No loss formulas</p>
-        <p className="text-xs text-muted-foreground">Every formula is currently profitable.</p>
+        <p className="text-sm font-medium text-foreground">{t("dashboard.lossRanking.emptyTitle")}</p>
+        <p className="text-xs text-muted-foreground">{t("dashboard.lossRanking.emptyDescription")}</p>
       </div>
     )
   }
 
-  const max = Math.max(...formulas.map((f) => Math.abs(f.realizedProfit)))
+  const realizedOf = (f: Formula) => deriveRealized(f).realizedProfit
+  const max = Math.max(...formulas.map((f) => Math.abs(realizedOf(f))))
 
   return (
     <div className="flex flex-col gap-3">
@@ -29,13 +32,13 @@ export function LossRanking({ formulas }: { formulas: Formula[] }) {
                 {f.number}
               </span>
               <span className="shrink-0 text-sm font-semibold tabular-nums text-danger">
-                {formatSignedCurrency(f.realizedProfit, { compact: true })}
+                {formatSignedCurrency(realizedOf(f), { compact: true })}
               </span>
             </div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-danger-soft">
               <div
                 className="h-full rounded-full bg-danger"
-                style={{ width: `${(Math.abs(f.realizedProfit) / max) * 100}%` }}
+                style={{ width: `${(Math.abs(realizedOf(f)) / max) * 100}%` }}
               />
             </div>
           </div>

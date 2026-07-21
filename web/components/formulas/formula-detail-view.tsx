@@ -9,25 +9,61 @@ import {
   FileText,
   Ship,
   History,
-  Pencil,
   CheckCircle2,
-  Share2,
+  Ban,
   AlertTriangle,
+  LayoutDashboard,
+  PieChart,
+  GitCommitVertical,
+  Scale,
 } from "lucide-react"
-import type { Formula } from "@/lib/types"
-import { formatCurrency, formatRelative, cn } from "@/lib/utils"
-import { statusConfig, tradeTypeConfig } from "@/lib/status"
-import { StatusBadge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { formatCurrency, cn } from "@/lib/utils"
+import { formulaStatusLabel, statusConfig } from "@/lib/status"
+import { t } from "@/lib/i18n"
+import { detailAttentionLabel, detailRelativeTime, detailTradeTypeLabel } from "@/lib/formula-detail-labels"
+  import { deriveSettlement, buildTimeline, sixStatuses } from "@/lib/formula-math"
+  import { StatusBadge } from "@/components/ui/badge"
+  import { Button } from "@/components/ui/button"
+  import { Tooltip } from "@/components/ui/tooltip"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { FormulaEquation } from "./formula-equation"
 import {
   ParticipantsPanel,
-  SchedulePanel,
+  ParticipantConfirmedKpiPanel,
+  FormulaLifecycleGuide,
+  CloseReadinessPanel,
+  PaymentsPanel,
   InvoicesPanel,
   LogisticsPanel,
-  TimelinePanel,
+  OverviewPanel,
+  SharesPanel,
+  SettlementPanel,
 } from "./detail-panels"
+  import { VersionsTabLayout } from "./versions-tab-layout"
+  import { FormulaDetailMobileNav } from "./formula-detail-mobile-nav"
+import { useFormulaWorkflow } from "./workflows/formula-workflow-context"
+import {
+  PaymentWorkflowActions,
+  ParticipantWorkflowActions,
+  InvoiceWorkflowActions,
+  LogisticsWorkflowActions,
+  SixStatusControls,
+  InvoiceCompletionChecklist,
+  CloseFormulaDialog,
+  CancelFormulaDialog,
+  ShareWorkflowActions,
+  triggerPaymentRecordCancel,
+  ClosedPaymentsBanner,
+  SettlementRecordCancelSection,
+} from "./workflows/workflow-modals"
+import {
+  MetadataWorkflowActions,
+  InvoiceStatusActions,
+  SettlementWorkflowActions,
+  SettlementLifecycleNote,
+  ClosedSettlementBanner,
+  TimelineWorkflowChrome,
+} from "./workflows/batch-2-workflows"
 
 function MetricPill({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
   return (
@@ -47,9 +83,14 @@ function MetricPill({ label, value, tone }: { label: string; value: string; tone
   )
 }
 
-export function FormulaDetailView({ formula }: { formula: Formula }) {
-  const [tab, setTab] = useState("participants")
+export function FormulaDetailView() {
+  const { formula, versionHistory, caps } = useFormulaWorkflow()
+  const [tab, setTab] = useState("overview")
+  const [closeOpen, setCloseOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
   const status = statusConfig[formula.status]
+  const settlement = deriveSettlement(formula)
+  const timelineCount = buildTimeline(formula, versionHistory).length
 
   return (
     <div className="animate-fade-in pb-6">
@@ -58,102 +99,203 @@ export function FormulaDetailView({ formula }: { formula: Formula }) {
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Back to Formulas
+        {t("formulas.detail.header.back")}
       </Link>
 
-      {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-mono text-2xl font-bold text-foreground">{formula.number}</h1>
-            <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+            <StatusBadge tone={status.tone}>{formulaStatusLabel(formula.status)}</StatusBadge>
             <span className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground">
-              v{formula.version}
+              {t("formulas.detail.header.version", { version: formula.latestVersionNo })}
             </span>
+            {formula.canceledAt && (
+              <StatusBadge tone="danger">{t("formulas.detail.header.canceledPreview")}</StatusBadge>
+            )}
           </div>
           <p className="mt-1.5 text-muted-foreground">
-            {formula.item} · {tradeTypeConfig[formula.tradeType].label} · updated {formatRelative(formula.updatedAt)}
+            {t("formulas.detail.header.context", {
+              item: formula.item,
+              tradeType: detailTradeTypeLabel(formula.tradeType),
+              time: detailRelativeTime(formula.updatedAt),
+            })}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline">
-            <Share2 className="size-4" />
-            Share
-          </Button>
-          <Link href={`/formulas/${formula.id}/edit`} className={cn(buttonVariants({ variant: "outline" }))}>
-            <Pencil className="size-4" />
-            Edit
-          </Link>
-          <Button variant="accent" disabled={!formula.closeable}>
-            <CheckCircle2 className="size-4" />
-            {formula.closeable ? "Close Formula" : "Not Closeable"}
-          </Button>
-        </div>
+        {/* V0-HDR-01: Cancel/Close are COMPANY_ADMIN+ only (cancel:cancel, close:close).
+            Hidden entirely — not disabled — for MANAGER/VIEWER and for closed/canceled formulas. */}
+        {caps.canCloseOrCancel && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setCancelOpen(true)}>
+              <Ban className="size-4" />
+              {t("formulas.detail.header.cancelFormula")}
+            </Button>
+            {!formula.closeable && !formula.isClosed ? (
+              <Tooltip
+                content={t("formulas.detail.header.closeBlockedTooltip", {
+                  count: sixStatuses(formula).filter((s) => !s.done).length,
+                })}
+              >
+                <span className="inline-flex">
+                  <Button variant="accent" className="gap-2" disabled>
+                    <CheckCircle2 className="size-4" />
+                    {t("formulas.detail.header.notCloseable")}
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="accent"
+                className="gap-2"
+                disabled={formula.isClosed}
+                onClick={() => setCloseOpen(true)}
+              >
+                <CheckCircle2 className="size-4" />
+                {formula.isClosed ? t("status.closed") : t("formulas.detail.header.closeFormula")}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {formula.attention && (
         <div className="mt-4 flex items-center gap-2 rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
           <AlertTriangle className="size-4 shrink-0" />
-          {formula.attention}
+          {detailAttentionLabel(formula.attention)}
         </div>
       )}
 
-      {/* Financials */}
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <FormulaEquation formula={formula} />
         <div className="grid grid-cols-2 gap-3 self-start">
-          <MetricPill label="Actual Receipts" value={formatCurrency(formula.actualReceipts)} tone="pos" />
-          <MetricPill label="Actual Payments" value={formatCurrency(formula.actualPayments)} />
-          <MetricPill label="Receivable" value={formatCurrency(formula.receivable)} />
-          <MetricPill label="Payable" value={formatCurrency(formula.payable)} />
+          <MetricPill label={t("formulas.detail.header.actualReceipts")} value={formatCurrency(settlement.actualReceipts)} tone="pos" />
+          <MetricPill label={t("formulas.detail.header.actualPayments")} value={formatCurrency(settlement.actualPayments)} />
+          <MetricPill label={t("formulas.detail.header.receivable")} value={formatCurrency(settlement.remainingReceivable)} />
+          <MetricPill label={t("formulas.detail.header.payable")} value={formatCurrency(settlement.remainingPayable)} />
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="mt-6">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList>
+          <TabsList showScrollHints>
+            <TabsTrigger value="overview">
+              <LayoutDashboard className="size-4" />
+              {t("formulas.detail.header.overview")}
+            </TabsTrigger>
+            <TabsTrigger value="timeline" count={timelineCount}>
+              <History className="size-4" />
+              {t("formulas.detail.header.timeline")}
+            </TabsTrigger>
             <TabsTrigger value="participants" count={formula.participants.length}>
               <Users className="size-4" />
-              Participants
+              {t("formulas.detail.header.participants")}
             </TabsTrigger>
-            <TabsTrigger value="schedule" count={formula.schedule.length}>
+            <TabsTrigger value="payments" count={formula.schedule.length}>
               <CalendarClock className="size-4" />
-              Schedule
+              {t("formulas.detail.header.payments")}
             </TabsTrigger>
             <TabsTrigger value="invoices" count={formula.invoices.length}>
               <FileText className="size-4" />
-              Invoices
+              {t("formulas.detail.header.invoices")}
             </TabsTrigger>
             <TabsTrigger value="logistics" count={formula.logistics.length}>
               <Ship className="size-4" />
-              Logistics
+              {t("formulas.detail.header.logistics")}
             </TabsTrigger>
-            <TabsTrigger value="timeline" count={formula.timeline.length}>
-              <History className="size-4" />
-              Timeline
+            <TabsTrigger value="shares" count={(formula.shares ?? []).length}>
+              <PieChart className="size-4" />
+              {t("formulas.detail.header.shares")}
+            </TabsTrigger>
+            <TabsTrigger value="versions" count={Math.max(1, formula.latestVersionNo)}>
+              <GitCommitVertical className="size-4" />
+              {t("formulas.detail.header.versions")}
+            </TabsTrigger>
+            <TabsTrigger value="settlement">
+              <Scale className="size-4" />
+              {t("formulas.detail.header.settlement")}
             </TabsTrigger>
           </TabsList>
 
+          <div className="mt-3">
+            <FormulaDetailMobileNav value={tab} onChange={setTab} />
+          </div>
+
           <div className="mt-4">
-            <TabsContent value="participants">
-              <ParticipantsPanel formula={formula} />
-            </TabsContent>
-            <TabsContent value="schedule">
-              <SchedulePanel formula={formula} />
-            </TabsContent>
-            <TabsContent value="invoices">
-              <InvoicesPanel formula={formula} />
-            </TabsContent>
-            <TabsContent value="logistics">
-              <LogisticsPanel formula={formula} />
+            <TabsContent value="overview">
+              <div className="space-y-4">
+                <FormulaLifecycleGuide
+                  formula={formula}
+                  activeTab={tab}
+                  onNavigate={setTab}
+                  onRequestClose={() => setCloseOpen(true)}
+                />
+                <SixStatusControls onNavigate={setTab} />
+                <CloseReadinessPanel formula={formula} onNavigate={setTab} />
+                <InvoiceCompletionChecklist onNavigate={setTab} />
+                <MetadataWorkflowActions />
+                <OverviewPanel formula={formula} />
+              </div>
             </TabsContent>
             <TabsContent value="timeline">
-              <TimelinePanel formula={formula} />
+              <TimelineWorkflowChrome formula={formula} versionHistory={versionHistory} onNavigate={setTab} />
+            </TabsContent>
+            <TabsContent value="participants">
+              <ParticipantWorkflowActions />
+              <div className="space-y-5">
+                <ParticipantConfirmedKpiPanel formula={formula} onNavigate={setTab} />
+                <ParticipantsPanel formula={formula} />
+              </div>
+            </TabsContent>
+            <TabsContent value="payments">
+              {formula.isClosed ? (
+                <ClosedPaymentsBanner />
+              ) : (
+                <PaymentWorkflowActions onCancelRecord={triggerPaymentRecordCancel} />
+              )}
+              <PaymentsPanel
+                formula={formula}
+                canWrite={caps.canCancelPayment && !formula.isClosed}
+                onCancelRecord={triggerPaymentRecordCancel}
+              />
+            </TabsContent>
+            <TabsContent value="invoices">
+              <InvoiceWorkflowActions />
+              <InvoicesPanel
+                formula={formula}
+                renderInvoiceActions={(inv) => <InvoiceStatusActions invoice={inv} />}
+              />
+            </TabsContent>
+            <TabsContent value="logistics">
+              <LogisticsWorkflowActions />
+              <LogisticsPanel formula={formula} />
+            </TabsContent>
+            <TabsContent value="shares">
+              <ShareWorkflowActions />
+              <SharesPanel formula={formula} />
+            </TabsContent>
+            <TabsContent value="versions">
+              <VersionsTabLayout formula={formula} versionHistory={versionHistory} />
+            </TabsContent>
+            <TabsContent value="settlement">
+              <ClosedSettlementBanner />
+              <SettlementLifecycleNote />
+              <SettlementRecordCancelSection />
+              <SettlementWorkflowActions />
+              <SettlementPanel formula={formula} />
             </TabsContent>
           </div>
         </Tabs>
       </div>
+
+      <CloseFormulaDialog
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
+        onNavigate={(t) => {
+          setTab(t)
+          setCloseOpen(false)
+        }}
+      />
+      <CancelFormulaDialog open={cancelOpen} onClose={() => setCancelOpen(false)} />
     </div>
   )
 }

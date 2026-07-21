@@ -1,15 +1,16 @@
-import type { FormulaStatus, TradeType } from "./types"
+import { t } from "./i18n"
+import type { FormulaStatus, InvoiceStatus, TradeType } from "./types"
 
 type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "accent" | "outline"
 
+// Lifecycle-only summary tones (P1-2). `loss` (financial) and `in_transit`
+// (logistics) are intentionally NOT here — they are not lifecycle stages.
 export const statusConfig: Record<FormulaStatus, { label: string; tone: Tone }> = {
   draft: { label: "Draft", tone: "neutral" },
   active: { label: "Active", tone: "info" },
-  in_transit: { label: "In Transit", tone: "accent" },
   invoicing: { label: "Invoicing", tone: "warning" },
   closeable: { label: "Closeable", tone: "success" },
   closed: { label: "Closed", tone: "neutral" },
-  loss: { label: "Loss", tone: "danger" },
 }
 
 export const tradeTypeConfig: Record<TradeType, { label: string }> = {
@@ -19,14 +20,15 @@ export const tradeTypeConfig: Record<TradeType, { label: string }> = {
   triangular: { label: "Triangular" },
 }
 
-export const invoiceStatusConfig: Record<string, { label: string; tone: Tone }> = {
-  complete: { label: "Complete", tone: "success" },
-  partial: { label: "Partial", tone: "warning" },
-  unmatched: { label: "Unmatched", tone: "danger" },
-  matched: { label: "Matched", tone: "success" },
-  pending: { label: "Pending", tone: "neutral" },
+export const invoiceStatusConfig: Record<InvoiceStatus, { label: string; tone: Tone }> = {
+  missing: { label: "Missing", tone: "neutral" },
+  pending: { label: "Pending", tone: "warning" },
+  amount_matched: { label: "Amount Matched", tone: "success" },
+  amount_mismatched: { label: "Amount Mismatched", tone: "danger" },
+  canceled: { label: "Canceled", tone: "outline" },
 }
 
+/** Per-leg transport status (booked → in_transit → arrived → cleared). */
 export const logisticsStatusConfig: Record<string, { label: string; tone: Tone }> = {
   not_started: { label: "Not Started", tone: "neutral" },
   in_transit: { label: "In Transit", tone: "info" },
@@ -36,9 +38,67 @@ export const logisticsStatusConfig: Record<string, { label: string; tone: Tone }
   cleared: { label: "Cleared", tone: "success" },
 }
 
+/**
+ * Formula-level LOGISTICS status. Terminal is "Completed" (transport done) —
+ * deliberately distinct from the Delivery terminal "Delivered" (P0-2) so the
+ * transport process is never confused with final hand-off confirmation.
+ */
+export const formulaLogisticsStatusConfig: Record<string, { label: string; tone: Tone }> = {
+  not_started: { label: "Not Started", tone: "neutral" },
+  in_transit: { label: "In Transit", tone: "info" },
+  delivered: { label: "Completed", tone: "success" },
+  canceled: { label: "Canceled", tone: "outline" },
+}
+
 export const scheduleStatusConfig: Record<string, { label: string; tone: Tone }> = {
   scheduled: { label: "Scheduled", tone: "info" },
   partial: { label: "Partial", tone: "warning" },
   settled: { label: "Settled", tone: "success" },
   overdue: { label: "Overdue", tone: "danger" },
+  canceled: { label: "Canceled", tone: "outline" },
+}
+
+export function formulaStatusLabel(status: FormulaStatus) {
+  const keys = {
+    draft: "status.draft",
+    active: "status.active",
+    invoicing: "status.invoicing",
+    closeable: "status.closeable",
+    closed: "status.closed",
+  } as const
+  return t(keys[status])
+}
+
+export function scheduleStatusLabel(status: string) {
+  const keys = {
+    scheduled: "status.scheduled",
+    partial: "status.partial",
+    settled: "status.completed",
+    completed: "status.completed",
+    overdue: "status.overdue",
+    canceled: "status.canceled",
+  } as const
+  return t(keys[status as keyof typeof keys] ?? keys.scheduled)
+}
+
+/* ---- Six-status model tones (P0-6) ---- */
+export const tradeStatusConfig: Record<string, { label: string; tone: Tone }> = {
+  draft: { label: "Draft", tone: "neutral" },
+  confirmed: { label: "Confirmed", tone: "info" },
+  completed: { label: "Completed", tone: "success" },
+  canceled: { label: "Canceled", tone: "outline" },
+}
+
+export const cashStatusConfig: Record<string, { label: string; tone: Tone }> = {
+  pending: { label: "Pending", tone: "neutral" },
+  partial: { label: "Partial", tone: "warning" },
+  completed: { label: "Completed", tone: "success" },
+  canceled: { label: "Canceled", tone: "outline" },
+}
+
+export const deliveryStatusConfig: Record<string, { label: string; tone: Tone }> = {
+  pending: { label: "Pending", tone: "neutral" },
+  in_transit: { label: "In Transit", tone: "info" },
+  delivered: { label: "Delivered", tone: "success" },
+  canceled: { label: "Canceled", tone: "outline" },
 }

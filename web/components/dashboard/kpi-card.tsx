@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ArrowUpRight, TrendingUp, TrendingDown } from "lucide-react"
 import type { Kpi } from "@/lib/types"
+import { t } from "@/lib/i18n"
 import { cn, formatCurrency, formatNumber } from "@/lib/utils"
 
 const intentAccent: Record<Kpi["intent"], string> = {
@@ -19,6 +20,29 @@ const intentDot: Record<Kpi["intent"], string> = {
   info: "bg-info",
 }
 
+function kpiLabel(key: Kpi["key"]): string {
+  switch (key) {
+    case "realized":
+      return t("dashboard.summary.realizedProfit")
+    case "loss":
+      return t("dashboard.summary.totalLoss")
+    case "receivable":
+      return t("dashboard.summary.receivable")
+    case "payable":
+      return t("dashboard.summary.payable")
+    case "up-receipts":
+      return t("dashboard.summary.upcomingReceipts")
+    case "up-payments":
+      return t("dashboard.summary.upcomingPayments")
+    case "closeable":
+      return t("dashboard.summary.closeableFormulas")
+    case "unmatched":
+      return t("dashboard.summary.invoiceUnmatched")
+    default:
+      return key
+  }
+}
+
 export function KpiCard({ kpi }: { kpi: Kpi }) {
   const display = kpi.count ? formatNumber(kpi.value) : formatCurrency(kpi.value, { compact: true })
 
@@ -30,7 +54,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2">
           <span className={cn("size-1.5 rounded-full", intentDot[kpi.intent])} />
-          <span className="text-xs font-medium text-muted-foreground">{kpi.label}</span>
+          <span className="text-xs font-medium text-muted-foreground">{kpiLabel(kpi.key)}</span>
         </div>
         <ArrowUpRight className="size-4 text-muted-foreground/50 transition-colors group-hover:text-accent" />
       </div>
@@ -47,7 +71,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
             )}
           >
             {kpi.delta >= 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-            {Math.abs(kpi.delta)}% vs prev.
+            {t("dashboard.summary.comparedWithPrevious", { percent: Math.abs(kpi.delta) })}
           </p>
         )}
       </div>

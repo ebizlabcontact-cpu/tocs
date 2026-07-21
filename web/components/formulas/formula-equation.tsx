@@ -1,6 +1,8 @@
 import type { Formula } from "@/lib/types"
 import { formatCurrency } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+import { deriveExpected, deriveRealized } from "@/lib/formula-math"
+import { t } from "@/lib/i18n"
 
 function Term({ label, value, tone }: { label: string; value: number; tone?: "pos" | "neg" | "neutral" }) {
   return (
@@ -25,45 +27,48 @@ function Op({ children }: { children: React.ReactNode }) {
 }
 
 export function FormulaEquation({ formula }: { formula: Formula }) {
+  const expected = deriveExpected(formula)
+  const realized = deriveRealized(formula)
+
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">Profit Formula</h2>
-        <span className="text-xs text-muted-foreground">Expected vs Realized</span>
+        <h2 className="text-sm font-semibold text-foreground">{t("formulas.detail.overview.profitFormula")}</h2>
+        <span className="text-xs text-muted-foreground">{t("formulas.detail.overview.expectedVsRealized")}</span>
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-y-3 rounded-lg bg-secondary/50 p-4">
-        <Term label="Sell" value={formula.totalSell} tone="pos" />
+        <Term label={t("formulas.detail.overview.sell")} value={expected.totalSell} tone="pos" />
         <Op>−</Op>
-        <Term label="Buy" value={formula.totalBuy} />
+        <Term label={t("formulas.detail.overview.buy")} value={expected.totalBuy} />
         <Op>−</Op>
-        <Term label="Cost" value={formula.cost} />
-        <Op>×</Op>
-        <Term label="Share" value={formula.share} tone="neutral" />
+        <Term label={t("formulas.detail.overview.cost")} value={expected.cost} />
+        <Op>−</Op>
+        <Term label={t("formulas.detail.overview.share")} value={expected.share} tone="neutral" />
         <Op>=</Op>
         <Term
-          label="Expected"
-          value={formula.expectedProfit}
-          tone={formula.expectedProfit >= 0 ? "pos" : "neg"}
+          label={t("formulas.detail.overview.expected")}
+          value={expected.expectedProfit}
+          tone={expected.expectedProfit >= 0 ? "pos" : "neg"}
         />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-border p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Expected Profit</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.expectedProfit")}</p>
           <p className="mt-1 font-mono text-xl font-bold tabular-nums text-foreground">
-            {formatCurrency(formula.expectedProfit)}
+            {formatCurrency(expected.expectedProfit)}
           </p>
         </div>
         <div className="rounded-lg border border-border p-3">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Realized Profit</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("formulas.detail.overview.realizedProfit")}</p>
           <p
             className={cn(
               "mt-1 font-mono text-xl font-bold tabular-nums",
-              formula.realizedProfit >= 0 ? "text-success" : "text-danger",
+              realized.realizedProfit >= 0 ? "text-success" : "text-danger",
             )}
           >
-            {formatCurrency(formula.realizedProfit)}
+            {formatCurrency(realized.realizedProfit)}
           </p>
         </div>
       </div>

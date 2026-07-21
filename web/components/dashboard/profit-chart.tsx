@@ -1,6 +1,7 @@
 "use client"
 
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts"
+import { t } from "@/lib/i18n"
 import { formatCurrency } from "@/lib/utils"
 
 type Point = { month: string; profit: number }
@@ -39,7 +40,7 @@ export function ProfitChart({ data }: { data: Point[] }) {
               boxShadow: "0 4px 12px rgba(15,23,42,0.08)",
               fontSize: 13,
             }}
-            formatter={(value: number) => [formatCurrency(value), "Realized Profit"]}
+            formatter={(value: number) => [formatCurrency(value), t("dashboard.profit.chartSeries")]}
           />
           <Area
             type="monotone"

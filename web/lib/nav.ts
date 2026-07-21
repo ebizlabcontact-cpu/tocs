@@ -1,14 +1,14 @@
 import {
   LayoutDashboard,
   FileSpreadsheet,
-  ArrowLeftRight,
-  ReceiptText,
-  Truck,
-  Scale,
+  Package,
+  Building2,
+  CalendarDays,
   BarChart3,
   Settings,
   type LucideIcon,
 } from "lucide-react"
+import { t } from "@/lib/i18n"
 
 export type NavItem = {
   label: string
@@ -18,12 +18,11 @@ export type NavItem = {
 }
 
 export const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard, mobile: true },
-  { label: "Formulas", href: "/formulas", icon: FileSpreadsheet, mobile: true },
-  { label: "Payments", href: "/payments", icon: ArrowLeftRight, mobile: true },
-  { label: "Invoices", href: "/invoices", icon: ReceiptText },
-  { label: "Logistics", href: "/logistics", icon: Truck },
-  { label: "Settlement", href: "/settlement", icon: Scale },
-  { label: "Reports", href: "/reports", icon: BarChart3, mobile: true },
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: t("shell.nav.dashboard"), href: "/", icon: LayoutDashboard, mobile: true },
+  { label: t("shell.nav.formulas"), href: "/formulas", icon: FileSpreadsheet, mobile: true },
+  { label: t("shell.nav.items"), href: "/items", icon: Package, mobile: true },
+  { label: t("shell.nav.companies"), href: "/companies", icon: Building2, mobile: true },
+  { label: t("shell.nav.calendar"), href: "/calendar", icon: CalendarDays },
+  { label: t("shell.nav.reports"), href: "/reports", icon: BarChart3, mobile: true },
+  { label: t("shell.nav.settings"), href: "/settings", icon: Settings },
 ]
